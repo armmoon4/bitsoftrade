@@ -1,0 +1,23 @@
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment variables
+.env
+
+# Local SQLite database
+db.sqlite3
+
+# VS Code settings
+.vscode/
+
+# Optional: Python virtual environments
+venv/
+env/
+ENV/
+
+# Django static files (if generated locally)
+staticfiles/
+
+
