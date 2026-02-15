@@ -45,6 +45,7 @@ INSTALLED_APPS = [
     
     # Local apps
     'accounts',
+    'user_dashboard',
 ]
 
 MIDDLEWARE = [
