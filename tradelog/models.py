@@ -18,8 +18,10 @@ class Trade(models.Model):
     EMOTIONAL_STATE = [
         ('calm', 'Calm'),
         ('anxious', 'Anxious'),
-        ('confident', 'Confident'),
-        ('fearful', 'Fearful'),
+        ('fomo', 'FOMO'),
+        ('angry', 'Angry'),
+        ('overconfident', 'Overconfident'),
+        ('uncertain', 'Uncertain'),
     ]
     
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trades')
