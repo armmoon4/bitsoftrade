@@ -32,7 +32,7 @@ class Trade(models.Model):
     entry_price = models.DecimalField(max_digits=15, decimal_places=2)
     title = models.CharField(max_length=100)
     quantity = models.DecimalField(max_digits=15, decimal_places=4)
-    exit_price = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    exit_price = models.DecimalField(max_digits=15, decimal_places=2)
     fees = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
     #totalp&l will be auto calculated
