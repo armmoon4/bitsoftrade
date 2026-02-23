@@ -22,6 +22,7 @@ urlpatterns = [
     # path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
     path('api/tradelog/', include('tradelog.urls')),
+    path('api/journal/', include('journal.urls')),
 ]
 
 

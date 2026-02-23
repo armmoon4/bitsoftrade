@@ -93,7 +93,7 @@ class SessionRecap(models.Model):
     """Post-session review linked to the Discipline Guard."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_recaps')
-    session = models.ForeignKey('tradelog.DisciplineSession', on_delete=models.CASCADE, related_name='recaps')
+    # session = models.ForeignKey('tradelog.DisciplineSession', on_delete=models.CASCADE, related_name='recaps') wiil implement
     
     OUTCOME_CHOICES = [
         ('good', 'Good'),
