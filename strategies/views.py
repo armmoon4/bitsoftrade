@@ -36,7 +36,9 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
             qs = qs.filter(user=user_filter)
 
         total_trades = qs.count()
-        
+        #####################################################################
+        ############## have to linked and fix r&d ###########################
+        #####################################################################
         # EARLY EXIT: If no trades are linked, return defaults to save DB queries
         if total_trades == 0:
             return default_metrics
