@@ -110,7 +110,6 @@ curl -X PATCH http://localhost:8000/api/auth/profile/ \
 | GET | `/api/admin/admins/` | Any admin | List all admins |
 | POST | `/api/admin/admins/create/` | 🔒 Super | Create new admin |
 | PUT/DELETE | `/api/admin/admins/<uuid>/` | 🔒 Super | Edit/delete admin |
-| GET | `/api/admin/payments/` | Any admin | List all payments |
 | GET/POST | `/api/admin/courses/` | Any admin | List/create courses |
 | GET/PUT/DELETE | `/api/admin/courses/<uuid>/` | Any admin | Course detail |
 | GET/POST | `/api/admin/rules/` | Any admin | List/create global rules |
