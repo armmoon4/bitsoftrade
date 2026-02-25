@@ -20,9 +20,26 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     # path('admin/', admin.site.urls),
+
+    # ── Authentication
     path('api/auth/', include('accounts.urls')),
+
+    # ── Core Trading
     path('api/tradelog/', include('tradelog.urls')),
     path('api/journal/', include('journal.urls')),
+    
+    # ── Rules
+    path('api/rules/', include('rules.urls')),
+
+    # ── Discipline Guard
+    path('api/discipline/', include('discipline.urls')),
+
+    # ── Strategy Library
+    path('api/strategies/', include('strategies.urls')),
+
+    # ── Admin Panel 
+    path('api/admin/', include('admin_panel.urls')),
+
 ]
 
 

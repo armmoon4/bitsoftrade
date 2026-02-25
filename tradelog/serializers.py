@@ -3,11 +3,7 @@ from tradelog.models import Trade
 
 
 class TradeManagementSerializer(serializers.ModelSerializer):
-
-    user_username = serializers.CharField(source="user.username", read_only=True)
-    user_email = serializers.EmailField(source="user.email", read_only=True)
-
     class Meta:
         model = Trade
-        fields = "__all__"
-        read_only_fields = ["user", "total_pnl", "created_at", "updated_at"]
+        exclude = ['deleted_at']
+        read_only_fields = ['id', 'user', 'total_pnl', 'is_disciplined', 'session', 'created_at', 'updated_at']

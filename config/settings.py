@@ -47,6 +47,12 @@ INSTALLED_APPS = [
     'accounts',
     'tradelog',
     'journal',
+    'discipline',
+    'strategies',
+    'rules',
+    'admin_panel',
+
+
 ]
 
 MIDDLEWARE = [
