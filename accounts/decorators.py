@@ -1,29 +1,35 @@
 from functools import wraps
-from django.core.exceptions import PermissionDenied
-from django.contrib.auth.decorators import login_required
+from rest_framework.response import Response
+from rest_framework import status
 
 
-def role_required(role):
-    """
-    Decorator to check if user has the required role
-    Usage: @role_required('admin') or @role_required('user')
-    """
-    def decorator(view_func):
-        @wraps(view_func)
-        @login_required
-        def wrapped_view(request, *args, **kwargs):
-            if request.user.role != role:
-                raise PermissionDenied(f"You must be a {role} to access this page.")
-            return view_func(request, *args, **kwargs)
-        return wrapped_view
-    return decorator
+def require_tool_subscription(view_func):
+    """Block access unless user has tool or both subscription."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.has_tool_access:
+            return Response(
+                {'error': 'subscription_required', 'detail': 'Active Tool or Both plan required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return view_func(request, *args, **kwargs)
+    return wrapper
 
 
-def admin_required(view_func):
-    """Shorthand decorator for admin-only views"""
-    return role_required('admin')(view_func)
-
-
-def user_required(view_func):
-    """Shorthand decorator for regular user views"""
-    return role_required('user')(view_func)
+def require_learning_subscription(view_func):
+    """Block access unless user has learning or both subscription."""
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        user = request.user
+        if not user.is_authenticated:
+            return Response({'error': 'Authentication required'}, status=status.HTTP_401_UNAUTHORIZED)
+        if not user.has_learning_access:
+            return Response(
+                {'error': 'subscription_required', 'detail': 'Active Learning or Both plan required.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return view_func(request, *args, **kwargs)
+    return wrapper
