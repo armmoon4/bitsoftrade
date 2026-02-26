@@ -14,7 +14,7 @@ def run_rule_evaluation(sender, instance, created, **kwargs):
     """Evaluate rules and update discipline session after every trade save."""
     from tradelog.models import Trade
     from discipline.models import DisciplineSession, ViolationsLog
-    from rules.models import Rule
+    from rules.models import Rule   
 
     trade = instance
     user = trade.user
