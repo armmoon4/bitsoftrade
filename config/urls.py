@@ -27,6 +27,9 @@ urlpatterns = [
     # ── Core Trading
     path('api/tradelog/', include('tradelog.urls')),
     path('api/journal/', include('journal.urls')),
+
+    # ── Mistakes
+    path('api/mistakes/', include('mistakes.urls')),
     
     # ── Rules
     path('api/rules/', include('rules.urls')),

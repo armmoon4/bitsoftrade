@@ -50,6 +50,7 @@ INSTALLED_APPS = [
     'discipline',
     'strategies',
     'rules',
+    'mistakes',
     'admin_panel',
 
 
