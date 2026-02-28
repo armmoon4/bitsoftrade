@@ -40,6 +40,15 @@ urlpatterns = [
     # ── Strategy Library
     path('api/strategies/', include('strategies.urls')),
 
+    # ── Reports
+    path('api/reports/', include('reports.urls')),
+
+    # ── Trade intelligence report
+    path('api/trade_intelligence/', include('trade_intelligence.urls')),
+
+    # ── BitsOfTrade Insights (12 metrics)
+    path('api/insights/', include('insights.urls')),
+
     # ── Admin Panel 
     path('api/admin/', include('admin_panel.urls')),
 

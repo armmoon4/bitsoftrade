@@ -42,7 +42,7 @@ class Trade(models.Model):
         null=True, blank=True, related_name='trades'
     )
 
-    # ── General ──────────────────────────────────────────────────────────────
+    # ── General
     trade_date = models.DateField()
     trade_time = models.TimeField(null=True, blank=True)
     symbol = models.CharField(max_length=100)
@@ -50,33 +50,33 @@ class Trade(models.Model):
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
     quantity = models.DecimalField(max_digits=15, decimal_places=4)
     entry_price = models.DecimalField(max_digits=15, decimal_places=4)
-    exit_price = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
+    exit_price = models.DecimalField(max_digits=15, decimal_places=4)   ##if its null , issue on total p&l
     fees = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     stop_loss = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
     target = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
     leverage = models.DecimalField(max_digits=10, decimal_places=2, default=1, null=True, blank=True)
     total_pnl = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
 
-    # ── Psychology ────────────────────────────────────────────────────────────
+    # ── Psychology 
     entry_confidence = models.IntegerField(null=True, blank=True, help_text='1-10')
     satisfaction_rating = models.IntegerField(null=True, blank=True, help_text='1-10')
     emotional_state = models.CharField(max_length=20, choices=EMOTIONAL_STATE_CHOICES, null=True, blank=True)
     violation_modes = models.JSONField(default=list, blank=True)
     lessons_learned = models.TextField(blank=True)
 
-    # ── Discipline ────────────────────────────────────────────────────────────
+    # ── Discipline 
     rules_followed = models.JSONField(default=list, blank=True)
     is_disciplined = models.BooleanField(default=True)
     is_tagged_complete = models.BooleanField(default=False, help_text='True when strategy+psychology fully tagged')
 
-    # ── Media ─────────────────────────────────────────────────────────────────
+    # ── Media 
     screenshot_urls = models.JSONField(default=list, blank=True)
 
-    # ── Import metadata ───────────────────────────────────────────────────────
+    # ── Import metadata 
     import_source = models.CharField(max_length=15, choices=IMPORT_SOURCE_CHOICES, default='manual')
     broker_name = models.CharField(max_length=100, blank=True, null=True)
 
-    # ── Soft delete ───────────────────────────────────────────────────────────
+    # ── Soft delete 
     deleted_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
