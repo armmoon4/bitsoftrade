@@ -72,6 +72,8 @@ def unlock_session_view(request):
 
     if can_unlock:
         session.session_state = 'green'
+        # peak_state is intentionally NOT reset — it preserves the historical record
+        # of the highest severity reached, used by all 12 behavior metrics.
         session.required_actions_completed = True
         session.unlocked_at = timezone.now()
 

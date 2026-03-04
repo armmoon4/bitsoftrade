@@ -95,7 +95,24 @@ class TradeListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         trade = serializer.save(user=self.request.user)
         trade.calculate_pnl()
-        trade.save(update_fields=['total_pnl'])
+
+        # Fix 5: Auto-mark tagging complete when all required fields are present
+        if trade.strategy and trade.emotional_state and trade.entry_confidence:
+            trade.is_tagged_complete = True
+
+        trade.save(update_fields=['total_pnl', 'is_tagged_complete'])
+
+        # Fix 2: Update strategy maturity based on latest trade count
+        if trade.strategy:
+            total = Trade.objects.filter(
+                strategy=trade.strategy, deleted_at__isnull=True
+            ).count()
+            trade.strategy.update_maturity(total)
+
+        # Fix 3: Run rule evaluation engine after every trade save
+        if trade.session:
+            from rules.engine import evaluate_rules_for_user
+            evaluate_rules_for_user(user=trade.user, session=trade.session)
 
 
 class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -109,7 +126,24 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         trade = serializer.save()
         trade.calculate_pnl()
-        trade.save(update_fields=['total_pnl'])
+
+        # Fix 5: Auto-mark tagging complete when all required fields are present
+        if trade.strategy and trade.emotional_state and trade.entry_confidence:
+            trade.is_tagged_complete = True
+
+        trade.save(update_fields=['total_pnl', 'is_tagged_complete'])
+
+        # Fix 2: Update strategy maturity based on latest trade count
+        if trade.strategy:
+            total = Trade.objects.filter(
+                strategy=trade.strategy, deleted_at__isnull=True
+            ).count()
+            trade.strategy.update_maturity(total)
+
+        # Fix 3: Run rule evaluation engine after every trade update
+        if trade.session:
+            from rules.engine import evaluate_rules_for_user
+            evaluate_rules_for_user(user=trade.user, session=trade.session)
 
     def destroy(self, request, *args, **kwargs):
         trade = self.get_object()
@@ -134,17 +168,25 @@ def _detect_and_normalize(raw_rows, broker_hint=''):
     headers = set(raw_rows[0].keys())
 
     # Zerodha detection
+    # Actual Zerodha tradebook columns (post header-normalisation):
+    # trade_id, order_id, exchange, segment, series, trade_type, auction_number,
+    # quantity, price, order_execution_time, trade_num, symbol, isin, trade_date
     is_zerodha = (
         broker_hint == 'zerodha' or
-        {'trade_id', 'order_execution_time', 'series', 'segment'}.issubset(headers)
+        'trade_id' in headers or
+        {'order_execution_time', 'series', 'segment', 'trade_type'}.issubset(headers)
     )
     if is_zerodha:
         return 'zerodha', _normalize_zerodha(raw_rows)
 
     # Groww detection
+    # Actual Groww order-history columns:
+    # stock_name, symbol, isin, type, quantity, value,
+    # exchange, exchange_order_id, execution_date_and_time, order_status
     is_groww = (
         broker_hint == 'groww' or
-        {'stock_name', 'symbol', 'execution_date_and_time', 'order_status'}.issubset(headers)
+        'stock_name' in headers or
+        {'execution_date_and_time', 'order_status'}.issubset(headers)
     )
     if is_groww:
         return 'groww', _normalize_groww(raw_rows)
@@ -244,11 +286,11 @@ def _normalize_zerodha(raw_rows):
         trade_time_str = min(all_times).strftime('%H:%M') if all_times else ''
 
         market_type_map = {
-            'FO': 'indian_options',
-            'EQ': 'indian_stocks',
-            'CDS': 'indian_currency',
-            'COM': 'indian_commodity',
-            'MF': 'indian_stocks',
+            'FO':  'options',         # Fix 4: was 'indian_options'
+            'EQ':  'indian_stocks',
+            'CDS': 'forex',           # Fix 4: was 'indian_currency'
+            'COM': 'indian_stocks',   # Fix 4: was 'indian_commodity' (no such choice in model)
+            'MF':  'indian_stocks',
         }
         market_type = market_type_map.get(segment, 'indian_stocks')
 
@@ -522,11 +564,11 @@ def _normalize_upstox(raw_rows):
             trade_time_str = legs_with_str[0]['time_str'] if legs_with_str else ''
 
         market_type_map = {
-            'FO': 'indian_options',
-            'EQ': 'indian_stocks',
-            'CDS': 'indian_currency',
-            'COM': 'indian_commodity',
-            'MF': 'indian_stocks',
+            'FO':  'options',         # Fix 4: was 'indian_options'
+            'EQ':  'indian_stocks',
+            'CDS': 'forex',           # Fix 4: was 'indian_currency'
+            'COM': 'indian_stocks',   # Fix 4: was 'indian_commodity'
+            'MF':  'indian_stocks',
         }
         market_type = market_type_map.get(segment, 'indian_stocks')
 
@@ -576,20 +618,50 @@ def _parse_excel(file):
     return _extract_rows_from_raw_data(raw_data)
 
 
+# Keywords that appear in the header row of supported broker CSVs.
+# Zerodha: trade_id, order_execution_time, series, segment, trade_type
+# Groww:   stock_name, execution_date_and_time, order_status
+# Upstox:  scrip_code, trade_num, side, trade_time
+# Generic: symbol, instrument, date
+_HEADER_KEYWORDS = (
+    'symbol', 'scrip', 'trade_id', 'stock_name', 'execution_date',
+    'order_execution_time', 'instrument', 'isin', 'trade_date', 'date',
+    'order_id', 'side', 'trade_num', 'segment', 'series',
+)
+
+
 def _extract_rows_from_raw_data(raw_data):
-    """Skip junk header rows (name, account info, blanks) and find the real column headers."""
-    header_idx = 0
+    """
+    Skip junk header rows (broker name, account info, blanks) and find the
+    real column header row.
+
+    Works across all supported brokers:
+    - Zerodha: columns include trade_id, order_execution_time, segment …
+    - Groww:   columns include stock_name, execution_date_and_time …
+    - Upstox:  columns include scrip_code, trade_num, side …
+    - Generic: columns include symbol / date …
+    """
+    header_idx = None
     for i, row in enumerate(raw_data):
+        if not any(row):
+            continue  # blank row
         row_lower = [str(item).strip().lower() if item else '' for item in row]
-        # Use substring match so 'scrip code', 'scrip_code', 'symbol' etc. all match
-        if any('symbol' in cell or 'scrip' in cell for cell in row_lower):
+        # Match if ANY cell in this row contains a known header keyword
+        if any(
+            any(kw in cell for kw in _HEADER_KEYWORDS)
+            for cell in row_lower
+            if cell  # skip empty cells
+        ):
             header_idx = i
             break
 
-    if not raw_data or header_idx >= len(raw_data):
+    if header_idx is None or not raw_data:
         return []
 
-    headers = [str(h).strip().lower().replace(' ', '_') for h in raw_data[header_idx]]
+    headers = [
+        str(h).strip().lower().replace(' ', '_')
+        for h in raw_data[header_idx]
+    ]
 
     rows = []
     for row in raw_data[header_idx + 1:]:
@@ -664,4 +736,17 @@ def _create_trade_from_row(row, user, broker_name):
     )
     trade.calculate_pnl()
     trade.save()
+
+    # Fix 2: Update strategy maturity after import
+    if trade.strategy:
+        total = Trade.objects.filter(
+            strategy=trade.strategy, deleted_at__isnull=True
+        ).count()
+        trade.strategy.update_maturity(total)
+
+    # Fix 3: Run rule evaluation engine after import
+    if trade.session:
+        from rules.engine import evaluate_rules_for_user
+        evaluate_rules_for_user(user=trade.user, session=trade.session)
+
     return trade

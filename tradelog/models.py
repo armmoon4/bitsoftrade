@@ -50,7 +50,7 @@ class Trade(models.Model):
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
     quantity = models.DecimalField(max_digits=15, decimal_places=4)
     entry_price = models.DecimalField(max_digits=15, decimal_places=4)
-    exit_price = models.DecimalField(max_digits=15, decimal_places=4)   ##if its null , issue on total p&l
+    exit_price = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
     fees = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     stop_loss = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
     target = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)

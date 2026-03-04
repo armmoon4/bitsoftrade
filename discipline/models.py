@@ -16,6 +16,10 @@ class DisciplineSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='discipline_sessions')
     session_date = models.DateField()
     session_state = models.CharField(max_length=10, choices=SESSION_STATE_CHOICES, default='green')
+    peak_state = models.CharField(
+        max_length=10, choices=SESSION_STATE_CHOICES, default='green',
+        help_text='Highest severity state reached this day — never downgraded on unlock'
+    )
 
     rules_violated = models.JSONField(default=list, blank=True)  # List of rule UUIDs
     violations_count = models.IntegerField(default=0)
