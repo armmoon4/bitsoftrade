@@ -2,20 +2,29 @@ from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from django.utils import timezone
+from decimal import Decimal
+
 from tradelog.models import Trade
 from tradelog.serializers import TradeManagementSerializer
 from .pagination import StandardResultsSetPagination
-from decimal import Decimal, ROUND_HALF_UP
-import io
+
+# Import the parsing logic
+from .importers.parser import parse_csv, parse_excel, detect_and_normalize
 
 
-# SERIALIZER FOR THE BROWSER UI
+# ─────────────────────────────────────────────
+# SERIALIZERS
+# ─────────────────────────────────────────────
+
 class TradeImportSerializer(serializers.Serializer):
     file = serializers.FileField()
     broker_name = serializers.CharField(required=False, allow_blank=True)
 
 
-# THE IMPORT VIEW
+# ─────────────────────────────────────────────
+# API VIEWS
+# ─────────────────────────────────────────────
+
 class TradeImportView(generics.GenericAPIView):
     """
     POST /api/tradelog/trades/import/
@@ -36,9 +45,9 @@ class TradeImportView(generics.GenericAPIView):
 
         try:
             if filename.endswith('.csv'):
-                raw_rows = _parse_csv(file)
+                raw_rows = parse_csv(file)
             elif filename.endswith(('.xlsx', '.xls')):
-                raw_rows = _parse_excel(file)
+                raw_rows = parse_excel(file)
             else:
                 return Response(
                     {'error': 'Unsupported file type. Upload CSV or Excel.'},
@@ -49,7 +58,7 @@ class TradeImportView(generics.GenericAPIView):
 
         # Detect broker format and normalize rows into standard trade dicts
         try:
-            detected_broker, rows = _detect_and_normalize(raw_rows, broker_name)
+            detected_broker, rows = detect_and_normalize(raw_rows, broker_name)
         except Exception as e:
             return Response({'error': f'Format normalization failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -72,7 +81,6 @@ class TradeImportView(generics.GenericAPIView):
         }, status=status.HTTP_201_CREATED)
 
 
-# STANDARD API VIEWS
 class TradeListCreateView(generics.ListCreateAPIView):
     """GET /api/tradelog/trades/  POST /api/tradelog/trades/"""
     serializer_class = TradeManagementSerializer
@@ -153,526 +161,7 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 # ─────────────────────────────────────────────
-# BROKER DETECTION & NORMALIZATION
-# ─────────────────────────────────────────────
-
-def _detect_and_normalize(raw_rows, broker_hint=''):
-    """
-    Auto-detect broker format from headers or broker_hint,
-    then return (broker_name, normalized_rows) where each
-    normalized row matches the generic _create_trade_from_row schema.
-    """
-    if not raw_rows:
-        return 'unknown', []
-
-    headers = set(raw_rows[0].keys())
-
-    # Zerodha detection
-    # Actual Zerodha tradebook columns (post header-normalisation):
-    # trade_id, order_id, exchange, segment, series, trade_type, auction_number,
-    # quantity, price, order_execution_time, trade_num, symbol, isin, trade_date
-    is_zerodha = (
-        broker_hint == 'zerodha' or
-        'trade_id' in headers or
-        {'order_execution_time', 'series', 'segment', 'trade_type'}.issubset(headers)
-    )
-    if is_zerodha:
-        return 'zerodha', _normalize_zerodha(raw_rows)
-
-    # Groww detection
-    # Actual Groww order-history columns:
-    # stock_name, symbol, isin, type, quantity, value,
-    # exchange, exchange_order_id, execution_date_and_time, order_status
-    is_groww = (
-        broker_hint == 'groww' or
-        'stock_name' in headers or
-        {'execution_date_and_time', 'order_status'}.issubset(headers)
-    )
-    if is_groww:
-        return 'groww', _normalize_groww(raw_rows)
-    
-    # Upstox detection
-    is_upstox = (
-        broker_hint == 'upstox' or
-        {'scrip_code', 'trade_num', 'side', 'trade_time'}.issubset(headers)
-    )
-
-    if is_upstox:
-        return 'upstox', _normalize_upstox(raw_rows)
-
-    # Fallback: generic format
-    return broker_hint or 'generic', raw_rows
-
-
-def _normalize_zerodha(raw_rows):
-    """
-    Zerodha tradebook CSV — one row per execution leg.
-    Groups by (symbol, trade_date), computes VWAP entry/exit prices.
-    """
-    from collections import defaultdict
-    from datetime import datetime
-
-    groups = defaultdict(lambda: {'buys': [], 'sells': [], 'segment': '', 'exchange': ''})
-
-    for row in raw_rows:
-        symbol = (row.get('symbol') or '').strip()
-        trade_date_raw = (row.get('trade_date') or '').strip()
-        trade_type = (row.get('trade_type') or '').strip().lower()
-
-        if not symbol or not trade_date_raw:
-            continue
-
-        try:
-            qty = Decimal(str(row.get('quantity') or 0))
-            price = Decimal(str(row.get('price') or 0))
-        except Exception:
-            continue
-
-        key = (symbol, trade_date_raw)
-        groups[key]['segment'] = row.get('segment', '').strip().upper()
-        groups[key]['exchange'] = row.get('exchange', 'NSE').strip().upper()
-
-        exec_time_raw = (row.get('order_execution_time') or '').strip()
-        exec_time = None
-        if exec_time_raw:
-            for fmt in ('%Y-%m-%dT%H:%M:%S', '%Y-%m-%d %H:%M:%S'):
-                try:
-                    exec_time = datetime.strptime(exec_time_raw, fmt)
-                    break
-                except ValueError:
-                    continue
-
-        entry = {'qty': qty, 'price': price, 'time': exec_time}
-
-        if trade_type == 'buy':
-            groups[key]['buys'].append(entry)
-        elif trade_type == 'sell':
-            groups[key]['sells'].append(entry)
-
-    normalized = []
-
-    for (symbol, trade_date_raw), data in groups.items():
-        buys = data['buys']
-        sells = data['sells']
-        segment = data['segment']
-        exchange = data['exchange']
-
-        if not buys and not sells:
-            continue
-
-        def vwap(legs):
-            total_qty = sum(l['qty'] for l in legs)
-            if total_qty == 0:
-                return Decimal('0'), Decimal('0')
-            total_value = sum(l['qty'] * l['price'] for l in legs)
-            return (total_value / total_qty).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP), total_qty
-
-        buy_vwap, total_buy_qty = vwap(buys)
-        sell_vwap, total_sell_qty = vwap(sells)
-
-        direction = 'long' if total_buy_qty >= total_sell_qty else 'short'
-
-        if direction == 'long':
-            entry_price = buy_vwap
-            exit_price = sell_vwap if sells else None
-            quantity = total_buy_qty
-        else:
-            entry_price = sell_vwap
-            exit_price = buy_vwap if buys else None
-            quantity = total_sell_qty
-
-        all_legs = buys + sells
-        all_times = [l['time'] for l in all_legs if l['time'] is not None]
-        trade_time_str = min(all_times).strftime('%H:%M') if all_times else ''
-
-        market_type_map = {
-            'FO':  'options',         # Fix 4: was 'indian_options'
-            'EQ':  'indian_stocks',
-            'CDS': 'forex',           # Fix 4: was 'indian_currency'
-            'COM': 'indian_stocks',   # Fix 4: was 'indian_commodity' (no such choice in model)
-            'MF':  'indian_stocks',
-        }
-        market_type = market_type_map.get(segment, 'indian_stocks')
-
-        normalized.append({
-            'symbol': symbol,
-            'trade_date': trade_date_raw,
-            'time': trade_time_str,
-            'direction': direction,
-            'quantity': str(quantity),
-            'entry_price': str(entry_price),
-            'exit_price': str(exit_price) if exit_price is not None else '',
-            'fees': '0',
-            'market_type': market_type,
-            'exchange': exchange,
-            'segment': segment,
-        })
-
-    return normalized
-
-
-def _normalize_groww(raw_rows):
-    """
-    Groww order history CSV/Excel — one row per executed order leg.
-    
-    Groww CSV columns (after _extract_rows_from_raw_data normalisation):
-      stock_name, symbol, isin, type, quantity, value,
-      exchange, exchange_order_id, execution_date_and_time, order_status
-    """
-    from collections import defaultdict
-    from datetime import datetime
-
-    # group by symbol only so swing trades are not split
-    groups = defaultdict(lambda: {'buys': [], 'sells': [], 'exchange': ''})
-
-    for row in raw_rows:
-        # Skip any order that was not executed
-        order_status = row.get('order_status', '').strip().lower()
-        if order_status and order_status != 'executed':
-            continue
-
-        symbol = row.get('symbol', '').strip()
-        if not symbol:
-            continue
-
-        # try multiple datetime formats before giving up
-        exec_datetime_raw = row.get('execution_date_and_time', '').strip()
-        trade_date_raw = ''
-        exec_time = None
-
-        if exec_datetime_raw:
-            for fmt in (
-                '%d-%m-%Y %I:%M %p',   # 08-02-2022 09:00 AM  — standard Groww CSV
-                '%d-%m-%Y %H:%M',      # 08-02-2022 09:00     — 24-hr variant
-                '%Y-%m-%d %H:%M:%S',   # ISO — Excel sometimes serialises this way
-                '%d/%m/%Y %I:%M %p',   # slash-separated with AM/PM
-                '%d/%m/%Y %H:%M',      # slash-separated 24-hr
-            ):
-                try:
-                    exec_time = datetime.strptime(exec_datetime_raw, fmt)
-                    trade_date_raw = exec_time.strftime('%Y-%m-%d')
-                    break
-                except ValueError:
-                    continue
-
-            # Last resort: extract just the date token from the raw string
-            if not trade_date_raw:
-                date_token = exec_datetime_raw.split()[0] if exec_datetime_raw.split() else ''
-                for dfmt in ('%d-%m-%Y', '%Y-%m-%d', '%d/%m/%Y'):
-                    try:
-                        exec_time = datetime.strptime(date_token, dfmt)
-                        trade_date_raw = exec_time.strftime('%Y-%m-%d')
-                        break
-                    except ValueError:
-                        continue
-
-        if not trade_date_raw:
-            continue  # Cannot determine date — skip this row
-
-        trade_type = row.get('type', '').strip().lower()
-
-        # Groww stores total value (not per-share price), so derive price = value / qty
-        try:
-            qty = Decimal(str(row.get('quantity') or 0))
-            value = Decimal(str(row.get('value') or 0))
-            price = (value / qty).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP) if qty > 0 else Decimal('0')
-        except Exception:
-            continue
-
-        # (cont.): key is symbol only
-        key = symbol
-        groups[key]['exchange'] = row.get('exchange', 'NSE').strip().upper()
-
-        #  store the date inside each leg
-        entry = {'qty': qty, 'price': price, 'time': exec_time, 'date': trade_date_raw}
-
-        if trade_type == 'buy':
-            groups[key]['buys'].append(entry)
-        elif trade_type == 'sell':
-            groups[key]['sells'].append(entry)
-
-    normalized = []
-
-    for symbol, data in groups.items():
-        buys = data['buys']
-        sells = data['sells']
-        exchange = data['exchange']
-
-        if not buys and not sells:
-            continue
-
-        def vwap(legs):
-            total_qty = sum(l['qty'] for l in legs)
-            if total_qty == 0:
-                return Decimal('0'), Decimal('0')
-            total_value = sum(l['qty'] * l['price'] for l in legs)
-            return (total_value / total_qty).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP), total_qty
-
-        buy_vwap, total_buy_qty = vwap(buys)
-        sell_vwap, total_sell_qty = vwap(sells)
-
-        direction = 'long' if total_buy_qty >= total_sell_qty else 'short'
-
-        if direction == 'long':
-            entry_price = buy_vwap
-            exit_price = sell_vwap if sells else None
-            quantity = total_buy_qty
-        else:
-            entry_price = sell_vwap
-            exit_price = buy_vwap if buys else None
-            quantity = total_sell_qty
-
-        # derive trade_date from the earliest leg date
-        all_legs = buys + sells
-        all_dates = [l['date'] for l in all_legs if l.get('date')]
-        trade_date_raw = min(all_dates) if all_dates else ''
-        if not trade_date_raw:
-            continue
-
-        all_times = [l['time'] for l in all_legs if l.get('time') is not None]
-        trade_time_str = min(all_times).strftime('%H:%M') if all_times else ''
-
-        normalized.append({
-            'symbol': symbol,
-            'trade_date': trade_date_raw,   # YYYY-MM-DD
-            'time': trade_time_str,
-            'direction': direction,
-            'quantity': str(quantity),
-            'entry_price': str(entry_price),
-            'exit_price': str(exit_price) if exit_price is not None else '',
-            'fees': '0',                    # Groww CSV has no fees column; user can edit
-            'market_type': 'indian_stocks',
-            'exchange': exchange,
-            'segment': 'EQ',
-        })
-
-    return normalized
-
-def _normalize_upstox(raw_rows):
-    from collections import defaultdict
-    from datetime import datetime
-    from decimal import Decimal, ROUND_HALF_UP
-
-    groups = defaultdict(lambda: {'buys': [], 'sells': [], 'segment': '', 'exchange': ''})
-
-    for row in raw_rows:
-        date_raw = row.get('date', '').strip()
-        scrip_code = row.get('scrip_code', '').strip()
-        side = row.get('side', '').strip().lower()
-
-        if not scrip_code or not date_raw:
-            continue
-
-        price_str = row.get('price', '0').replace('₹', '').replace(',', '').strip()
-        qty_str = row.get('quantity', '0').replace(',', '').strip()
-
-        try:
-            price = Decimal(price_str)
-            qty = Decimal(qty_str)
-        except Exception:
-            continue
-
-        segment = row.get('segment', '').strip().upper()
-        exchange_raw = row.get('exchange', 'NSE').strip().upper()
-        exchange = 'NSE' if exchange_raw == 'FON' else exchange_raw
-
-        try:
-            trade_date_iso = datetime.strptime(date_raw, '%d-%m-%Y').strftime('%Y-%m-%d')
-        except ValueError:
-            trade_date_iso = date_raw
-
-        symbol = scrip_code
-        if segment == 'FO':
-            expiry = row.get('expiry', '').strip()
-            strike = row.get('strike_price', '').strip()
-            instr = row.get('instrument_type', '').strip().lower()
-            opt_type = 'CE' if 'call' in instr else 'PE' if 'put' in instr else instr.upper()
-            symbol = f"{scrip_code} {expiry} {strike} {opt_type}".strip()
-
-        key = (symbol, trade_date_iso)
-        groups[key]['segment'] = segment
-        groups[key]['exchange'] = exchange
-
-        # ── TIME PARSING 
-
-        time_raw = row.get('trade_time', '').strip()
-        exec_time = None
-        if time_raw:
-            try:
-                exec_time = datetime.strptime(f"{date_raw} {time_raw}", '%d-%m-%Y %H:%M:%S')
-            except ValueError:
-                try:
-                    exec_time = datetime.strptime(f"{date_raw} {time_raw}", '%d-%m-%Y %H:%M')
-                except ValueError:
-                    pass
-
-        entry = {
-            'qty': qty,
-            'price': price,
-            'time': exec_time,
-            'time_str': time_raw,  
-        }
-
-        if side == 'buy':
-            groups[key]['buys'].append(entry)
-        elif side == 'sell':
-            groups[key]['sells'].append(entry)
-
-    normalized = []
-
-    for (symbol, trade_date_iso), data in groups.items():
-        buys = data['buys']
-        sells = data['sells']
-        segment = data['segment']
-        exchange = data['exchange']
-
-        if not buys and not sells:
-            continue
-
-        def vwap(legs):
-            total_qty = sum(l['qty'] for l in legs)
-            if total_qty == 0:
-                return Decimal('0'), Decimal('0')
-            total_value = sum(l['qty'] * l['price'] for l in legs)
-            return (total_value / total_qty).quantize(Decimal('0.0001'), rounding=ROUND_HALF_UP), total_qty
-
-        buy_vwap, total_buy_qty = vwap(buys)
-        sell_vwap, total_sell_qty = vwap(sells)
-
-        direction = 'long' if total_buy_qty >= total_sell_qty else 'short'
-
-        if direction == 'long':
-            entry_price = buy_vwap
-            exit_price = sell_vwap if sells else None
-            quantity = total_buy_qty
-        else:
-            entry_price = sell_vwap
-            exit_price = buy_vwap if buys else None
-            quantity = total_sell_qty
-
-        all_legs = buys + sells
-
-        # ── PICK EARLIEST TIME 
-        # Prefer exec_time (datetime) for accurate sorting.
-        legs_with_dt = [l for l in all_legs if l['time'] is not None]
-        if legs_with_dt:
-            earliest = min(legs_with_dt, key=lambda l: l['time'])
-            trade_time_str = earliest['time'].strftime('%H:%M:%S')
-        else:
-            # exec_time failed — use raw time_str from first available leg
-            legs_with_str = [l for l in all_legs if l.get('time_str')]
-            trade_time_str = legs_with_str[0]['time_str'] if legs_with_str else ''
-
-        market_type_map = {
-            'FO':  'options',         # Fix 4: was 'indian_options'
-            'EQ':  'indian_stocks',
-            'CDS': 'forex',           # Fix 4: was 'indian_currency'
-            'COM': 'indian_stocks',   # Fix 4: was 'indian_commodity'
-            'MF':  'indian_stocks',
-        }
-        market_type = market_type_map.get(segment, 'indian_stocks')
-
-        normalized.append({
-            'symbol': symbol,
-            'trade_date': trade_date_iso,
-            'time': trade_time_str,
-            'direction': direction,
-            'quantity': str(quantity),
-            'entry_price': str(entry_price),
-            'exit_price': str(exit_price) if exit_price is not None else '',
-            'fees': '0',
-            'market_type': market_type,
-            'exchange': exchange,
-            'segment': segment,
-        })
-
-    return normalized
-
-# ─────────────────────────────────────────────
-# FILE PARSING HELPERS
-# ─────────────────────────────────────────────
-
-def _parse_csv(file):
-    import csv
-
-    content = file.read().decode('utf-8', errors='ignore')
-    sample = content[:2048]
-    delimiter = '\t' if sample.count('\t') > sample.count(',') else ','
-
-    reader = csv.reader(io.StringIO(content), delimiter=delimiter)
-    raw_data = list(reader)
-
-    return _extract_rows_from_raw_data(raw_data)
-
-
-def _parse_excel(file):
-    try:
-        import openpyxl
-    except ImportError:
-        raise ImportError('openpyxl not installed. Run: pip install openpyxl')
-
-    wb = openpyxl.load_workbook(file, data_only=True)
-    ws = wb.active
-    raw_data = list(ws.iter_rows(values_only=True))
-
-    return _extract_rows_from_raw_data(raw_data)
-
-
-# Keywords that appear in the header row of supported broker CSVs.
-# Zerodha: trade_id, order_execution_time, series, segment, trade_type
-# Groww:   stock_name, execution_date_and_time, order_status
-# Upstox:  scrip_code, trade_num, side, trade_time
-# Generic: symbol, instrument, date
-_HEADER_KEYWORDS = (
-    'symbol', 'scrip', 'trade_id', 'stock_name', 'execution_date',
-    'order_execution_time', 'instrument', 'isin', 'trade_date', 'date',
-    'order_id', 'side', 'trade_num', 'segment', 'series',
-)
-
-
-def _extract_rows_from_raw_data(raw_data):
-    """
-    Skip junk header rows (broker name, account info, blanks) and find the
-    real column header row.
-
-    Works across all supported brokers:
-    - Zerodha: columns include trade_id, order_execution_time, segment …
-    - Groww:   columns include stock_name, execution_date_and_time …
-    - Upstox:  columns include scrip_code, trade_num, side …
-    - Generic: columns include symbol / date …
-    """
-    header_idx = None
-    for i, row in enumerate(raw_data):
-        if not any(row):
-            continue  # blank row
-        row_lower = [str(item).strip().lower() if item else '' for item in row]
-        # Match if ANY cell in this row contains a known header keyword
-        if any(
-            any(kw in cell for kw in _HEADER_KEYWORDS)
-            for cell in row_lower
-            if cell  # skip empty cells
-        ):
-            header_idx = i
-            break
-
-    if header_idx is None or not raw_data:
-        return []
-
-    headers = [
-        str(h).strip().lower().replace(' ', '_')
-        for h in raw_data[header_idx]
-    ]
-
-    rows = []
-    for row in raw_data[header_idx + 1:]:
-        if any(row):  # skip entirely empty rows
-            row_dict = dict(zip(headers, [str(v).strip() if v is not None else '' for v in row]))
-            rows.append(row_dict)
-    return rows
-
-
-# ─────────────────────────────────────────────
-# TRADE CREATION
+# TRADE CREATION HELPER
 # ─────────────────────────────────────────────
 
 def _create_trade_from_row(row, user, broker_name):
@@ -688,7 +177,7 @@ def _create_trade_from_row(row, user, broker_name):
     exit_price = Decimal(str(exit_price_raw)) if exit_price_raw else None
     fees = Decimal(str(row.get('fees') or row.get('brokerage', 0)))
 
-    # Date parsing — Groww normalized outputs YYYY-MM-DD; Zerodha uses dd-mm-yyyy
+    # Date parsing
     date_raw = row.get('date') or row.get('trade_date', '')
     trade_date = ddate.today()
     for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y'):
@@ -698,7 +187,7 @@ def _create_trade_from_row(row, user, broker_name):
         except (ValueError, TypeError):
             continue
 
-    # Time
+    # Time parsing
     time_raw = row.get('time') or row.get('trade_time', '')
     trade_time = None
     if time_raw:
@@ -706,9 +195,9 @@ def _create_trade_from_row(row, user, broker_name):
             from datetime import time as dtime
             parts = time_raw.split(':')
             trade_time = dtime(
-            int(parts[0]),
-            int(parts[1]),
-            int(parts[2]) if len(parts) > 2 else 0
+                int(parts[0]),
+                int(parts[1]),
+                int(parts[2]) if len(parts) > 2 else 0
             )
         except Exception:
             pass
@@ -737,14 +226,14 @@ def _create_trade_from_row(row, user, broker_name):
     trade.calculate_pnl()
     trade.save()
 
-    # Fix 2: Update strategy maturity after import
+    # Update strategy maturity after import
     if trade.strategy:
         total = Trade.objects.filter(
             strategy=trade.strategy, deleted_at__isnull=True
         ).count()
         trade.strategy.update_maturity(total)
 
-    # Fix 3: Run rule evaluation engine after import
+    # Run rule evaluation engine after import
     if trade.session:
         from rules.engine import evaluate_rules_for_user
         evaluate_rules_for_user(user=trade.user, session=trade.session)
