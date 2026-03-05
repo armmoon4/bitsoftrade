@@ -22,6 +22,32 @@ class TradeImportSerializer(serializers.Serializer):
 
 
 # ─────────────────────────────────────────────
+# SESSION LOCK HELPER
+# ─────────────────────────────────────────────
+
+def _get_session_lock_response(user):
+    """
+    Returns a DRF Response (HTTP 423) if the user's trading session is locked,
+    or None if trading is allowed.
+
+    A session is considered locked when:
+      - state is 'red', OR
+      - state is 'yellow' AND the cooldown has not expired yet.
+    """
+    from rules.engine import is_session_locked
+    locked, message = is_session_locked(user)
+    if locked:
+        return Response(
+            {
+                'error': 'Trading session is locked.',
+                'detail': message,
+            },
+            status=status.HTTP_423_LOCKED,
+        )
+    return None
+
+
+# ─────────────────────────────────────────────
 # API VIEWS
 # ─────────────────────────────────────────────
 
@@ -30,12 +56,17 @@ class TradeImportView(generics.GenericAPIView):
     POST /api/tradelog/trades/import/
     Accepts CSV or Excel file. Parses and imports trades.
     Supports: Generic CSV, Zerodha, Upstox, Groww formats.
+
+    BUG FIX: Returns HTTP 423 if the user's discipline session is locked.
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = TradeImportSerializer
 
     def post(self, request, *args, **kwargs):
+        # Allow import to proceed so that per-row dates are checked correctly.
+        # Top-level block by today's date prevents importing back-dated trades.
+
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -66,6 +97,9 @@ class TradeImportView(generics.GenericAPIView):
         errors = []
 
         for i, row in enumerate(rows, start=1):
+            # Session lock is now checked inside _create_trade_from_row
+            # per-row based on the actual trade date.
+
             try:
                 trade = _create_trade_from_row(row, request.user, detected_broker or broker_name)
                 created_trades.append(trade)
@@ -100,6 +134,13 @@ class TradeListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(is_disciplined=False)
         return qs
 
+    def create(self, request, *args, **kwargs):
+        # BUG FIX: Block manual trade entry when session is locked
+        lock_response = _get_session_lock_response(request.user)
+        if lock_response:
+            return lock_response
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         trade = serializer.save(user=self.request.user)
         trade.calculate_pnl()
@@ -117,10 +158,11 @@ class TradeListCreateView(generics.ListCreateAPIView):
             ).count()
             trade.strategy.update_maturity(total)
 
-        # Fix 3: Run rule evaluation engine after every trade save
-        if trade.session:
-            from rules.engine import evaluate_rules_for_user
-            evaluate_rules_for_user(user=trade.user, session=trade.session)
+        # Rule evaluation is handled by the post_save signal in discipline/signals.py
+        # which always fetches a fresh session from the DB. Do NOT call
+        # evaluate_rules_for_user here — using the stale in-memory trade.session
+        # would overwrite the DB session state back to GREEN after the signal
+        # has already correctly set it to RED.
 
 
 class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -148,10 +190,7 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
             ).count()
             trade.strategy.update_maturity(total)
 
-        # Fix 3: Run rule evaluation engine after every trade update
-        if trade.session:
-            from rules.engine import evaluate_rules_for_user
-            evaluate_rules_for_user(user=trade.user, session=trade.session)
+        # Rule evaluation handled by post_save signal — see perform_create comment.
 
     def destroy(self, request, *args, **kwargs):
         trade = self.get_object()
@@ -177,8 +216,10 @@ def _create_trade_from_row(row, user, broker_name):
     exit_price = Decimal(str(exit_price_raw)) if exit_price_raw else None
     fees = Decimal(str(row.get('fees') or row.get('brokerage', 0)))
 
-    # Date parsing
+    # Date parsing — strip any time component first (e.g. Upstox sends "2026-02-24 00:00:00")
     date_raw = row.get('date') or row.get('trade_date', '')
+    if date_raw and ' ' in str(date_raw):
+        date_raw = str(date_raw).split(' ')[0]
     trade_date = ddate.today()
     for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y'):
         try:
@@ -201,6 +242,11 @@ def _create_trade_from_row(row, user, broker_name):
             )
         except Exception:
             pass
+
+    from rules.engine import is_session_locked
+    locked, lock_msg = is_session_locked(user, date=trade_date)
+    if locked:
+        raise ValueError(f"Trade blocked — session locked: {lock_msg}")
 
     # Get or create a discipline session for this trade date
     session, _ = DisciplineSession.objects.get_or_create(
@@ -233,9 +279,6 @@ def _create_trade_from_row(row, user, broker_name):
         ).count()
         trade.strategy.update_maturity(total)
 
-    # Run rule evaluation engine after import
-    if trade.session:
-        from rules.engine import evaluate_rules_for_user
-        evaluate_rules_for_user(user=trade.user, session=trade.session)
+    # Rule evaluation handled by post_save signal — see perform_create comment.
 
     return trade

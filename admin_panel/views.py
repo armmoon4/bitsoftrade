@@ -291,11 +291,11 @@ def admin_rule_list_create_view(request):
         return Response(RuleSerializer(rule).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['PUT', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE'])
 @authentication_classes([])
 @permission_classes([IsAdminAuthenticated])
 def admin_rule_detail_view(request, pk):
-    """PUT/DELETE /api/admin/rules/<id>/"""
+    """GET/PUT/DELETE /api/admin/rules/<id>/"""
     from rules.models import Rule
     from rules.serializers import RuleSerializer
 
@@ -303,12 +303,17 @@ def admin_rule_detail_view(request, pk):
     if not rule:
         return Response({'error': 'Rule not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    if request.method == 'PUT':
+    if request.method == 'GET':
+        # BUG FIX: Return the rule details so the admin edit form can be pre-populated
+        return Response(RuleSerializer(rule).data)
+
+    elif request.method == 'PUT':
         for field in ['rule_name', 'description', 'category', 'rule_type', 'trigger_scope', 'trigger_condition', 'action', 'is_active']:
             if field in request.data:
                 setattr(rule, field, request.data[field])
         rule.save()
         return Response(RuleSerializer(rule).data)
+
     elif request.method == 'DELETE':
         rule.deleted_at = timezone.now()
         rule.save()
