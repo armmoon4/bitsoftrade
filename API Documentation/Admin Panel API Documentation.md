@@ -16,7 +16,7 @@ The **Admin Panel** module provides a separate, privileged API for platform admi
 
 ## First-Time Setup: Create Super Admin
 
-Before using the admin panel, you must create the first super admin account using the management command.
+Before using the admin panel, you must create the first super admin account using the management command. This only needs to be run **once**.
 
 ### Using Docker
 
@@ -27,7 +27,7 @@ docker-compose run web python manage.py create_super_admin \
   --password superadmin
 ```
 
-### Without Docker (Local / Normal)
+### Without Docker (Local)
 
 ```bash
 python manage.py create_super_admin \
@@ -36,7 +36,7 @@ python manage.py create_super_admin \
   --password superadmin
 ```
 
-> **Note:** This command only needs to be run once. After the super admin is created, additional admins can be managed via the API endpoints below.
+> **Note:** After the super admin is created, all additional admins can be managed via the API endpoints below. You do not need to run this command again.
 
 ---
 
@@ -48,16 +48,16 @@ Admin endpoints use a custom JWT token issued by the admin login endpoint:
 Authorization: Bearer <admin_access_token>
 ```
 
-> **Note:** Admin tokens are issued independently from user tokens. Even if a user is an admin, the user JWT cannot be used for admin panel endpoints.
+> **Important:** Admin tokens are issued independently from user tokens. Even if a user account exists with the same email, the user JWT **cannot** be used for admin panel endpoints.
 
 ---
 
 ## Access Levels
 
-| Level         | Permissions                                                          |
-|---------------|----------------------------------------------------------------------|
-| `super_admin` | Full access: manage users, admins, rules, strategies                 |
-| `admin`       | Manage users, rules, and strategies (cannot create/delete admins)    |
+| Level         | Permissions                                                       |
+|---------------|-------------------------------------------------------------------|
+| `super_admin` | Full access: manage users, admins, rules, strategies              |
+| `admin`       | Manage users, rules, and strategies (cannot create/delete admins) |
 
 ---
 
@@ -133,16 +133,16 @@ Returns platform-level KPI counts.
 
 **`GET /api/admin/users/`**
 
-Returns all active users with optional filters.
+Returns all active (non-deleted) users with optional filters.
 
 **Permissions:** Admin
 
 **Query Parameters:**
 
-| Parameter           | Description                                             |
-|---------------------|---------------------------------------------------------|
-| `subscription_type` | Filter by `none` / `tool` / `learning` / `both`         |
-| `search`            | Search by `username` or `email` (case-insensitive)      |
+| Parameter           | Description                                         |
+|---------------------|-----------------------------------------------------|
+| `subscription_type` | Filter by `none` / `tool` / `learning` / `both`     |
+| `search`            | Search by `username` or `email` (case-insensitive)  |
 
 **Success Response — `200 OK`:**
 
@@ -169,7 +169,7 @@ Returns all active users with optional filters.
 
 **`PUT /api/admin/users/<int:user_id>/toggle/`**
 
-Toggles the user's `is_active` flag. Logs the action automatically.
+Toggles the user's `is_active` flag. Action is automatically logged to `AdminUserAction`.
 
 **Permissions:** Admin
 
@@ -185,7 +185,7 @@ Toggles the user's `is_active` flag. Logs the action automatically.
 
 **`DELETE /api/admin/users/<int:user_id>/delete/`**
 
-Soft-deletes a user account.
+Soft-deletes a user by setting `deleted_at` and `is_active=False`. Action is automatically logged.
 
 **Permissions:** Admin
 
@@ -199,7 +199,7 @@ Soft-deletes a user account.
 
 **`GET /api/admin/admins/`**
 
-Returns all active admins.
+Returns all active (non-deleted) admins.
 
 **Permissions:** Admin (any level)
 
@@ -244,15 +244,17 @@ Creates a new admin account.
 
 ---
 
-#### 8. Update / Delete Admin
+#### 8. Update Admin
 
-**`PUT /api/admin/admins/<uuid:id>/`** — Update admin name, access level, or password
+**`PUT /api/admin/admins/<uuid:admin_id>/`**
 
-**`DELETE /api/admin/admins/<uuid:id>/`** — Soft-delete an admin
+Updates an existing admin's details.
 
-**Permissions:** `super_admin` only (cannot modify own account via this endpoint)
+**Permissions:** `super_admin` only
 
-**Update Request Body:**
+> **Note:** A super admin cannot modify their own account via this endpoint. Attempting to do so returns `403 Forbidden`.
+
+**Request Body (all fields optional):**
 
 | Field          | Type   | Required | Description              |
 |----------------|--------|----------|--------------------------|
@@ -260,103 +262,192 @@ Creates a new admin account.
 | `access_level` | enum   | ❌        | `admin` or `super_admin` |
 | `password`     | string | ❌        | New password             |
 
-**Success Response (PUT) — `200 OK`:**
+**Success Response — `200 OK`:**
 
 ```json
 { "message": "Admin updated." }
 ```
 
-**Success Response (DELETE) — `204 No Content`**
+---
+
+#### 9. Delete Admin (Soft Delete)
+
+**`DELETE /api/admin/admins/<uuid:admin_id>/`**
+
+Soft-deletes an admin by setting `deleted_at`.
+
+**Permissions:** `super_admin` only
+
+> **Note:** A super admin cannot delete their own account via this endpoint. Attempting to do so returns `403 Forbidden`.
+
+**Success Response — `204 No Content`**
 
 ---
 
 ### Rules Management
 
-#### 9. List / Create Admin Rules
+#### 10. List Admin Rules
 
-**`GET /api/admin/rules/`** — List all admin-defined global rules
+**`GET /api/admin/rules/`**
 
-**`POST /api/admin/rules/`** — Create a new global rule
+Returns all admin-defined global rules that have not been deleted.
 
 **Permissions:** Admin
 
-**POST Request Body:**
-
-| Field               | Type    | Required | Description                                               |
-|---------------------|---------|----------|-----------------------------------------------------------|
-| `rule_name`         | string  | ✅        | Rule display name                                         |
-| `description`       | string  | ❌        | Rule description                                          |
-| `category`          | enum    | ✅        | `risk` / `process` / `psychology` / `time` / `other`     |
-| `rule_type`         | enum    | ✅        | `hard` / `soft`                                           |
-| `trigger_scope`     | enum    | ✅        | `per_day` / `per_trade` / `post_trigger`                  |
-| `trigger_condition` | object  | ✅        | JSON condition e.g. `{"maxLoss": 5000}`                   |
-| `action`            | enum    | ✅        | `lock` / `warn` / `require_journal` / `restrict_import`  |
-
-**Success Response (POST) — `201 Created`:** full rule object
+**Success Response — `200 OK`:** array of rule objects
 
 ---
 
-#### 10. Get / Update / Delete Admin Rule
+#### 11. Create Admin Rule
 
-**`GET /api/admin/rules/<uuid:id>/`** — Retrieve single rule details (for pre-populating edit form)
+**`POST /api/admin/rules/`**
 
-**`PUT /api/admin/rules/<uuid:id>/`** — Update a global rule
-
-**`DELETE /api/admin/rules/<uuid:id>/`** — Soft-delete a global rule
+Creates a new global rule. `is_admin_defined` is set to `True` automatically.
 
 **Permissions:** Admin
 
-**PUT Request Body:** any subset of the rule fields (`rule_name`, `description`, `category`, `rule_type`, `trigger_scope`, `trigger_condition`, `action`, `is_active`)
+**Request Body:**
 
-**Success Responses:**
+| Field               | Type   | Required | Default      | Description                                              |
+|---------------------|--------|----------|--------------|----------------------------------------------------------|
+| `rule_name`         | string | ✅        | —            | Rule display name                                        |
+| `description`       | string | ❌        | `""`         | Rule description                                         |
+| `category`          | enum   | ❌        | `"other"`    | `risk` / `process` / `psychology` / `time` / `other`    |
+| `rule_type`         | enum   | ❌        | `"soft"`     | `hard` / `soft`                                          |
+| `trigger_scope`     | enum   | ❌        | `"per_day"`  | `per_day` / `per_trade` / `post_trigger`                 |
+| `trigger_condition` | object | ❌        | `{}`         | JSON condition e.g. `{"maxLoss": 5000}`                  |
+| `action`            | enum   | ❌        | `"warn"`     | `lock` / `warn` / `require_journal` / `restrict_import` |
 
-- `GET` → `200 OK` — full rule object
-- `PUT` → `200 OK` — updated rule object
-- `DELETE` → `204 No Content`
+**Success Response — `201 Created`:** full rule object
+
+---
+
+#### 12. Get Admin Rule
+
+**`GET /api/admin/rules/<uuid:id>/`**
+
+Retrieves a single rule's full details. Typically used to pre-populate admin edit forms.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:** full rule object
+
+---
+
+#### 13. Update Admin Rule
+
+**`PUT /api/admin/rules/<uuid:id>/`**
+
+Updates a global rule. Any subset of fields can be provided.
+
+**Permissions:** Admin
+
+**Request Body (all fields optional):**
+
+`rule_name`, `description`, `category`, `rule_type`, `trigger_scope`, `trigger_condition`, `action`, `is_active`
+
+**Success Response — `200 OK`:** updated rule object
+
+---
+
+#### 14. Delete Admin Rule
+
+**`DELETE /api/admin/rules/<uuid:id>/`**
+
+Soft-deletes the rule by setting `deleted_at`.
+
+**Permissions:** Admin
+
+**Success Response — `204 No Content`**
 
 ---
 
 ### Strategy Template Management
 
-#### 11. List / Create Template Strategies
+#### 15. List Template Strategies
 
-**`GET /api/admin/strategies/`** — List all admin template strategies
+**`GET /api/admin/strategies/`**
 
-**`POST /api/admin/strategies/`** — Create a new template strategy
+Returns all non-deleted admin template strategies, ordered by `-created_at`.
 
 **Permissions:** Admin
 
-**POST Request Body:**
-
-| Field                   | Type    | Required | Description                             |
-|-------------------------|---------|----------|-----------------------------------------|
-| `strategy_name`         | string  | ✅        | Strategy name                           |
-| `description`           | string  | ❌        | Description                             |
-| `tags`                  | array   | ❌        | Array of tag strings                    |
-| `market_types`          | array   | ❌        | Array of market type strings            |
-| `trade_type`            | enum    | ❌        | `intraday` / `swing` / `positional`     |
-| `is_public`             | boolean | ❌        | Visible to all users (default: `false`) |
-| `sample_size_threshold` | integer | ❌        | Maturity threshold (default: 30)        |
+**Success Response — `200 OK`:** array of strategy objects
 
 ---
 
-#### 12. Get / Update / Delete Template Strategy
+#### 16. Create Template Strategy
 
-**`GET /api/admin/strategies/<uuid:id>/`** — Retrieve template
+**`POST /api/admin/strategies/`**
 
-**`PUT /api/admin/strategies/<uuid:id>/`** — Update template
-
-**`DELETE /api/admin/strategies/<uuid:id>/`** — Soft-delete template
+Creates a new template strategy. `is_template=True` and `user=None` are set automatically.
 
 **Permissions:** Admin
+
+**Request Body:**
+
+| Field                   | Type    | Required | Default | Description                              |
+|-------------------------|---------|----------|---------|------------------------------------------|
+| `strategy_name`         | string  | ✅        | —       | Strategy name                            |
+| `description`           | string  | ❌        | `""`    | Description                              |
+| `tags`                  | array   | ❌        | `[]`    | Array of tag strings                     |
+| `market_types`          | array   | ❌        | `[]`    | Array of market type strings             |
+| `trade_type`            | enum    | ❌        | `null`  | `intraday` / `swing` / `positional`      |
+| `is_public`             | boolean | ❌        | `false` | Whether visible to all users             |
+| `sample_size_threshold` | integer | ❌        | `30`    | Minimum trades before stats are shown    |
+
+**Success Response — `201 Created`:** full strategy object
+
+---
+
+#### 17. Get Template Strategy
+
+**`GET /api/admin/strategies/<uuid:id>/`**
+
+Retrieves a single template strategy.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:** full strategy object
+
+---
+
+#### 18. Update Template Strategy
+
+**`PUT /api/admin/strategies/<uuid:id>/`**
+
+Updates an existing template strategy. Any subset of fields can be provided.
+
+**Permissions:** Admin
+
+**Editable fields:** `strategy_name`, `description`, `tags`, `market_types`, `trade_type`, `is_public`, `sample_size_threshold`
+
+**Success Response — `200 OK`:** updated strategy object
+
+---
+
+#### 19. Delete Template Strategy
+
+**`DELETE /api/admin/strategies/<uuid:id>/`**
+
+Soft-deletes the strategy by setting `deleted_at`.
+
+**Permissions:** Admin
+
+**Success Response — `204 No Content`**
 
 ---
 
 ## Action Audit Log
 
-All sensitive admin actions are automatically logged in `AdminUserAction` and `AdminAdminAction` tables, including:
-- User toggle/delete
-- Admin create/edit/delete
+All sensitive admin actions are automatically logged:
+
+| Table               | Logged Actions                          |
+|---------------------|-----------------------------------------|
+| `AdminUserAction`   | User toggle active, user soft-delete    |
+| `AdminAdminAction`  | Admin create, admin edit, admin delete  |
+
+Each log entry stores: the acting admin, the target, action type, action detail (JSON), and timestamp.
 
 ---
 
@@ -384,12 +475,12 @@ urlpatterns = [
 
 ## Error Reference
 
-| Status Code | Meaning                                          |
-|-------------|--------------------------------------------------|
-| `200`       | OK                                               |
-| `201`       | Created                                          |
-| `204`       | No Content (deleted)                             |
-| `400`       | Bad Request — missing field or duplicate email   |
-| `401`       | Unauthorized — invalid or expired admin token    |
-| `403`       | Forbidden — insufficient access level            |
-| `404`       | Not found                                        |
+| Status Code | Meaning                                                                 |
+|-------------|-------------------------------------------------------------------------|
+| `200`       | OK                                                                      |
+| `201`       | Created                                                                 |
+| `204`       | No Content (deleted)                                                    |
+| `400`       | Bad Request — missing required field or duplicate email                 |
+| `401`       | Unauthorized — invalid or expired admin token                           |
+| `403`       | Forbidden — insufficient access level, or attempting to modify own account |
+| `404`       | Not Found — resource does not exist or has been soft-deleted            |
