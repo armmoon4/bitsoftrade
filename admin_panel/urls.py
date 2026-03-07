@@ -5,6 +5,7 @@ from .views import (
     admin_user_list_view, admin_user_toggle_view, admin_user_delete_view,
     admin_list_view, admin_create_view, admin_manage_view,
     admin_rule_list_create_view, admin_rule_detail_view,
+    admin_strategy_list_create_view, admin_strategy_detail_view,
 )
 
 urlpatterns = [
@@ -14,8 +15,8 @@ urlpatterns = [
     path('dashboard/stats/', admin_dashboard_stats_view, name='admin-dashboard-stats'),
     # User management
     path('users/', admin_user_list_view, name='admin-user-list'),
-    path('users/<uuid:user_id>/toggle/', admin_user_toggle_view, name='admin-user-toggle'),
-    path('users/<uuid:user_id>/delete/', admin_user_delete_view, name='admin-user-delete'),
+    path('users/<int:user_id>/toggle/', admin_user_toggle_view, name='admin-user-toggle'),
+    path('users/<int:user_id>/delete/', admin_user_delete_view, name='admin-user-delete'),
     # Admin management
     path('admins/', admin_list_view, name='admin-admin-list'),
     path('admins/create/', admin_create_view, name='admin-admin-create'),
@@ -23,4 +24,7 @@ urlpatterns = [
     # Rules
     path('rules/', admin_rule_list_create_view, name='admin-rule-list'),
     path('rules/<uuid:pk>/', admin_rule_detail_view, name='admin-rule-detail'),
+    # Strategies (template management)
+    path('strategies/', admin_strategy_list_create_view, name='admin-strategy-list'),
+    path('strategies/<uuid:pk>/', admin_strategy_detail_view, name='admin-strategy-detail'),
 ]

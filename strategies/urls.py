@@ -1,7 +1,8 @@
 from django.urls import path
 from .views import (
     StrategyListCreateView, StrategyDetailView,
-    community_strategies_view, template_strategies_view, add_to_mine_view
+    community_strategies_view, template_strategies_view,
+    add_to_mine_view, assign_trades_view,
 )
 
 urlpatterns = [
@@ -10,4 +11,5 @@ urlpatterns = [
     path('templates/', template_strategies_view, name='strategy-templates'),
     path('<uuid:pk>/', StrategyDetailView.as_view(), name='strategy-detail'),
     path('<uuid:pk>/add-to-mine/', add_to_mine_view, name='strategy-add-to-mine'),
+    path('<uuid:pk>/assign-trades/', assign_trades_view, name='strategy-assign-trades'),
 ]

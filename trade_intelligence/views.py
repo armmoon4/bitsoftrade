@@ -7,12 +7,15 @@ from datetime import date, timedelta
 
 
 def _parse_date_range(request):
-    time_range = request.data.get('timeRange', 'last30')
+    # Default to 'all' so that imported trades with any date are always visible
+    time_range = request.data.get('timeRange', 'all')
     from_date = request.data.get('fromDate')
     to_date = request.data.get('toDate')
     today = date.today()
 
-    if time_range == 'last7':
+    if time_range == 'all':
+        return None, None  # No date restriction — return ALL trades
+    elif time_range == 'last7':
         return today - timedelta(days=7), today
     elif time_range == 'last30':
         return today - timedelta(days=30), today
@@ -20,11 +23,11 @@ def _parse_date_range(request):
         return today - timedelta(days=90), today
     elif time_range == 'last365':
         return today - timedelta(days=365), today
-    elif from_date and to_date:
+    elif time_range == 'custom' and from_date and to_date:
         from datetime import datetime
         return datetime.strptime(from_date, '%Y-%m-%d').date(), datetime.strptime(to_date, '%Y-%m-%d').date()
     else:
-        return today - timedelta(days=30), today
+        return None, None  # Fallback: show all trades
 
 
 @api_view(['POST'])
@@ -32,7 +35,7 @@ def _parse_date_range(request):
 def analyze_view(request):
     """
     POST /api/trade-intelligence/analyze/
-    Body: { timeRange: 'last7'|'last30'|'last90'|'last365'|'custom', fromDate, toDate }
+    Body: { timeRange: 'all'|'last7'|'last30'|'last90'|'last365'|'custom', fromDate, toDate }
     Returns predefined analysis points.
     """
     from tradelog.models import Trade
@@ -44,9 +47,11 @@ def analyze_view(request):
     user = request.user
     start, end = _parse_date_range(request)
 
-    trades = Trade.objects.filter(
-        user=user, trade_date__gte=start, trade_date__lte=end, deleted_at__isnull=True
-    )
+    trades = Trade.objects.filter(user=user, deleted_at__isnull=True)
+    if start is not None:
+        trades = trades.filter(trade_date__gte=start)
+    if end is not None:
+        trades = trades.filter(trade_date__lte=end)
     total = trades.count()
 
     if total == 0:
@@ -57,9 +62,11 @@ def analyze_view(request):
     losses = trades.filter(total_pnl__lte=0).count()
 
     # Over-trading detection
-    sessions_in_range = DisciplineSession.objects.filter(
-        user=user, session_date__gte=start, session_date__lte=end
-    )
+    sessions_in_range = DisciplineSession.objects.filter(user=user)
+    if start is not None:
+        sessions_in_range = sessions_in_range.filter(session_date__gte=start)
+    if end is not None:
+        sessions_in_range = sessions_in_range.filter(session_date__lte=end)
     from rules.models import Rule
     max_trades_rule = Rule.objects.filter(
         Q(is_admin_defined=True) | Q(user=user),
@@ -90,9 +97,12 @@ def analyze_view(request):
     ).order_by('-count').first()
 
     # Emotion impact
-    green_ids = DisciplineSession.objects.filter(
-        user=user, session_date__gte=start, session_date__lte=end, session_state='green'
-    ).values_list('id', flat=True)
+    green_sess_qs = DisciplineSession.objects.filter(user=user, session_state='green')
+    if start is not None:
+        green_sess_qs = green_sess_qs.filter(session_date__gte=start)
+    if end is not None:
+        green_sess_qs = green_sess_qs.filter(session_date__lte=end)
+    green_ids = green_sess_qs.values_list('id', flat=True)
     disciplined_pnl = trades.filter(session_id__in=green_ids).aggregate(total=Sum('total_pnl'))['total'] or 0
     undisciplined_pnl = trades.exclude(session_id__in=green_ids).aggregate(total=Sum('total_pnl'))['total'] or 0
 
@@ -110,13 +120,33 @@ def analyze_view(request):
     max_win_streak, max_loss_streak = _consecutive_streaks(daily_pnls_list)
 
     # Improvement score: compare DI in first vs second half of period
-    mid = start + (end - start) / 2
-    first_half_sessions = DisciplineSession.objects.filter(
-        user=user, session_date__gte=start, session_date__lt=mid
-    )
-    second_half_sessions = DisciplineSession.objects.filter(
-        user=user, session_date__gte=mid, session_date__lte=end
-    )
+    if start is not None and end is not None:
+        mid = start + (end - start) / 2
+        first_half_sessions = DisciplineSession.objects.filter(
+            user=user, session_date__gte=start, session_date__lt=mid
+        )
+        second_half_sessions = DisciplineSession.objects.filter(
+            user=user, session_date__gte=mid, session_date__lte=end
+        )
+    else:
+        # No specific range — split all sessions by median date
+        all_session_dates = list(
+            DisciplineSession.objects.filter(user=user)
+            .order_by('session_date')
+            .values_list('session_date', flat=True)
+        )
+        if all_session_dates:
+            mid_idx = len(all_session_dates) // 2
+            mid = all_session_dates[mid_idx]
+            first_half_sessions = DisciplineSession.objects.filter(
+                user=user, session_date__lt=mid
+            )
+            second_half_sessions = DisciplineSession.objects.filter(
+                user=user, session_date__gte=mid
+            )
+        else:
+            first_half_sessions = DisciplineSession.objects.none()
+            second_half_sessions = DisciplineSession.objects.none()
     def di(sess_qs):
         total = sess_qs.count()
         green = sess_qs.filter(session_state='green').count()
@@ -125,7 +155,7 @@ def analyze_view(request):
     second_di = di(second_half_sessions)
 
     return Response({
-        'period': {'from': start, 'to': end, 'total_trades': total},
+        'period': {'from': start or 'all', 'to': end or 'all', 'total_trades': total},
         'win_loss_ratio': {'wins': wins, 'losses': losses, 'ratio': round(wins / losses, 2) if losses else wins},
         'overtrading': {'days_over_limit': overtrade_days},
         'best_performing_strategy': best_strategy,

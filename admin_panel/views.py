@@ -291,11 +291,11 @@ def admin_rule_list_create_view(request):
         return Response(RuleSerializer(rule).data, status=status.HTTP_201_CREATED)
 
 
-@api_view(['PUT', 'DELETE'])
+@api_view(['GET', 'PUT', 'DELETE'])
 @authentication_classes([])
 @permission_classes([IsAdminAuthenticated])
 def admin_rule_detail_view(request, pk):
-    """PUT/DELETE /api/admin/rules/<id>/"""
+    """GET/PUT/DELETE /api/admin/rules/<id>/"""
     from rules.models import Rule
     from rules.serializers import RuleSerializer
 
@@ -303,13 +303,99 @@ def admin_rule_detail_view(request, pk):
     if not rule:
         return Response({'error': 'Rule not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    if request.method == 'PUT':
+    if request.method == 'GET':
+        # BUG FIX: Return the rule details so the admin edit form can be pre-populated
+        return Response(RuleSerializer(rule).data)
+
+    elif request.method == 'PUT':
         for field in ['rule_name', 'description', 'category', 'rule_type', 'trigger_scope', 'trigger_condition', 'action', 'is_active']:
             if field in request.data:
                 setattr(rule, field, request.data[field])
         rule.save()
         return Response(RuleSerializer(rule).data)
+
     elif request.method == 'DELETE':
         rule.deleted_at = timezone.now()
         rule.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─── Admin Strategy Management ────────────────────────────────────────────────
+
+@api_view(['GET', 'POST'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_strategy_list_create_view(request):
+    """
+    GET  /api/admin/strategies/  — list all admin/template strategies
+    POST /api/admin/strategies/  — create a new template strategy
+    """
+    from strategies.models import Strategy
+    from strategies.serializers import StrategySerializer
+
+    if request.method == 'GET':
+        strategies = Strategy.objects.filter(
+            is_template=True, deleted_at__isnull=True
+        ).order_by('-created_at')
+        return Response(StrategySerializer(strategies, many=True).data)
+
+    elif request.method == 'POST':
+        required_fields = ['strategy_name']
+        for field in required_fields:
+            if not request.data.get(field):
+                return Response(
+                    {'error': f'{field} is required.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        strategy = Strategy.objects.create(
+            created_by_admin=request.admin,
+            user=None,
+            strategy_name=request.data.get('strategy_name'),
+            description=request.data.get('description', ''),
+            tags=request.data.get('tags', []),
+            market_types=request.data.get('market_types', []),
+            trade_type=request.data.get('trade_type'),
+            is_template=True,
+            is_public=request.data.get('is_public', False),
+            sample_size_threshold=request.data.get('sample_size_threshold', 30),
+        )
+        return Response(StrategySerializer(strategy).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_strategy_detail_view(request, pk):
+    """
+    GET    /api/admin/strategies/<id>/  — retrieve a template strategy
+    PUT    /api/admin/strategies/<id>/  — edit a template strategy
+    DELETE /api/admin/strategies/<id>/  — soft-delete a template strategy
+    """
+    from strategies.models import Strategy
+    from strategies.serializers import StrategySerializer
+
+    strategy = Strategy.objects.filter(
+        pk=pk, is_template=True, deleted_at__isnull=True
+    ).first()
+    if not strategy:
+        return Response({'error': 'Strategy not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(StrategySerializer(strategy).data)
+
+    elif request.method == 'PUT':
+        editable_fields = [
+            'strategy_name', 'description', 'tags', 'market_types',
+            'trade_type', 'is_public', 'sample_size_threshold',
+        ]
+        for field in editable_fields:
+            if field in request.data:
+                setattr(strategy, field, request.data[field])
+        strategy.save()
+        return Response(StrategySerializer(strategy).data)
+
+    elif request.method == 'DELETE':
+        strategy.deleted_at = timezone.now()
+        strategy.save()
         return Response(status=status.HTTP_204_NO_CONTENT)

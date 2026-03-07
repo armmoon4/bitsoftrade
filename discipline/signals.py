@@ -1,173 +1,75 @@
 """
-Rule Evaluation Engine — runs after every trade save.
-Evaluates all active rules for the user and updates the DisciplineSession.
+Rule Evaluation Engine (signal fallback) — runs after every trade save.
+Primary evaluation is in rules/engine.py called from tradelog/views.py.
+This signal acts as a safety net for any direct Trade model saves outside views.
 """
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
-from datetime import timedelta
+from datetime import timedelta, datetime, time as dtime
 from decimal import Decimal
+
+# Fields that do NOT need rule re-evaluation (they don't affect trade counts or P&L)
+_SKIP_EVAL_FIELDS = frozenset(['total_pnl', 'is_tagged_complete', 'is_disciplined', 'session'])
 
 
 @receiver(post_save, sender='tradelog.Trade')
 def run_rule_evaluation(sender, instance, created, **kwargs):
-    """Evaluate rules and update discipline session after every trade save."""
+    """
+    Rule evaluation triggered by the post_save signal.
+    This is the SINGLE source of rule evaluation — views must NOT call
+    evaluate_rules_for_user directly, as that causes stale session overwrites.
+
+    Skips evaluation on partial update_fields saves that don't affect trade data.
+    """
     from tradelog.models import Trade
-    from discipline.models import DisciplineSession, ViolationsLog
-    from rules.models import Rule   
+    from discipline.models import DisciplineSession
+
+    # Skip evaluation if only non-trade-significant fields were updated
+    update_fields = kwargs.get('update_fields')
+    if update_fields and set(update_fields).issubset(_SKIP_EVAL_FIELDS):
+        return
 
     trade = instance
     user = trade.user
 
-    # Get or create today's session
-    session, _ = DisciplineSession.objects.get_or_create(
+    # Get or create the DisciplineSession for this trade's date
+    # Always fetch fresh from DB — never use a stale in-memory session object.
+    session, created = DisciplineSession.objects.get_or_create(
         user=user,
         session_date=trade.trade_date,
-        defaults={'session_state': 'green'}
+        defaults={'session_state': 'green'},
     )
 
-    # Attach trade to session
+    # Ensure lock_cycle_started_at is set — it drives the per-cycle quota.
+    # Use the start of the session day (midnight) so that ALL trades saved on
+    # that day from the very first one are included in the cycle count.
+    # (Using timezone.now() here would exclude the just-saved trade because
+    # it was committed to DB before this signal runs.)
+    if created or session.lock_cycle_started_at is None:
+        day_start = timezone.make_aware(
+            datetime.combine(session.session_date, dtime.min)
+        )
+        session.lock_cycle_started_at = day_start
+        session.save(update_fields=['lock_cycle_started_at'])
+
+    # Attach trade to session if not already linked
     if trade.session_id is None:
         Trade.objects.filter(pk=trade.pk).update(session=session)
         trade.session = session
 
-    # Load all active rules for this user (admin defaults + user custom)
-    from django.db.models import Q
-    rules = Rule.objects.filter(
-        is_active=True,
-        deleted_at__isnull=True
-    ).filter(
-        Q(is_admin_defined=True) | Q(user=user)
-    )
+    # Delegate to the central engine. Passing `trade` enables per_trade scope.
+    from rules.engine import evaluate_rules_for_user
+    evaluate_rules_for_user(user=user, session=session, trade=trade)
 
-    hard_violated = []
-    soft_violated = []
+    # Update is_disciplined flag: True only if no hard violations this cycle
+    from discipline.models import ViolationsLog
+    current_cycle = session.lock_cycle or 0
+    has_hard_violation = ViolationsLog.objects.filter(
+        session=session,
+        trade=trade,
+        violation_type='hard',
+        lock_cycle=current_cycle,
+    ).exists()
+    Trade.objects.filter(pk=trade.pk).update(is_disciplined=not has_hard_violation)
 
-    for rule in rules:
-        violated = _evaluate_rule(rule, user, trade, session)
-        if violated:
-            if rule.rule_type == 'hard':
-                hard_violated.append(rule)
-            else:
-                soft_violated.append(rule)
-
-    # Determine new session state (can only escalate)
-    if hard_violated:
-        new_state = 'red'
-    elif soft_violated:
-        new_state = 'yellow' if session.session_state == 'green' else session.session_state
-    else:
-        new_state = session.session_state
-
-    # Session can only escalate within a day
-    state_rank = {'green': 0, 'yellow': 1, 'red': 2}
-    if state_rank.get(new_state, 0) > state_rank.get(session.session_state, 0):
-        session.session_state = new_state
-
-        # Set cooldown
-        if new_state == 'yellow':
-            session.cooldown_ends_at = timezone.now() + timedelta(minutes=45)
-        elif new_state == 'red':
-            session.cooldown_ends_at = timezone.now() + timedelta(hours=2)
-
-    # Update counts
-    for rule in hard_violated + soft_violated:
-        if str(rule.id) not in (session.rules_violated or []):
-            session.rules_violated = (session.rules_violated or []) + [str(rule.id)]
-            session.violations_count = (session.violations_count or 0) + 1
-
-            vtype = 'hard' if rule in hard_violated else 'soft'
-            if vtype == 'hard':
-                session.hard_violations = (session.hard_violations or 0) + 1
-            else:
-                session.soft_violations = (session.soft_violations or 0) + 1
-
-            ViolationsLog.objects.create(
-                user=user,
-                session=session,
-                trade=trade,
-                rule=rule,
-                violation_type=vtype,
-                session_state_after=session.session_state,
-            )
-
-    session.save()
-
-    # Update trade is_disciplined flag
-    is_disciplined = len(hard_violated) == 0
-    Trade.objects.filter(pk=trade.pk).update(is_disciplined=is_disciplined)
-
-
-def models_filter(user):
-    """Build Q filter: admin global rules OR this user's custom rules."""
-    from django.db.models import Q
-    return Q(is_admin_defined=True) | Q(user=user)
-
-
-def _evaluate_rule(rule, user, trade, session):
-    """
-    Returns True if the rule is violated.
-    Implements the 5 built-in rule types from the spec.
-    """
-    from tradelog.models import Trade
-    condition = rule.trigger_condition or {}
-
-    try:
-        if rule.category == 'risk' and 'maxLoss' in condition:
-            # Max Daily Loss Limit
-            daily_pnl = _get_daily_pnl(user, trade.trade_date)
-            max_loss = Decimal(str(condition.get('maxLoss', 0)))
-            max_pct = condition.get('maxDailyPercent')
-            if daily_pnl < -abs(max_loss):
-                return True
-            if max_pct and user.trading_capital:
-                loss_pct = abs(daily_pnl) / user.trading_capital * 100
-                if daily_pnl < 0 and loss_pct > Decimal(str(max_pct)):
-                    return True
-
-        elif rule.category == 'risk' and 'maxPositionPercent' in condition:
-            # Position Size Limit
-            if trade.entry_price and trade.quantity and user.trading_capital:
-                position_value = trade.entry_price * trade.quantity
-                position_pct = position_value / user.trading_capital * 100
-                if position_pct > Decimal(str(condition['maxPositionPercent'])):
-                    return True
-
-        elif rule.category == 'process' and 'maxTrades' in condition:
-            # Max Trades Per Day
-            today_count = Trade.objects.filter(
-                user=user,
-                trade_date=trade.trade_date,
-                deleted_at__isnull=True
-            ).count()
-            if today_count > int(condition['maxTrades']):
-                return True
-
-        elif rule.category == 'psychology' and 'consecutiveLosses' in condition:
-            # Consecutive Loss Limit
-            recent_trades = Trade.objects.filter(
-                user=user,
-                deleted_at__isnull=True
-            ).order_by('-trade_date', '-trade_time')[:int(condition['consecutiveLosses']) + 1]
-            streak = 0
-            for t in recent_trades:
-                if t.total_pnl is not None and t.total_pnl < 0:
-                    streak += 1
-                else:
-                    break
-            if streak >= int(condition['consecutiveLosses']):
-                return True
-
-    except Exception:
-        pass
-
-    return False
-
-
-def _get_daily_pnl(user, date):
-    from tradelog.models import Trade
-    from django.db.models import Sum
-    result = Trade.objects.filter(
-        user=user, trade_date=date, deleted_at__isnull=True
-    ).aggregate(total=Sum('total_pnl'))
-    return result['total'] or Decimal('0')

@@ -16,6 +16,10 @@ class DisciplineSession(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='discipline_sessions')
     session_date = models.DateField()
     session_state = models.CharField(max_length=10, choices=SESSION_STATE_CHOICES, default='green')
+    peak_state = models.CharField(
+        max_length=10, choices=SESSION_STATE_CHOICES, default='green',
+        help_text='Highest severity state reached this day — never downgraded on unlock'
+    )
 
     rules_violated = models.JSONField(default=list, blank=True)  # List of rule UUIDs
     violations_count = models.IntegerField(default=0)
@@ -28,6 +32,16 @@ class DisciplineSession(models.Model):
     journal_completed = models.BooleanField(default=False)
     trade_review_completed = models.BooleanField(default=False)
     unlocked_at = models.DateTimeField(null=True, blank=True)
+
+    # Tracks how many times this session has been unlocked.
+    # Incremented on each unlock so the rule engine can re-evaluate
+    # the same rule within a new lock cycle (fixes re-lock bug).
+    lock_cycle = models.IntegerField(default=0)
+
+    # Timestamp of when the current lock cycle started (session creation or
+    # most recent unlock). The rule engine uses this to count only trades
+    # created AFTER this point, giving a fresh quota each cycle.
+    lock_cycle_started_at = models.DateTimeField(null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -62,6 +76,9 @@ class ViolationsLog(models.Model):
     violation_type = models.CharField(max_length=10, choices=VIOLATION_TYPE_CHOICES)
     session_state_after = models.CharField(max_length=10, choices=SESSION_STATE_CHOICES)
     violated_at = models.DateTimeField(auto_now_add=True)
+    # Snapshot of the session's lock_cycle when this violation was logged.
+    # Used to scope duplicate-checks to the current lock cycle only.
+    lock_cycle = models.IntegerField(default=0)
 
     class Meta:
         db_table = 'violations_log'
