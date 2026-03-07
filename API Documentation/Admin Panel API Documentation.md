@@ -1,4 +1,4 @@
-# Admin Panel API Documentation
+# Admin Panel API
 
 ## Overview
 
@@ -11,6 +11,32 @@ The **Admin Panel** module provides a separate, privileged API for platform admi
 ```
 /api/admin/
 ```
+
+---
+
+## First-Time Setup: Create Super Admin
+
+Before using the admin panel, you must create the first super admin account using the management command.
+
+### Using Docker
+
+```bash
+docker-compose run web python manage.py create_super_admin \
+  --email superadmin@example.com \
+  --name "superadmin" \
+  --password superadmin
+```
+
+### Without Docker (Local / Normal)
+
+```bash
+python manage.py create_super_admin \
+  --email superadmin@example.com \
+  --name "superadmin" \
+  --password superadmin
+```
+
+> **Note:** This command only needs to be run once. After the super admin is created, additional admins can be managed via the API endpoints below.
 
 ---
 
@@ -28,10 +54,10 @@ Authorization: Bearer <admin_access_token>
 
 ## Access Levels
 
-| Level         | Permissions                                  |
-|---------------|----------------------------------------------|
-| `super_admin` | Full access: manage users, admins, rules, strategies |
-| `admin`       | Manage users, rules, and strategies (cannot create/delete admins) |
+| Level         | Permissions                                                          |
+|---------------|----------------------------------------------------------------------|
+| `super_admin` | Full access: manage users, admins, rules, strategies                 |
+| `admin`       | Manage users, rules, and strategies (cannot create/delete admins)    |
 
 ---
 
@@ -203,12 +229,12 @@ Creates a new admin account.
 
 **Request Body:**
 
-| Field          | Type   | Required | Description             |
-|----------------|--------|----------|-------------------------|
-| `full_name`    | string | ✅        | Admin display name      |
-| `email`        | string | ✅        | Unique email address    |
-| `password`     | string | ✅        | Account password        |
-| `access_level` | enum   | ✅        | `admin` or `super_admin`|
+| Field          | Type   | Required | Description              |
+|----------------|--------|----------|--------------------------|
+| `full_name`    | string | ✅        | Admin display name       |
+| `email`        | string | ✅        | Unique email address     |
+| `password`     | string | ✅        | Account password         |
+| `access_level` | enum   | ✅        | `admin` or `super_admin` |
 
 **Success Response — `201 Created`:**
 
@@ -228,11 +254,11 @@ Creates a new admin account.
 
 **Update Request Body:**
 
-| Field          | Type   | Required | Description                |
-|----------------|--------|----------|----------------------------|
-| `full_name`    | string | ❌        | New full name              |
-| `access_level` | enum   | ❌        | `admin` or `super_admin`   |
-| `password`     | string | ❌        | New password               |
+| Field          | Type   | Required | Description              |
+|----------------|--------|----------|--------------------------|
+| `full_name`    | string | ❌        | New full name            |
+| `access_level` | enum   | ❌        | `admin` or `super_admin` |
+| `password`     | string | ❌        | New password             |
 
 **Success Response (PUT) — `200 OK`:**
 
@@ -256,15 +282,15 @@ Creates a new admin account.
 
 **POST Request Body:**
 
-| Field               | Type    | Required | Description                                              |
-|---------------------|---------|----------|----------------------------------------------------------|
-| `rule_name`         | string  | ✅        | Rule display name                                        |
-| `description`       | string  | ❌        | Rule description                                         |
-| `category`          | enum    | ✅        | `risk` / `process` / `psychology` / `time` / `other`    |
-| `rule_type`         | enum    | ✅        | `hard` / `soft`                                          |
-| `trigger_scope`     | enum    | ✅        | `per_day` / `per_trade` / `post_trigger`                 |
-| `trigger_condition` | object  | ✅        | JSON condition e.g. `{"maxLoss": 5000}`                  |
-| `action`            | enum    | ✅        | `lock` / `warn` / `require_journal` / `restrict_import` |
+| Field               | Type    | Required | Description                                               |
+|---------------------|---------|----------|-----------------------------------------------------------|
+| `rule_name`         | string  | ✅        | Rule display name                                         |
+| `description`       | string  | ❌        | Rule description                                          |
+| `category`          | enum    | ✅        | `risk` / `process` / `psychology` / `time` / `other`     |
+| `rule_type`         | enum    | ✅        | `hard` / `soft`                                           |
+| `trigger_scope`     | enum    | ✅        | `per_day` / `per_trade` / `post_trigger`                  |
+| `trigger_condition` | object  | ✅        | JSON condition e.g. `{"maxLoss": 5000}`                   |
+| `action`            | enum    | ✅        | `lock` / `warn` / `require_journal` / `restrict_import`  |
 
 **Success Response (POST) — `201 Created`:** full rule object
 
@@ -302,15 +328,15 @@ Creates a new admin account.
 
 **POST Request Body:**
 
-| Field                   | Type    | Required | Description                              |
-|-------------------------|---------|----------|------------------------------------------|
-| `strategy_name`         | string  | ✅        | Strategy name                            |
-| `description`           | string  | ❌        | Description                              |
-| `tags`                  | array   | ❌        | Array of tag strings                     |
-| `market_types`          | array   | ❌        | Array of market type strings             |
-| `trade_type`            | enum    | ❌        | `intraday` / `swing` / `positional`      |
-| `is_public`             | boolean | ❌        | Visible to all users (default: `false`)  |
-| `sample_size_threshold` | integer | ❌        | Maturity threshold (default: 30)         |
+| Field                   | Type    | Required | Description                             |
+|-------------------------|---------|----------|-----------------------------------------|
+| `strategy_name`         | string  | ✅        | Strategy name                           |
+| `description`           | string  | ❌        | Description                             |
+| `tags`                  | array   | ❌        | Array of tag strings                    |
+| `market_types`          | array   | ❌        | Array of market type strings            |
+| `trade_type`            | enum    | ❌        | `intraday` / `swing` / `positional`     |
+| `is_public`             | boolean | ❌        | Visible to all users (default: `false`) |
+| `sample_size_threshold` | integer | ❌        | Maturity threshold (default: 30)        |
 
 ---
 
@@ -358,12 +384,12 @@ urlpatterns = [
 
 ## Error Reference
 
-| Status Code | Meaning                                                  |
-|-------------|----------------------------------------------------------|
-| `200`       | OK                                                       |
-| `201`       | Created                                                  |
-| `204`       | No Content (deleted)                                     |
-| `400`       | Bad Request — missing field or duplicate email           |
-| `401`       | Unauthorized — invalid or expired admin token            |
-| `403`       | Forbidden — insufficient access level                    |
-| `404`       | Not found                                                |
+| Status Code | Meaning                                          |
+|-------------|--------------------------------------------------|
+| `200`       | OK                                               |
+| `201`       | Created                                          |
+| `204`       | No Content (deleted)                             |
+| `400`       | Bad Request — missing field or duplicate email   |
+| `401`       | Unauthorized — invalid or expired admin token    |
+| `403`       | Forbidden — insufficient access level            |
+| `404`       | Not found                                        |
