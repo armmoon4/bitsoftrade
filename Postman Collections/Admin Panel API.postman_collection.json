@@ -1,0 +1,435 @@
+{
+    "info": {
+        "name": "Admin Panel API",
+        "description": "## ⚙️ Prerequisite — Create First Super Admin\n\nBefore using any endpoint, you must bootstrap the first super admin via Docker. Run this command once:\n\n```\ndocker-compose run web python manage.py create_super_admin --email superadmin@example.com --name \"superadmin\" --password superadmin\n```\n\nThis uses the custom `create_super_admin` management command and does NOT require an existing admin in the database.\n\n---\n\n## 🔑 Authentication\n\n1. Call **Admin Login** with the credentials above.\n2. Copy the `access` token from the response.\n3. Set it as the `admin_access_token` collection variable.\n4. All subsequent requests use this token as a Bearer token.\n\n---\n\nAPI endpoints for the Admin Panel module.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Admin Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"admin@bitsoftrade.com\",\n  \"password\": \"adminpassword\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/auth/login/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "auth", "login", ""]
+                        },
+                        "description": "Authenticate as admin. Returns access + refresh JWT tokens, admin_id, full_name, email, access_level."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Dashboard",
+            "item": [
+                {
+                    "name": "Dashboard Stats",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/dashboard/stats/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "dashboard", "stats", ""]
+                        },
+                        "description": "Returns total_users, todays_new_users, total_subscribers, total_trade_imports."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "User Management",
+            "item": [
+                {
+                    "name": "List Users",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/users/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "users", ""],
+                            "query": [
+                                {"key": "subscription_type", "value": "tool", "disabled": true},
+                                {"key": "search", "value": "johndoe", "disabled": true}
+                            ]
+                        },
+                        "description": "List all non-deleted users. Optional filters: subscription_type, search (matches username or email). Returns count + results."
+                    }
+                },
+                {
+                    "name": "Toggle User Active Status",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "PUT",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/users/:user_id/toggle/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "users", ":user_id", "toggle", ""],
+                            "variable": [
+                                {"key": "user_id", "value": "1", "description": "Integer user ID"}
+                            ]
+                        },
+                        "description": "Toggles is_active on the user. Logs action to AdminUserAction audit table. Returns {is_active: bool}."
+                    }
+                },
+                {
+                    "name": "Delete User (Soft Delete)",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/users/:user_id/delete/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "users", ":user_id", "delete", ""],
+                            "variable": [
+                                {"key": "user_id", "value": "1", "description": "Integer user ID"}
+                            ]
+                        },
+                        "description": "Soft-deletes user by setting deleted_at and is_active=False. Logs action. Returns 204."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Admin Management",
+            "item": [
+                {
+                    "name": "List Admins",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/admins/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "admins", ""]
+                        },
+                        "description": "Returns list of all non-deleted admins: id, full_name, email, access_level, created_at."
+                    }
+                },
+                {
+                    "name": "Create Admin",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"full_name\": \"New Admin\",\n  \"email\": \"newadmin@bitsoftrade.com\",\n  \"password\": \"securepassword\",\n  \"access_level\": \"admin\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/admins/create/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "admins", "create", ""]
+                        },
+                        "description": "Super admin only. Creates a new admin. Required fields: full_name, email, password, access_level."
+                    }
+                },
+                {
+                    "name": "Update Admin",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"full_name\": \"Updated Admin Name\",\n  \"access_level\": \"admin\",\n  \"password\": \"newpassword\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/admins/:admin_id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "admins", ":admin_id", ""],
+                            "variable": [
+                                {"key": "admin_id", "value": "admin_uuid", "description": "UUID of target admin"}
+                            ]
+                        },
+                        "description": "Super admin only. Editable fields: full_name, access_level, password. Cannot modify own account via this endpoint."
+                    }
+                },
+                {
+                    "name": "Delete Admin (Soft Delete)",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/admins/:admin_id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "admins", ":admin_id", ""],
+                            "variable": [
+                                {"key": "admin_id", "value": "admin_uuid", "description": "UUID of target admin"}
+                            ]
+                        },
+                        "description": "Super admin only. Soft-deletes admin by setting deleted_at. Cannot delete own account. Returns 204."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Rules Management",
+            "item": [
+                {
+                    "name": "List Admin Rules",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/rules/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "rules", ""]
+                        },
+                        "description": "Returns all admin-defined, non-deleted rules."
+                    }
+                },
+                {
+                    "name": "Create Admin Rule",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"rule_name\": \"Max Daily Loss $500\",\n  \"description\": \"Locks account if daily loss exceeds $500\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": {\"maxLoss\": 500},\n  \"action\": \"lock\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/rules/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "rules", ""]
+                        },
+                        "description": "Creates a new admin-defined rule. Sets is_admin_defined=True automatically."
+                    }
+                },
+                {
+                    "name": "Get Admin Rule",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/rules/:id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "rules", ":id", ""],
+                            "variable": [
+                                {"key": "id", "value": "rule_uuid", "description": "UUID of the rule"}
+                            ]
+                        },
+                        "description": "Returns full detail of a single admin-defined rule. Used to pre-populate edit forms."
+                    }
+                },
+                {
+                    "name": "Update Admin Rule",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"rule_name\": \"Max Daily Loss Updated\",\n  \"description\": \"Updated description\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": {\"maxLoss\": 1000},\n  \"action\": \"lock\",\n  \"is_active\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/rules/:id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "rules", ":id", ""],
+                            "variable": [
+                                {"key": "id", "value": "rule_uuid", "description": "UUID of the rule"}
+                            ]
+                        },
+                        "description": "Editable fields: rule_name, description, category, rule_type, trigger_scope, trigger_condition, action, is_active."
+                    }
+                },
+                {
+                    "name": "Delete Admin Rule",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/rules/:id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "rules", ":id", ""],
+                            "variable": [
+                                {"key": "id", "value": "rule_uuid", "description": "UUID of the rule"}
+                            ]
+                        },
+                        "description": "Soft-deletes the rule by setting deleted_at. Returns 204."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Strategy Management",
+            "item": [
+                {
+                    "name": "List Template Strategies",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/strategies/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "strategies", ""]
+                        },
+                        "description": "Returns all non-deleted template strategies ordered by -created_at."
+                    }
+                },
+                {
+                    "name": "Create Template Strategy",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "POST",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"strategy_name\": \"Admin Main Strategy\",\n  \"description\": \"A template strategy for users\",\n  \"tags\": [\"Price Action\", \"Trend Following\"],\n  \"market_types\": [\"equity\", \"futures\"],\n  \"trade_type\": \"intraday\",\n  \"is_public\": true,\n  \"sample_size_threshold\": 30\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/strategies/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "strategies", ""]
+                        },
+                        "description": "Creates a new template strategy. Required: strategy_name. Sets is_template=True and user=None automatically."
+                    }
+                },
+                {
+                    "name": "Get Template Strategy",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/strategies/:id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "strategies", ":id", ""],
+                            "variable": [
+                                {"key": "id", "value": "strategy_uuid", "description": "UUID of the strategy"}
+                            ]
+                        },
+                        "description": "Returns full detail of a single template strategy."
+                    }
+                },
+                {
+                    "name": "Update Template Strategy",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "PUT",
+                        "header": [
+                            {"key": "Content-Type", "value": "application/json"}
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"strategy_name\": \"Updated Admin Strategy\",\n  \"description\": \"Updated description\",\n  \"tags\": [\"Scalping\"],\n  \"market_types\": [\"forex\"],\n  \"trade_type\": \"swing\",\n  \"is_public\": false,\n  \"sample_size_threshold\": 50\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/strategies/:id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "strategies", ":id", ""],
+                            "variable": [
+                                {"key": "id", "value": "strategy_uuid", "description": "UUID of the strategy"}
+                            ]
+                        },
+                        "description": "Editable fields: strategy_name, description, tags, market_types, trade_type, is_public, sample_size_threshold."
+                    }
+                },
+                {
+                    "name": "Delete Template Strategy",
+                    "request": {
+                        "auth": {
+                            "type": "bearer",
+                            "bearer": [{"key": "token", "value": "{{admin_access_token}}", "type": "string"}]
+                        },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/admin/strategies/:id/",
+                            "host": ["{{baseUrl}}"],
+                            "path": ["api", "admin", "strategies", ":id", ""],
+                            "variable": [
+                                {"key": "id", "value": "strategy_uuid", "description": "UUID of the strategy"}
+                            ]
+                        },
+                        "description": "Soft-deletes the strategy by setting deleted_at. Returns 204."
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "admin_access_token",
+            "value": ""
+        }
+    ]
+}
