@@ -99,22 +99,10 @@ class TradeImportView(generics.GenericAPIView):
         for i, row in enumerate(rows, start=1):
             # Session lock is now checked inside _create_trade_from_row
             # per-row based on the actual trade date.
+
             try:
                 trade = _create_trade_from_row(row, request.user, detected_broker or broker_name)
                 created_trades.append(trade)
-            except ValueError as e:
-                # If the session is locked, immediately stop parsing and return HTTP 423
-                if 'Trade blocked — session locked:' in str(e):
-                    # Extract just the message after the colon
-                    lock_msg = str(e).split('Trade blocked — session locked:')[1].strip()
-                    return Response(
-                        {
-                            'error': 'Trading session is locked.',
-                            'detail': lock_msg,
-                        },
-                        status=status.HTTP_423_LOCKED,
-                    )
-                errors.append({'row': i, 'error': str(e), 'data': row})
             except Exception as e:
                 errors.append({'row': i, 'error': str(e), 'data': row})
 
