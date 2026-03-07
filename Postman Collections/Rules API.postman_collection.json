@@ -1,0 +1,195 @@
+{
+    "info": {
+        "name": "Rules API",
+        "description": "API endpoints for the Rules module managing trading rules that power the Discipline Guard.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "List Rules",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/rules/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "rules",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Create Custom Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"rule_name\": \"Max Daily Loss\",\n  \"description\": \"Stop trading if daily loss exceeds limit.\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": { \"maxLoss\": 5000, \"maxDailyPercent\": 3 },\n  \"action\": \"lock\",\n  \"is_active\": true\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/rules/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "rules",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/rules/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "rules",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "rule_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Update Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"rule_name\": \"Updated Limit\",\n  \"trigger_condition\": { \"maxLoss\": 4000 }\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/rules/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "rules",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "rule_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Delete Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/rules/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "rules",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "rule_uuid"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}

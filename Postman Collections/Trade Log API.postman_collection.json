@@ -1,250 +1,255 @@
 {
-    "info": {
-        "name": "Trade Log API",
-        "description": "API endpoints for the Trade Log module managing individual trade records, manual entry, CSV/Excel import, and P&L auto-calculation.",
-        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  "info": {
+    "name": "Rules API",
+    "description": "API endpoints for the Rules module managing trading rules that power the Discipline Guard.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "List Rules",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ""]
+        }
+      }
     },
-    "item": [
-        {
-            "name": "List Trades",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "GET",
-                "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/?page=1",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "tradelog",
-                        "trades",
-                        ""
-                    ],
-                    "query": [
-                        {
-                            "key": "page",
-                            "value": "1"
-                        }
-                    ]
-                }
+    {
+      "name": "Create Rule - Max Daily Loss",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
             }
+          ]
         },
-        {
-            "name": "Create Trade (Manual)",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "POST",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                    }
-                ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n  \"symbol\": \"RELIANCE\",\n  \"trade_date\": \"2025-01-15\",\n  \"direction\": \"long\",\n  \"quantity\": 100,\n  \"entry_price\": 2450.00,\n  \"exit_price\": 2500.00,\n  \"fees\": 25.00,\n  \"market_type\": \"indian_stocks\"\n}"
-                },
-                "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "tradelog",
-                        "trades",
-                        ""
-                    ]
-                }
-            }
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rule_name\": \"Max Daily Loss\",\n  \"description\": \"Stop trading if daily loss exceeds limit or 3% of capital.\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": { \"maxLoss\": 5000, \"maxDailyPercent\": 3 },\n  \"action\": \"lock\",\n  \"is_active\": true\n}"
         },
-        {
-            "name": "Get Trade",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "GET",
-                "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "tradelog",
-                        "trades",
-                        ":id",
-                        ""
-                    ],
-                    "variable": [
-                        {
-                            "key": "id",
-                            "value": "trade_uuid"
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "name": "Update Trade",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "PUT",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                    }
-                ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n  \"symbol\": \"RELIANCE\",\n  \"trade_date\": \"2025-01-15\",\n  \"direction\": \"long\",\n  \"quantity\": 100,\n  \"entry_price\": 2450.00,\n  \"exit_price\": 2550.00\n}"
-                },
-                "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "tradelog",
-                        "trades",
-                        ":id",
-                        ""
-                    ],
-                    "variable": [
-                        {
-                            "key": "id",
-                            "value": "trade_uuid"
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "name": "Delete Trade",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "DELETE",
-                "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "tradelog",
-                        "trades",
-                        ":id",
-                        ""
-                    ],
-                    "variable": [
-                        {
-                            "key": "id",
-                            "value": "trade_uuid"
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "name": "Import Trades",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "POST",
-                "body": {
-                    "mode": "formdata",
-                    "formdata": [
-                        {
-                            "key": "file",
-                            "type": "file",
-                            "src": []
-                        },
-                        {
-                            "key": "broker_name",
-                            "value": "zerodha",
-                            "type": "text"
-                        }
-                    ]
-                },
-                "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/import/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "tradelog",
-                        "trades",
-                        "import",
-                        ""
-                    ]
-                }
-            }
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ""]
         }
-    ],
-    "variable": [
-        {
-            "key": "baseUrl",
-            "value": "http://localhost:8000"
+      }
+    },
+    {
+      "name": "Create Rule - Position Size Limit",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
         },
-        {
-            "key": "access_token",
-            "value": ""
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rule_name\": \"Max Position Size\",\n  \"description\": \"Ensure no single trade exceeds 10% of total trading capital.\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_trade\",\n  \"trigger_condition\": { \"maxPositionPercent\": 10 },\n  \"action\": \"lock\",\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ""]
         }
-    ]
+      }
+    },
+    {
+      "name": "Create Rule - Max Trades Per Day",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rule_name\": \"Overtrading Guard\",\n  \"description\": \"Warn me if I take more than 5 trades in a single lock cycle.\",\n  \"category\": \"process\",\n  \"rule_type\": \"soft\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": { \"maxTrades\": 5 },\n  \"action\": \"warn\",\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ""]
+        }
+      }
+    },
+    {
+      "name": "Create Rule - Consecutive Losses",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rule_name\": \"Revenge Trading Guard\",\n  \"description\": \"Lock session after 3 consecutive losses to prevent emotional trading.\",\n  \"category\": \"psychology\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_trade\",\n  \"trigger_condition\": { \"consecutiveLosses\": 3 },\n  \"action\": \"lock\",\n  \"is_active\": true\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ""]
+        }
+      }
+    },
+    {
+      "name": "Get Rule",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "GET",
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/:id/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ":id", ""],
+          "variable": [
+            {
+              "key": "id",
+              "value": "rule_uuid"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Update Rule",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"rule_name\": \"Updated Limit\",\n  \"trigger_condition\": { \"maxLoss\": 4000 }\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/:id/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ":id", ""],
+          "variable": [
+            {
+              "key": "id",
+              "value": "rule_uuid"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Delete Rule",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "DELETE",
+        "url": {
+          "raw": "{{baseUrl}}/api/rules/:id/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "rules", ":id", ""],
+          "variable": [
+            {
+              "key": "id",
+              "value": "rule_uuid"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:13025"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    }
+  ]
 }
