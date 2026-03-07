@@ -1,0 +1,250 @@
+{
+    "info": {
+        "name": "Trade Log API",
+        "description": "API endpoints for the Trade Log module managing individual trade records, manual entry, CSV/Excel import, and P&L auto-calculation.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "List Trades",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?page=1",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "tradelog",
+                        "trades",
+                        ""
+                    ],
+                    "query": [
+                        {
+                            "key": "page",
+                            "value": "1"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Create Trade (Manual)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"symbol\": \"RELIANCE\",\n  \"trade_date\": \"2025-01-15\",\n  \"direction\": \"long\",\n  \"quantity\": 100,\n  \"entry_price\": 2450.00,\n  \"exit_price\": 2500.00,\n  \"fees\": 25.00,\n  \"market_type\": \"indian_stocks\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "tradelog",
+                        "trades",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "tradelog",
+                        "trades",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "trade_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Update Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"symbol\": \"RELIANCE\",\n  \"trade_date\": \"2025-01-15\",\n  \"direction\": \"long\",\n  \"quantity\": 100,\n  \"entry_price\": 2450.00,\n  \"exit_price\": 2550.00\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "tradelog",
+                        "trades",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "trade_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Delete Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "tradelog",
+                        "trades",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "trade_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Import Trades",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": []
+                        },
+                        {
+                            "key": "broker_name",
+                            "value": "zerodha",
+                            "type": "text"
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/import/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "tradelog",
+                        "trades",
+                        "import",
+                        ""
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:8000"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}

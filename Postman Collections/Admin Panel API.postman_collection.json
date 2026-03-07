@@ -1,0 +1,696 @@
+{
+    "info": {
+        "name": "Admin Panel API",
+        "description": "API endpoints for the Admin Panel module.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Admin Login",
+            "request": {
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"email\": \"admin@bitsoftrade.com\",\n  \"password\": \"adminpassword\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/auth/login/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "auth",
+                        "login",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Dashboard Stats",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/dashboard/stats/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "dashboard",
+                        "stats",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Users",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/users/?subscription_type=tool&search=johndoe",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "users",
+                        ""
+                    ],
+                    "query": [
+                        {
+                            "key": "subscription_type",
+                            "value": "tool"
+                        },
+                        {
+                            "key": "search",
+                            "value": "johndoe"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Toggle User Active Status",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/users/:user_id/toggle/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "users",
+                        ":user_id",
+                        "toggle",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "user_id",
+                            "value": "1"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Delete User (Soft Delete)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/users/:user_id/delete/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "users",
+                        ":user_id",
+                        "delete",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "user_id",
+                            "value": "1"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Admins",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/admins/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "admins",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Create Admin",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"full_name\": \"New Admin\",\n  \"email\": \"newadmin@bitsoftrade.com\",\n  \"password\": \"securepassword\",\n  \"access_level\": \"admin\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/admins/create/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "admins",
+                        "create",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Update Admin",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"full_name\": \"Updated Admin Name\",\n  \"access_level\": \"super_admin\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/admins/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "admins",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "admin_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Delete Admin",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/admins/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "admins",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "admin_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Admin Rules",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/rules/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "rules",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Create Admin Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"rule_name\": \"Max Daily Loss $500\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": {\"maxLoss\": 500},\n  \"action\": \"lock\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/rules/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "rules",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Admin Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/rules/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "rules",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "rule_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Update Admin Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"rule_name\": \"Max Daily Loss Updated\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/rules/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "rules",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "rule_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Delete Admin Rule",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/rules/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "rules",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "rule_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Template Strategies",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/strategies/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "strategies",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Create Template Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"strategy_name\": \"Admin Main Strategy\",\n  \"tags\": [\"Price Action\", \"Trend Following\"],\n  \"trade_type\": \"intraday\",\n  \"is_public\": true\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/strategies/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "strategies",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Get Template Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/strategies/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "strategies",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "strategy_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Update Template Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "PUT",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"strategy_name\": \"Updated Admin Strategy\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/strategies/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "strategies",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "strategy_uuid"
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Delete Template Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{admin_access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/admin/strategies/:id/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "admin",
+                        "strategies",
+                        ":id",
+                        ""
+                    ],
+                    "variable": [
+                        {
+                            "key": "id",
+                            "value": "strategy_uuid"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:8000"
+        },
+        {
+            "key": "admin_access_token",
+            "value": ""
+        }
+    ]
+}

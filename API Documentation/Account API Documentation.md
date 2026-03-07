@@ -9,7 +9,7 @@ The **Account** module handles user authentication, registration, profile manage
 ## Base URL
 
 ```
-/api/account/
+/api/auth/
 ```
 
 ---
@@ -30,7 +30,7 @@ Authorization: Bearer <access_token>
 
 ### 1. Register User
 
-**`POST /api/account/register/`**
+**`POST /api/auth/register/`**
 
 Creates a new user account and returns JWT tokens.
 
@@ -81,7 +81,7 @@ Creates a new user account and returns JWT tokens.
 
 ### 2. Login
 
-**`POST /api/account/login/`**
+**`POST /api/auth/login/`**
 
 Authenticates a user and returns JWT tokens.
 
@@ -126,7 +126,7 @@ Authenticates a user and returns JWT tokens.
 
 ### 3. Logout
 
-**`POST /api/account/logout/`**
+**`POST /api/auth/logout/`**
 
 Blacklists the provided refresh token to invalidate the session.
 
@@ -150,7 +150,7 @@ Blacklists the provided refresh token to invalidate the session.
 
 ### 4. Get Current User
 
-**`GET /api/account/me/`**
+**`GET /api/auth/me/`**
 
 Returns the profile of the currently authenticated user.
 
@@ -175,7 +175,7 @@ Returns the profile of the currently authenticated user.
 
 ### 5. Profile
 
-**`GET /api/account/profile/`**
+**`GET /api/auth/profile/`**
 
 Returns the authenticated user's full profile.
 
@@ -185,7 +185,7 @@ Returns the authenticated user's full profile.
 
 ---
 
-**`PUT /api/account/profile/`**
+**`PUT /api/auth/profile/`**
 
 Fully updates the user's profile (all fields required).
 
@@ -211,7 +211,7 @@ Fully updates the user's profile (all fields required).
 
 ---
 
-**`PATCH /api/account/profile/`**
+**`PATCH /api/auth/profile/`**
 
 Partially updates the user's profile (only provided fields are updated).
 
@@ -223,7 +223,7 @@ Partially updates the user's profile (only provided fields are updated).
 
 ### 6. Token — Obtain Pair
 
-**`POST /api/account/token/`**
+**`POST /api/auth/token/`**
 
 Standard SimpleJWT endpoint. Returns access and refresh tokens from credentials.
 
@@ -247,7 +247,7 @@ Standard SimpleJWT endpoint. Returns access and refresh tokens from credentials.
 
 ### 7. Token — Refresh
 
-**`POST /api/account/token/refresh/`**
+**`POST /api/auth/token/refresh/`**
 
 Returns a new access token using a valid refresh token.
 
