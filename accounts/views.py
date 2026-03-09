@@ -42,9 +42,12 @@ def login_view(request):
     """User login endpoint"""
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
-        username = serializer.validated_data['username']
+        # Changed username to email
+        email = serializer.validated_data['email']
         password = serializer.validated_data['password']
-        user = authenticate(request, username=username, password=password)
+        
+        # Authenticate using email
+        user = authenticate(request, email=email, password=password)
         
         if user is not None:
             tokens = get_tokens_for_user(user)
@@ -55,7 +58,8 @@ def login_view(request):
             }, status=status.HTTP_200_OK)
         else:
             return Response({
-                'error': 'Invalid username or password'
+                # Updated error message
+                'error': 'Invalid email or password'
             }, status=status.HTTP_401_UNAUTHORIZED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
