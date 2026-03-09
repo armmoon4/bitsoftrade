@@ -1,12 +1,12 @@
 {
     "info": {
-        "name": "Rules API",
-        "description": "API endpoints for the Rules module managing trading rules that power the Discipline Guard.",
+        "name": "Discipline API",
+        "description": "API endpoints for the Discipline module handling trading session states and lock cycle logic.",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
     },
     "item": [
         {
-            "name": "List Rules",
+            "name": "Get Today's Session",
             "request": {
                 "auth": {
                     "type": "bearer",
@@ -20,20 +20,49 @@
                 },
                 "method": "GET",
                 "url": {
-                    "raw": "{{baseUrl}}/api/rules/",
+                    "raw": "{{baseUrl}}/api/discipline/current-session/",
                     "host": [
                         "{{baseUrl}}"
                     ],
                     "path": [
                         "api",
-                        "rules",
+                        "discipline",
+                        "current-session",
                         ""
                     ]
                 }
             }
         },
         {
-            "name": "Create Custom Rule",
+            "name": "Session History",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/discipline/sessions/",
+                    "host": [
+                        "{{baseUrl}}"
+                    ],
+                    "path": [
+                        "api",
+                        "discipline",
+                        "sessions",
+                        ""
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Unlock Session",
             "request": {
                 "auth": {
                     "type": "bearer",
@@ -54,23 +83,24 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"rule_name\": \"Max Daily Loss\",\n  \"description\": \"Stop trading if daily loss exceeds limit.\",\n  \"category\": \"risk\",\n  \"rule_type\": \"hard\",\n  \"trigger_scope\": \"per_day\",\n  \"trigger_condition\": {\n    \"maxLoss\": 5000,\n    \"maxDailyPercent\": 3\n  },\n  \"action\": \"lock\",\n  \"is_active\": true\n}"
+                    "raw": "{\n  \"action\": \"complete_journal\"\n}"
                 },
                 "url": {
-                    "raw": "{{baseUrl}}/api/rules/",
+                    "raw": "{{baseUrl}}/api/discipline/unlock/",
                     "host": [
                         "{{baseUrl}}"
                     ],
                     "path": [
                         "api",
-                        "rules",
+                        "discipline",
+                        "unlock",
                         ""
                     ]
                 }
             }
         },
         {
-            "name": "Get Rule",
+            "name": "Violations Timeline",
             "request": {
                 "auth": {
                     "type": "bearer",
@@ -84,98 +114,24 @@
                 },
                 "method": "GET",
                 "url": {
-                    "raw": "{{baseUrl}}/api/rules/:id/",
+                    "raw": "{{baseUrl}}/api/discipline/violations-timeline/?from=2025-01-01&to=2025-01-31",
                     "host": [
                         "{{baseUrl}}"
                     ],
                     "path": [
                         "api",
-                        "rules",
-                        ":id",
+                        "discipline",
+                        "violations-timeline",
                         ""
                     ],
-                    "variable": [
+                    "query": [
                         {
-                            "key": "id",
-                            "value": "rule_uuid_here"
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "name": "Partial Update Rule",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
+                            "key": "from",
+                            "value": "2025-01-01"
+                        },
                         {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "PATCH",
-                "header": [
-                    {
-                        "key": "Content-Type",
-                        "value": "application/json"
-                    }
-                ],
-                "body": {
-                    "mode": "raw",
-                    "raw": "{\n  \"rule_name\": \"Updated Limit\",\n  \"trigger_condition\": {\n    \"maxLoss\": 4000\n  }\n}"
-                },
-                "url": {
-                    "raw": "{{baseUrl}}/api/rules/:id/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "rules",
-                        ":id",
-                        ""
-                    ],
-                    "variable": [
-                        {
-                            "key": "id",
-                            "value": "rule_uuid_here"
-                        }
-                    ]
-                }
-            }
-        },
-        {
-            "name": "Delete Rule",
-            "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [
-                        {
-                            "key": "token",
-                            "value": "{{access_token}}",
-                            "type": "string"
-                        }
-                    ]
-                },
-                "method": "DELETE",
-                "url": {
-                    "raw": "{{baseUrl}}/api/rules/:id/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "rules",
-                        ":id",
-                        ""
-                    ],
-                    "variable": [
-                        {
-                            "key": "id",
-                            "value": "rule_uuid_here"
+                            "key": "to",
+                            "value": "2025-01-31"
                         }
                     ]
                 }

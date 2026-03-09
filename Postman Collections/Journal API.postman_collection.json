@@ -1,0 +1,409 @@
+{
+    "info": {
+        "name": "Journal API",
+        "description": "API endpoints for the Journal module.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Daily Journals",
+            "item": [
+                {
+                    "name": "List Daily Journals",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/daily/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "daily", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Daily Journal",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "POST",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"journal_date\": \"2025-01-15\",\n  \"session_state\": \"green\",\n  \"prompt_text\": \"What went well today?\",\n  \"reflection\": \"Stayed disciplined.\",\n  \"intention_next_session\": \"Be patient.\",\n  \"limits_followed\": \"yes\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/daily/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "daily", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Daily Journal",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/daily/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "daily", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "journal_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Daily Journal",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PATCH",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"reflection\": \"Updated reflection.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/daily/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "daily", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "journal_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Daily Journal",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/daily/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "daily", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "journal_uuid" } ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Trade Notes",
+            "item": [
+                {
+                    "name": "List Trade Notes",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/trade-notes/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "trade-notes", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Trade Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "POST",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"trade\": \"trade_uuid\",\n  \"note_text\": \"Chased the stock.\",\n  \"tags\": [\"#FOMO\", \"#patience\"]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/trade-notes/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "trade-notes", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Trade Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/trade-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "trade-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Trade Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PATCH",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"note_text\": \"Updated trade note text.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/trade-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "trade-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Trade Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/trade-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "trade-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Psychology Logs",
+            "item": [
+                {
+                    "name": "List Psychology Logs",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/psychology/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "psychology", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Psychology Log",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "POST",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"log_date\": \"2025-01-15\",\n  \"emotional_state\": \"fomo\",\n  \"confidence_before\": 6,\n  \"satisfaction_after\": 4,\n  \"pressure_source\": \"missed_move\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/psychology/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "psychology", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Psychology Log",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/psychology/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "psychology", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "psych_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Psychology Log",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PATCH",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"satisfaction_after\": 8\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/psychology/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "psychology", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "psych_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Psychology Log",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/psychology/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "psychology", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "psych_uuid" } ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Session Recaps",
+            "item": [
+                {
+                    "name": "List Session Recaps",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/recaps/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "recaps", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Session Recap",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "POST",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"recap_date\": \"2025-01-15\",\n  \"session_state\": \"yellow\",\n  \"outcome\": \"neutral\",\n  \"what_went_right\": [\"Stopped after daily loss\"],\n  \"what_slipped\": [\"Entered early\"],\n  \"rule_to_focus\": \"Wait for candle close\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/recaps/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "recaps", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Session Recap",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/recaps/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "recaps", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "recap_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Session Recap",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PATCH",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"outcome\": \"good\",\n  \"rule_to_focus\": \"Updated rule focus\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/recaps/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "recaps", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "recap_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Session Recap",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/recaps/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "recaps", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "recap_uuid" } ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Learning Notes",
+            "item": [
+                {
+                    "name": "List Learning Notes",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/learning-notes/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "learning-notes", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Create Learning Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "POST",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"lesson_source\": \"Trading in the Zone\",\n  \"key_takeaway\": \"Losses are part of the game.\",\n  \"application_plan\": \"Accept loss immediately.\",\n  \"linked_type\": \"rule\",\n  \"linked_id\": \"rule_uuid\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/learning-notes/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "learning-notes", "" ]
+                        }
+                    }
+                },
+                {
+                    "name": "Get Learning Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "GET",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/learning-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "learning-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Learning Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PATCH",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"application_plan\": \"Updated application plan.\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/learning-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "learning-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Delete Learning Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "DELETE",
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/learning-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "learning-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}

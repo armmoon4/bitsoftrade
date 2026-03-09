@@ -4,11 +4,10 @@ from .models import User
 
 class UserSerializer(serializers.ModelSerializer):
     """User serializer"""
-    
     class Meta:
         model = User
-        fields = ['id', 'username', 'email', 'first_name', 'last_name', 'subscription_type', 'profile_picture',
-                  'created_at']
+
+        fields = ['id', 'email', 'first_name', 'last_name', 'subscription_type', 'profile_picture', 'created_at']
         read_only_fields = ['id', 'created_at']
 
 
@@ -19,8 +18,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = User
-        fields = ['username', 'email', 'password', 'password_confirm', 
-                  'first_name', 'last_name']
+        fields = ['email', 'password', 'password_confirm', 'first_name', 'last_name']
     
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
@@ -35,13 +33,12 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 class UserLoginSerializer(serializers.Serializer):
     """User login serializer"""
-    username = serializers.CharField()
+    email = serializers.EmailField()
     password = serializers.CharField(write_only=True, style={'input_type': 'password'})
 
 
 class UserProfileUpdateSerializer(serializers.ModelSerializer):
     """User profile update serializer"""
-    
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'profile_picture']
