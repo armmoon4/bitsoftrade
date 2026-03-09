@@ -16,7 +16,7 @@ services:
     volumes:
       - .:/app
     ports:
-      - "13025:8000"
+      - "13025:13025"
     environment:
       - DATABASE_NAME=${DATABASE_NAME}
       - DATABASE_USER=${DATABASE_USER}
