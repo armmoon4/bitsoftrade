@@ -36,6 +36,11 @@ class Strategy(models.Model):
     tags = models.JSONField(default=list, blank=True)
     market_types = models.JSONField(default=list, blank=True, help_text='Indian Stocks / Forex / Crypto / Options')
     trade_type = models.CharField(max_length=15, choices=TRADE_TYPE_CHOICES, null=True, blank=True)
+    
+    entry_rules = models.JSONField(default=list, blank=True, help_text='List of entry rules')
+    exit_rules = models.JSONField(default=list, blank=True, help_text='List of exit rules')
+    risk_management_rules = models.JSONField(default=list, blank=True, help_text='List of risk management rules')
+
     is_public = models.BooleanField(default=False)
     is_template = models.BooleanField(default=False)
     maturity_status = models.CharField(max_length=15, choices=MATURITY_STATUS_CHOICES, default='testing')

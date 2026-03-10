@@ -12,11 +12,11 @@ services:
 
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python manage.py runserver 0.0.0.0:13025
     volumes:
       - .:/app
     ports:
-      - "13025:8000"
+      - "13025:13025"
     environment:
       - DATABASE_NAME=${DATABASE_NAME}
       - DATABASE_USER=${DATABASE_USER}

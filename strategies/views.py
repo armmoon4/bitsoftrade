@@ -183,6 +183,11 @@ def add_to_mine_view(request, pk):
         description=original.description,
         tags=original.tags,
         market_types=original.market_types,
+
+        entry_rules=original.entry_rules,
+        exit_rules=original.exit_rules,
+        risk_management_rules=original.risk_management_rules,
+        
         trade_type=original.trade_type,
         sample_size_threshold=original.sample_size_threshold,
         is_public=False,
