@@ -54,7 +54,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"strategy_name\": \"Opening Range Breakout\",\n  \"description\": \"Trade breakouts from the first 15-min range.\",\n  \"tags\": [\"breakout\", \"morning\"],\n  \"market_types\": [\"Indian Stocks\", \"Options\"],\n  \"trade_type\": \"intraday\",\n  \"is_public\": false,\n  \"sample_size_threshold\": 30\n}"
+                    "raw": "{\n  \"strategy_name\": \"Opening Range Breakout\",\n  \"description\": \"Trade breakouts from the first 15-min range.\",\n  \"tags\": [\"breakout\", \"morning\"],\n  \"market_types\": [\"Indian Stocks\", \"Options\"],\n  \"entry_rules\": [\"15m candle closes above resistance\", \"Volume > 1.5x average\"],\n  \"exit_rules\": [\"Exit 50% at 1:2 RR\", \"Trail stop loss using 9 EMA\"],\n  \"risk_management_rules\": [\"Max 1% account risk per trade\", \"Stop trading after 2 consecutive losses\"],\n  \"trade_type\": \"intraday\",\n  \"is_public\": false,\n  \"sample_size_threshold\": 30\n}"
                 },
                 "url": {
                     "raw": "{{baseUrl}}/api/strategies/",
@@ -183,7 +183,7 @@
                 ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"strategy_name\": \"Updated Strategy Name\",\n  \"trade_type\": \"swing\"\n}"
+                    "raw": "{\n  \"strategy_name\": \"Updated Strategy Name\",\n  \"trade_type\": \"swing\",\n  \"entry_rules\": [\"Wait for pullback to VWAP\", \"RSI must be above 50\"]\n}"
                 },
                 "url": {
                     "raw": "{{baseUrl}}/api/strategies/:id/",
