@@ -32,12 +32,6 @@ def normalize_upstox(raw_rows):
             trade_date_iso = date_raw
 
         symbol = scrip_code
-        if segment == 'FO':
-            expiry = row.get('expiry', '').strip()
-            strike = row.get('strike_price', '').strip()
-            instr = row.get('instrument_type', '').strip().lower()
-            opt_type = 'CE' if 'call' in instr else 'PE' if 'put' in instr else instr.upper()
-            symbol = f"{scrip_code} {expiry} {strike} {opt_type}".strip()
 
         key = (symbol, trade_date_iso)
         groups[key]['segment'] = segment
