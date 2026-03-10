@@ -35,9 +35,6 @@ def _get_session_lock_response(user, date=None):
       - state is 'yellow' AND cooldown elapsed but required_actions_completed
         is still False (user hasn't completed the unlock flow yet).
 
-    Args:
-        date: Optional date to check. Defaults to today (for manual trades).
-              Pass the trade's date for CSV import per-row checks.
     """
     from rules.engine import is_session_locked
     locked, message = is_session_locked(user, date=date)
@@ -62,11 +59,7 @@ class TradeImportView(generics.GenericAPIView):
     Accepts CSV or Excel file. Parses and imports trades.
     Supports: Generic CSV, Zerodha, Upstox, Groww formats.
 
-    FIX: Per-row session lock check now re-reads the session from DB AFTER
-    each trade.save() so that if trade N causes the rule engine to lock the
-    session (via post_save signal), trade N+1 correctly sees the locked state
-    and is blocked. Previously the lock check ran before trade.save(), so all
-    rows passed the check before any of them could trigger the lock.
+
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -100,15 +93,51 @@ class TradeImportView(generics.GenericAPIView):
 
         created_trades = []
         errors = []
+        blocked_dates = set()  # dates whose session got locked during this import
+
+        # Sort rows by date ascending so rules are evaluated in chronological
+        def _parse_date_for_sort(row):
+            from datetime import datetime, date as ddate
+            date_raw = row.get('date') or row.get('trade_date', '')
+            if date_raw and ' ' in str(date_raw):
+                date_raw = str(date_raw).split(' ')[0]
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y'):
+                try:
+                    return datetime.strptime(str(date_raw), fmt).date()
+                except (ValueError, TypeError):
+                    continue
+            return ddate.today()
+
+        rows = sorted(rows, key=_parse_date_for_sort)
 
         for i, row in enumerate(rows, start=1):
+            # Skip this row immediately if its date is already known-locked
+            # from a previous row in this same import batch.
+            row_date = _parse_date_for_sort(row)
+            if row_date in blocked_dates:
+                errors.append({
+                    'row': i,
+                    'error': f'Trade blocked — session already locked for {row_date} (locked by earlier row in this import).',
+                    'data': row,
+                })
+                continue
+
             try:
                 trade = _create_trade_from_row(row, request.user, detected_broker or broker_name)
                 created_trades.append(trade)
+
+                # After each successful save the post_save signal may have
+                # locked this date's session. Re-check and mark it blocked
+                # so all subsequent rows for the same date are skipped.
+                from rules.engine import is_session_locked
+                locked, _ = is_session_locked(request.user, date=row_date)
+                if locked:
+                    blocked_dates.add(row_date)
+
             except ValueError as e:
-                # ValueError is raised by _create_trade_from_row when the
-                # session is locked for this row's trade_date.
+                # Session was already locked when we entered _create_trade_from_row
                 errors.append({'row': i, 'error': str(e), 'data': row})
+                blocked_dates.add(row_date)
             except Exception as e:
                 errors.append({'row': i, 'error': str(e), 'data': row})
 
@@ -117,6 +146,7 @@ class TradeImportView(generics.GenericAPIView):
             'failed': len(errors),
             'errors': errors[:10],
             'detected_broker': detected_broker,
+            'blocked_dates': [str(d) for d in sorted(blocked_dates)],
             'message': f'{len(created_trades)} trades imported successfully.'
         }, status=status.HTTP_201_CREATED)
 
@@ -208,16 +238,6 @@ def _create_trade_from_row(row, user, broker_name):
     """
     Create and save a Trade instance from a normalized row dict.
 
-    FIX: The session lock check now happens BEFORE trade creation (correct),
-    and the caller (TradeImportView.post) loops through rows sequentially so
-    that after each trade.save() the post_save signal fires and updates the
-    session. The NEXT row then re-enters this function and the lock check
-    at the top reads the freshly updated session from DB — meaning if row N
-    locked the session, row N+1 is correctly blocked.
-
-    This replaces the old pattern where ALL rows were pre-checked before any
-    were saved, which meant the signal never had a chance to lock the session
-    between row N and row N+1.
     """
     from datetime import datetime, date as ddate
     from discipline.models import DisciplineSession
@@ -258,10 +278,7 @@ def _create_trade_from_row(row, user, broker_name):
         except Exception:
             pass
 
-    # FIX: Check the session lock for this specific trade_date BEFORE saving.
-    # Because rows are processed sequentially and trade.save() triggers the
-    # post_save signal synchronously, by the time we reach row N+1 the DB
-    # session for that date already reflects any lock caused by row N.
+
     locked, lock_msg = is_session_locked(user, date=trade_date)
     if locked:
         raise ValueError(f"Trade blocked — session locked for {trade_date}: {lock_msg}")

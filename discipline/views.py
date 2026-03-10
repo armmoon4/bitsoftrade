@@ -144,10 +144,10 @@ def unlock_session_view(request):
         session.lock_cycle = (session.lock_cycle or 0) + 1
         session.lock_cycle_started_at = timezone.now()
         session.cooldown_ends_at = None
-        session.rules_violated = []
-        session.violations_count = 0
-        session.hard_violations = 0
-        session.soft_violations = 0
+        # NOTE: rules_violated, violations_count, hard_violations, soft_violations
+        # are intentionally NOT reset here — they are permanent historical record
+        # for this session date and power the behavior metrics.
+        # Only the cycle-control and UI-state fields are reset.
         session.journal_completed = False
         session.trade_review_completed = False
 
