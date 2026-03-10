@@ -29,15 +29,6 @@ def _get_session_lock_response(user, date=None):
     Returns a DRF Response (HTTP 423) if the user's trading session is locked,
     or None if trading is allowed.
 
-    A session is considered locked when:
-      - state is 'red', OR
-      - state is 'yellow' AND the cooldown has not expired yet, OR
-      - state is 'yellow' AND cooldown elapsed but required_actions_completed
-        is still False (user hasn't completed the unlock flow yet).
-
-    Args:
-        date: Optional date to check. Defaults to today (for manual trades).
-              Pass the trade's date for CSV import per-row checks.
     """
     from rules.engine import is_session_locked
     locked, message = is_session_locked(user, date=date)
@@ -61,12 +52,6 @@ class TradeImportView(generics.GenericAPIView):
     POST /api/tradelog/trades/import/
     Accepts CSV or Excel file. Parses and imports trades.
     Supports: Generic CSV, Zerodha, Upstox, Groww formats.
-
-    FIX: Per-row session lock check now re-reads the session from DB AFTER
-    each trade.save() so that if trade N causes the rule engine to lock the
-    session (via post_save signal), trade N+1 correctly sees the locked state
-    and is blocked. Previously the lock check ran before trade.save(), so all
-    rows passed the check before any of them could trigger the lock.
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -233,10 +218,7 @@ class TradeListCreateView(generics.ListCreateAPIView):
             ).count()
             trade.strategy.update_maturity(total)
 
-        # Rule evaluation is handled by the post_save signal in discipline/signals.py.
-        # Do NOT call evaluate_rules_for_user here — the stale in-memory trade.session
-        # would overwrite the DB session state back to GREEN after the signal
-        # has already correctly set it to RED/YELLOW.
+
 
 
 class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -279,16 +261,6 @@ def _create_trade_from_row(row, user, broker_name):
     """
     Create and save a Trade instance from a normalized row dict.
 
-    FIX: The session lock check now happens BEFORE trade creation (correct),
-    and the caller (TradeImportView.post) loops through rows sequentially so
-    that after each trade.save() the post_save signal fires and updates the
-    session. The NEXT row then re-enters this function and the lock check
-    at the top reads the freshly updated session from DB — meaning if row N
-    locked the session, row N+1 is correctly blocked.
-
-    This replaces the old pattern where ALL rows were pre-checked before any
-    were saved, which meant the signal never had a chance to lock the session
-    between row N and row N+1.
     """
     from datetime import datetime, date as ddate
     from discipline.models import DisciplineSession
@@ -329,11 +301,7 @@ def _create_trade_from_row(row, user, broker_name):
         except Exception:
             pass
 
-    # Duplicate check — skip if this exact trade already exists in DB.
-    # This allows re-importing the same CSV after unlocking a session:
-    # previously imported rows are skipped, import resumes from where
-    # it stopped. Match on user + date + symbol + direction + entry_price
-    # + quantity as a natural unique key for a trade row.
+
     already_exists = Trade.objects.filter(
         user=user,
         trade_date=trade_date,
@@ -374,10 +342,7 @@ def _create_trade_from_row(row, user, broker_name):
     )
     trade.calculate_pnl()
 
-    # trade.save() triggers the post_save signal in discipline/signals.py which
-    # calls evaluate_rules_for_user and updates the session state in the DB.
-    # The next call to is_session_locked (for the next row) will see this
-    # updated state because is_session_locked always reads from DB.
+
     trade.save()
 
     if trade.strategy:
