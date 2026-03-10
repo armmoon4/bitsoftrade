@@ -117,6 +117,18 @@ def unlock_session_view(request):
     elif action == 'complete_all':
         session.journal_completed = True
         session.trade_review_completed = True
+        # Cooldown starts ONLY when user hits complete_all — not before.
+        # This means the timer begins the moment the user confirms both
+        # checklist items, not when the session first locked.
+        if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
+            from datetime import timedelta
+            _COOLDOWN_YELLOW_MINUTES = 45
+            _COOLDOWN_RED_MINUTES = 120
+            if session.session_state == 'yellow':
+                session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
+            elif session.session_state == 'red':
+                session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
+            session.save(update_fields=['cooldown_ends_at'])
 
     # Determine whether unlock conditions are satisfied
     can_unlock = False
