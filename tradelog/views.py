@@ -8,7 +8,6 @@ from tradelog.models import Trade
 from tradelog.serializers import TradeManagementSerializer
 from .pagination import StandardResultsSetPagination
 
-# Import the parsing logic
 from .importers.parser import parse_csv, parse_excel, detect_and_normalize
 
 
@@ -25,17 +24,14 @@ class TradeImportSerializer(serializers.Serializer):
 # SESSION LOCK HELPER
 # ─────────────────────────────────────────────
 
-def _get_session_lock_response(user):
+def _get_session_lock_response(user, date=None):
     """
     Returns a DRF Response (HTTP 423) if the user's trading session is locked,
     or None if trading is allowed.
 
-    A session is considered locked when:
-      - state is 'red', OR
-      - state is 'yellow' AND the cooldown has not expired yet.
     """
     from rules.engine import is_session_locked
-    locked, message = is_session_locked(user)
+    locked, message = is_session_locked(user, date=date)
     if locked:
         return Response(
             {
@@ -56,17 +52,12 @@ class TradeImportView(generics.GenericAPIView):
     POST /api/tradelog/trades/import/
     Accepts CSV or Excel file. Parses and imports trades.
     Supports: Generic CSV, Zerodha, Upstox, Groww formats.
-
-    BUG FIX: Returns HTTP 423 if the user's discipline session is locked.
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = TradeImportSerializer
 
     def post(self, request, *args, **kwargs):
-        # Allow import to proceed so that per-row dates are checked correctly.
-        # Top-level block by today's date prevents importing back-dated trades.
-
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -87,7 +78,6 @@ class TradeImportView(generics.GenericAPIView):
         except Exception as e:
             return Response({'error': f'File parsing failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Detect broker format and normalize rows into standard trade dicts
         try:
             detected_broker, rows = detect_and_normalize(raw_rows, broker_name)
         except Exception as e:
@@ -95,24 +85,96 @@ class TradeImportView(generics.GenericAPIView):
 
         created_trades = []
         errors = []
+        skipped_trades = []
+        blocked_dates = set()  # dates whose session got locked during this import
+
+        # Sort rows by date ascending so rules are evaluated in chronological
+        # order. This ensures that if Feb-20 hits maxTrades and locks, all
+        # remaining Feb-20 rows are blocked before we even start Feb-21.
+        def _parse_date_for_sort(row):
+            from datetime import datetime, date as ddate
+            date_raw = row.get('date') or row.get('trade_date', '')
+            if date_raw and ' ' in str(date_raw):
+                date_raw = str(date_raw).split(' ')[0]
+            for fmt in ('%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%m/%d/%Y'):
+                try:
+                    return datetime.strptime(str(date_raw), fmt).date()
+                except (ValueError, TypeError):
+                    continue
+            return ddate.today()
+
+        rows = sorted(rows, key=_parse_date_for_sort)
+
+        # Tracks the first date that locked during this import.
+        # Once set, ALL subsequent rows (any date) are stopped immediately.
+        import_stopped_at = None
 
         for i, row in enumerate(rows, start=1):
-            # Session lock is now checked inside _create_trade_from_row
-            # per-row based on the actual trade date.
+            row_date = _parse_date_for_sort(row)
+
+            # If import was already stopped by a previous violation, block
+            # every remaining row regardless of date.
+            if import_stopped_at is not None:
+                errors.append({
+                    'row': i,
+                    'error': f'Import stopped — session locked for {import_stopped_at}. Unlock that session first then re-import.',
+                    'data': row,
+                })
+                continue
+
+            # Re-check DB lock state before every row — the signal from
+            # the previous trade may have just locked this date.
+            from rules.engine import is_session_locked
+            locked, lock_msg = is_session_locked(request.user, date=row_date)
+            if locked:
+                import_stopped_at = row_date
+                errors.append({
+                    'row': i,
+                    'error': f'Import stopped — session locked for {row_date}: {lock_msg}',
+                    'data': row,
+                })
+                continue
 
             try:
                 trade = _create_trade_from_row(row, request.user, detected_broker or broker_name)
                 created_trades.append(trade)
+
+                # After save, signal fires synchronously and may lock this date.
+                # If it did, stop the entire import from the next row onwards.
+                locked, lock_msg = is_session_locked(request.user, date=row_date)
+                if locked:
+                    import_stopped_at = row_date
+
+            except ValueError as e:
+                err_str = str(e)
+                if err_str.startswith('DUPLICATE'):
+                    # Already imported — silently skip, do not stop import
+                    skipped_trades.append(row)
+                else:
+                    # Real lock or error — stop the entire import
+                    import_stopped_at = row_date
+                    errors.append({'row': i, 'error': err_str, 'data': row})
             except Exception as e:
                 errors.append({'row': i, 'error': str(e), 'data': row})
 
-        return Response({
+        response_data = {
             'imported': len(created_trades),
             'failed': len(errors),
             'errors': errors[:10],
             'detected_broker': detected_broker,
-            'message': f'{len(created_trades)} trades imported successfully.'
-        }, status=status.HTTP_201_CREATED)
+            'skipped': len(skipped_trades),
+            'message': f'{len(created_trades)} trades imported successfully.',
+        }
+        if import_stopped_at is not None:
+            response_data['import_stopped'] = True
+            response_data['stopped_at_date'] = str(import_stopped_at)
+            response_data['message'] = (
+                f'{len(created_trades)} trades imported. '
+                f'Import stopped at {import_stopped_at} due to a rule violation. '
+                f'Unlock that session to import remaining trades.'
+            )
+
+        return Response(response_data, status=status.HTTP_201_CREATED)
 
 
 class TradeListCreateView(generics.ListCreateAPIView):
@@ -135,7 +197,7 @@ class TradeListCreateView(generics.ListCreateAPIView):
         return qs
 
     def create(self, request, *args, **kwargs):
-        # BUG FIX: Block manual trade entry when session is locked
+        # Block manual trade entry when today's session is locked.
         lock_response = _get_session_lock_response(request.user)
         if lock_response:
             return lock_response
@@ -145,24 +207,18 @@ class TradeListCreateView(generics.ListCreateAPIView):
         trade = serializer.save(user=self.request.user)
         trade.calculate_pnl()
 
-        # Fix 5: Auto-mark tagging complete when all required fields are present
         if trade.strategy and trade.emotional_state and trade.entry_confidence:
             trade.is_tagged_complete = True
 
         trade.save(update_fields=['total_pnl', 'is_tagged_complete'])
 
-        # Fix 2: Update strategy maturity based on latest trade count
         if trade.strategy:
             total = Trade.objects.filter(
                 strategy=trade.strategy, deleted_at__isnull=True
             ).count()
             trade.strategy.update_maturity(total)
 
-        # Rule evaluation is handled by the post_save signal in discipline/signals.py
-        # which always fetches a fresh session from the DB. Do NOT call
-        # evaluate_rules_for_user here — using the stale in-memory trade.session
-        # would overwrite the DB session state back to GREEN after the signal
-        # has already correctly set it to RED.
+
 
 
 class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -177,13 +233,11 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
         trade = serializer.save()
         trade.calculate_pnl()
 
-        # Fix 5: Auto-mark tagging complete when all required fields are present
         if trade.strategy and trade.emotional_state and trade.entry_confidence:
             trade.is_tagged_complete = True
 
         trade.save(update_fields=['total_pnl', 'is_tagged_complete'])
 
-        # Fix 2: Update strategy maturity based on latest trade count
         if trade.strategy:
             total = Trade.objects.filter(
                 strategy=trade.strategy, deleted_at__isnull=True
@@ -204,9 +258,13 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
 # ─────────────────────────────────────────────
 
 def _create_trade_from_row(row, user, broker_name):
-    """Create and save a Trade instance from a normalized row dict."""
+    """
+    Create and save a Trade instance from a normalized row dict.
+
+    """
     from datetime import datetime, date as ddate
     from discipline.models import DisciplineSession
+    from rules.engine import is_session_locked
 
     symbol = row.get('symbol') or row.get('scrip', '')
     direction = (row.get('direction') or row.get('trade_type', 'long')).lower()
@@ -216,7 +274,7 @@ def _create_trade_from_row(row, user, broker_name):
     exit_price = Decimal(str(exit_price_raw)) if exit_price_raw else None
     fees = Decimal(str(row.get('fees') or row.get('brokerage', 0)))
 
-    # Date parsing — strip any time component first (e.g. Upstox sends "2026-02-24 00:00:00")
+    # Date parsing — strip any time component (e.g. Upstox sends "2026-02-24 00:00:00")
     date_raw = row.get('date') or row.get('trade_date', '')
     if date_raw and ' ' in str(date_raw):
         date_raw = str(date_raw).split(' ')[0]
@@ -234,7 +292,7 @@ def _create_trade_from_row(row, user, broker_name):
     if time_raw:
         try:
             from datetime import time as dtime
-            parts = time_raw.split(':')
+            parts = str(time_raw).split(':')
             trade_time = dtime(
                 int(parts[0]),
                 int(parts[1]),
@@ -243,10 +301,23 @@ def _create_trade_from_row(row, user, broker_name):
         except Exception:
             pass
 
-    from rules.engine import is_session_locked
+
+    already_exists = Trade.objects.filter(
+        user=user,
+        trade_date=trade_date,
+        symbol=symbol or 'UNKNOWN',
+        direction='long' if direction in ('long', 'buy', 'b') else 'short',
+        entry_price=entry_price,
+        quantity=quantity,
+        deleted_at__isnull=True,
+    ).exists()
+    if already_exists:
+        raise ValueError(f"DUPLICATE — trade already imported for {trade_date} {symbol} skipped.")
+
+    # Check the session lock for this specific trade_date BEFORE saving.
     locked, lock_msg = is_session_locked(user, date=trade_date)
     if locked:
-        raise ValueError(f"Trade blocked — session locked: {lock_msg}")
+        raise ValueError(f"Trade blocked — session locked for {trade_date}: {lock_msg}")
 
     # Get or create a discipline session for this trade date
     session, _ = DisciplineSession.objects.get_or_create(
@@ -270,15 +341,14 @@ def _create_trade_from_row(row, user, broker_name):
         is_tagged_complete=False,
     )
     trade.calculate_pnl()
+
+
     trade.save()
 
-    # Update strategy maturity after import
     if trade.strategy:
         total = Trade.objects.filter(
             strategy=trade.strategy, deleted_at__isnull=True
         ).count()
         trade.strategy.update_maturity(total)
-
-    # Rule evaluation handled by post_save signal — see perform_create comment.
 
     return trade
