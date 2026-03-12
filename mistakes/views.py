@@ -55,7 +55,7 @@ class TradeMistakeListCreateView(generics.ListCreateAPIView):
 def mistakes_analytics_view(request):
     """
     GET /api/mistakes/analytics/
-    Returns usage counts, trends, impact, severity distribution.
+    Returns usage counts, trends, impact, severity distribution, and clustering detection.
     """
     user = request.user
     from datetime import date, timedelta
@@ -68,7 +68,7 @@ def mistakes_analytics_view(request):
 
     # Usage count per mistake
     usage = user_trade_mistakes.values(
-        'mistake__id', 'mistake__mistake_name',
+        'mistake__id', 'mistake__mistake_name', 'mistake__description',
         'mistake__category', 'mistake__severity_weight'
     ).annotate(count=Count('id')).order_by('-count')
 
@@ -96,15 +96,57 @@ def mistakes_analytics_view(request):
             trend = 'Stable'
         usage_with_trend.append({**item, 'trend': trend, 'last_30': l30, 'prev_30': p30})
 
-    # Impact: total P&L loss from trades with at least one mistake
+    # Impact metrics
     from tradelog.models import Trade
+    all_user_trades = Trade.objects.filter(user=user, deleted_at__isnull=True)
+    total_trades_count = all_user_trades.count()
+
     impacted_trade_ids = user_trade_mistakes.values_list('trade_id', flat=True).distinct()
-    impact = Trade.objects.filter(
-        id__in=impacted_trade_ids, deleted_at__isnull=True
-    ).aggregate(
-        impacted_count=Count('id'),
-        total_pnl_impact=Sum('total_pnl')
-    )
+    impacted_trades = all_user_trades.filter(id__in=impacted_trade_ids)
+    impacted_count = impacted_trades.count()
+    total_pnl_impact = impacted_trades.aggregate(total=Sum('total_pnl'))['total'] or 0
+
+    clean_trades = all_user_trades.exclude(id__in=impacted_trade_ids)
+    clean_trades_count = clean_trades.count()
+
+    # Success rate for clean trades
+    if clean_trades_count > 0:
+        clean_winning_count = clean_trades.filter(total_pnl__gt=0).count()
+        clean_success_rate = (clean_winning_count / clean_trades_count) * 100
+    else:
+        clean_success_rate = 0
+
+    if total_trades_count > 0:
+        impacted_percentage = (impacted_count / total_trades_count) * 100
+    else:
+        impacted_percentage = 0
+
+    impact = {
+        'impacted_count': impacted_count,
+        'impacted_percentage': round(impacted_percentage, 1),
+        'total_pnl_impact': round(float(total_pnl_impact), 2),
+        'clean_trades_count': clean_trades_count,
+        'clean_success_rate': round(clean_success_rate, 1)
+    }
+
+    # Clustering detection
+    last_5_trades = all_user_trades.order_by('-trade_date', '-trade_time')[:5]
+    last_5_ids = [t.id for t in last_5_trades]
+    recent_mistakes_count = TradeMistake.objects.filter(trade_id__in=last_5_ids).count()
+
+    if total_trades_count > 0:
+        avg_mistakes_per_trade = user_trade_mistakes.count() / total_trades_count
+        avg_per_5 = avg_mistakes_per_trade * 5
+    else:
+        avg_per_5 = 0
+
+    is_above_average = recent_mistakes_count > avg_per_5
+
+    clustering = {
+        'recent_mistakes_count': recent_mistakes_count,
+        'is_above_average': is_above_average,
+        'average_per_5': round(avg_per_5, 1)
+    }
 
     # Severity distribution
     severity_dist = {
@@ -116,5 +158,6 @@ def mistakes_analytics_view(request):
     return Response({
         'usage': list(usage_with_trend),
         'impact': impact,
+        'clustering': clustering,
         'severity_distribution': severity_dist,
     })

@@ -112,7 +112,7 @@ def analyze_view(request):
     ).values('hour').annotate(avg_pnl=Avg('total_pnl')).order_by('hour')
 
     # Streak analysis
-    from reports.views import _consecutive_streaks
+    from reports.services import _consecutive_streaks
     daily_pnls_data = trades.annotate(day=TruncDate('trade_date')).values('day').annotate(
         daily_pnl=Sum('total_pnl')
     ).order_by('day')

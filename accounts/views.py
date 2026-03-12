@@ -10,6 +10,7 @@ from .serializers import (
     UserProfileUpdateSerializer
 )
 
+
 def get_tokens_for_user(user):
     """Generate JWT tokens for user"""
     refresh = RefreshToken.for_user(user)
@@ -18,22 +19,6 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
-def format_serializer_errors(errors_dict):
-    """Format errors into a consistent array for the frontend."""
-    formatted_errors = []
-    for field_name, error_messages in errors_dict.items():
-        if isinstance(error_messages, list):
-            for message in error_messages:
-                formatted_errors.append({"field": field_name, "message": str(message)})
-        else:
-            formatted_errors.append({"field": field_name, "message": str(error_messages)})
-            
-    return {
-        "success": False,
-        "errors": formatted_errors
-    }
-
-# --- VIEWS ---
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -48,8 +33,7 @@ def register_view(request):
             'user': UserSerializer(user).data,
             'tokens': tokens
         }, status=status.HTTP_201_CREATED)
-        
-    return Response(format_serializer_errors(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -58,9 +42,11 @@ def login_view(request):
     """User login endpoint"""
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
+        # Changed username to email
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         
+        # Authenticate using email
         user = authenticate(request, email=email, password=password)
         
         if user is not None:
@@ -72,11 +58,10 @@ def login_view(request):
             }, status=status.HTTP_200_OK)
         else:
             return Response({
-                'success': False,
-                'errors': [{"field": "non_field_errors", "message": "Invalid email or password"}]
+                # Updated error message
+                'error': 'Invalid email or password'
             }, status=status.HTTP_401_UNAUTHORIZED)
-            
-    return Response(format_serializer_errors(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
@@ -126,5 +111,4 @@ def profile_view(request):
                 'message': 'Profile updated successfully',
                 'user': UserSerializer(request.user).data
             })
-            
-        return Response(format_serializer_errors(serializer.errors), status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

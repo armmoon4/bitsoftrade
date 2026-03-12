@@ -7,24 +7,6 @@ and escalates the discipline session state: GREEN → YELLOW → RED.
 
 Session state can only escalate within a lock cycle, never auto-downgrade.
 On unlock, the lock_cycle increments so the same rule can re-fire.
-
-FIXES in this version:
-  FIX-1: Engine only saves session fields when severity actually escalated or
-          new violations were logged. Previously it always saved — this caused
-          a race condition where a post_save signal firing just after an unlock
-          would overwrite cooldown_ends_at=None (set by unlock) back to the
-          old expired timestamp, re-locking the session.
-
-  FIX-2: YELLOW sessions are now blocked even after the cooldown expires,
-          until the user completes the required actions (journal) and clicks
-          the Complete button. Previously is_session_locked returned False
-          once the cooldown elapsed, letting users trade freely in a YELLOW
-          session without ever unlocking it.
-
-  FIX-3: per_trade rules now scope the duplicate ViolationsLog check to the
-          specific trade. Previously the check was session+rule+cycle only,
-          meaning a per_trade rule (e.g. position size) fired only once per
-          cycle regardless of how many trades violated it.
 """
 import logging
 from datetime import timedelta
@@ -111,7 +93,7 @@ def evaluate_rules_for_user(user, session, trade=None):
             if triggered:
                 current_cycle = session.lock_cycle or 0
 
-                # FIX-3: For per_trade rules, scope the duplicate check to
+                # For per_trade rules, scope the duplicate check to
                 # this specific trade so each trade can independently trigger
                 # the rule (e.g. position size exceeded on trade #2 must log
                 # even if trade #1 already logged the same rule this cycle).
@@ -159,13 +141,7 @@ def evaluate_rules_for_user(user, session, trade=None):
                         else:
                             session.soft_violations = (session.soft_violations or 0) + 1
 
-                # Severity escalation is ALWAYS applied when triggered —
-                # even if already_logged=True (violation was logged on a
-                # previous trade this cycle). Without this, trade 5+ would
-                # never escalate the session after trade 4 first locked it,
-                # because already_logged=True skipped the escalation block
-                # and new_severity never grew, so the session save was skipped
-                # and the session stayed green in the DB.
+
                 if violation_type == 'hard':
                     new_severity = max(new_severity, _STATE_SEVERITY['red'])
                 else:
@@ -177,10 +153,6 @@ def evaluate_rules_for_user(user, session, trade=None):
             f"→ state_will_escalate={new_severity > current_severity}"
         )
 
-        # FIX-1: Only save state-related fields when severity actually escalated.
-        # Always saving was the race condition — the engine could overwrite
-        # cooldown_ends_at=None (written by the unlock view) back to the old
-        # expired value, which re-locked the session after it was unlocked.
         if new_severity > current_severity:
             new_state = _severity_to_state(new_severity)
             session.session_state = new_state
@@ -190,18 +162,14 @@ def evaluate_rules_for_user(user, session, trade=None):
             if new_severity > peak_severity:
                 session.peak_state = new_state
 
-            # Set cooldown only if not already set for this locked state.
-            # If cooldown_ends_at is still in the future we keep it — the
-            # user is already in a cooldown period.
+   
             if session.cooldown_ends_at is None or session.cooldown_ends_at < timezone.now():
                 if new_state == 'yellow':
                     session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
                 elif new_state == 'red':
                     session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
 
-            # Session is re-locking — user must complete required actions again.
-            # NOTE: rules_violated / violation counts are NOT reset — they accumulate
-            # across the entire session day as permanent history.
+
             session.required_actions_completed = False
 
             print(f"[RuleEngine] saving session → state={session.session_state}")
@@ -217,10 +185,7 @@ def evaluate_rules_for_user(user, session, trade=None):
             ])
 
         elif newly_logged_count > 0:
-            # State didn't escalate (already at max) but new violations were
-            # logged — save the counter fields only, not the state fields.
-            # This avoids touching cooldown_ends_at / required_actions_completed
-            # which could interfere with a concurrent unlock.
+
             print(f"[RuleEngine] saving session counters only (no state change)")
             session.save(update_fields=[
                 'rules_violated',
@@ -247,11 +212,6 @@ def _evaluate_single_rule(rule, user, today_trades, trade=None, session=None):
       - 'per_day'       → aggregate across all trades today
       - 'per_trade'     → evaluate only on the single triggering trade
       - 'post_trigger'  → only evaluate when session is already non-green
-
-    Args:
-        session: DisciplineSession instance — used to scope trade counts to the
-                 current lock cycle via lock_cycle_started_at. Always pass this
-                 so that after an unlock the quota resets correctly.
 
     Returns (triggered: bool, violation_type: 'hard'|'soft')
     """
@@ -427,12 +387,6 @@ def is_session_locked(user, date=None):
       - state is 'yellow' AND cooldown has elapsed but required_actions_completed
         is still False (user hasn't clicked the Complete button yet).
 
-    FIX-2: Previously YELLOW sessions were only blocked during the cooldown
-    window. Once the cooldown elapsed, is_session_locked returned False and
-    the user could keep trading without ever completing the journal/unlock.
-    Now YELLOW blocks until required_actions_completed=True regardless of
-    whether the cooldown has elapsed.
-
     Used by tradelog views to block trade creation/import when locked.
     """
     from discipline.models import DisciplineSession
@@ -462,7 +416,7 @@ def is_session_locked(user, date=None):
                 'Complete the Quick Journal in the Discipline section to unlock.'
             )
 
-        # FIX-2: Cooldown elapsed but user hasn't completed required actions yet.
+        # Cooldown elapsed but user hasn't completed required actions yet.
         # Block trading until they click Complete (which sets required_actions_completed=True
         # and resets session_state to green via the unlock endpoint).
         if not session.required_actions_completed:

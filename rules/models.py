@@ -26,7 +26,6 @@ class Rule(models.Model):
         ('lock', 'Lock'),
         ('warn', 'Warn'),
         ('require_journal', 'Require Journal'),
-        ('restrict_import', 'Restrict Import'),
     ]
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
