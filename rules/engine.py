@@ -426,6 +426,3 @@ def is_session_locked(user, date=None):
             )
 
     return False, ''
-
-
-

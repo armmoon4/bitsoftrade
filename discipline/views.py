@@ -169,65 +169,80 @@ def unlock_session_view(request):
         'session': DisciplineSessionSerializer(session).data,
     })
 
+
+# @api_view(['GET'])
+# @permission_classes([permissions.IsAuthenticated])
+# def violations_timeline_view(request):
+#     """
+#     GET /api/discipline/violations-timeline/?from=YYYY-MM-DD&to=YYYY-MM-DD
+#     Returns per-day session states in the range.
+#     """
+#     from_date = request.query_params.get('from')
+#     to_date = request.query_params.get('to')
+
+#     qs = DisciplineSession.objects.filter(user=request.user)
+#     if from_date:
+#         qs = qs.filter(session_date__gte=from_date)
+#     if to_date:
+#         qs = qs.filter(session_date__lte=to_date)
+
+#     timeline = qs.values(
+#         'session_date', 'session_state', 'violations_count',
+#         'hard_violations', 'soft_violations'
+#     ).order_by('session_date')
+#     return Response(list(timeline))
+
+
 from datetime import date, timedelta
+from django.utils.dateparse import parse_date
 
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def violations_timeline_view(request):
     """
-    GET /api/discipline/violations-timeline/
-
-    Anchors to the most recent week that had ANY violation.
-    Falls back to most recent session week if no violations exist.
-    Returns all 7 days Mon–Sun of that week, gap-filled with green/0.
+    GET /api/discipline/violations-timeline/?from=YYYY-MM-DD&to=YYYY-MM-DD
+    Returns per-day session states in the range, including empty days.
     """
-    # Anchor to most recent session that had at least 1 violation
-    latest = (
-        DisciplineSession.objects
-        .filter(user=request.user, violations_count__gt=0)
-        .order_by('-session_date')
-        .first()
+    from_date_str = request.query_params.get('from')
+    to_date_str = request.query_params.get('to')
+
+    today = date.today()
+    from_date = parse_date(from_date_str) if from_date_str else today - timedelta(days=6)
+    to_date = parse_date(to_date_str) if to_date_str else today
+
+    # Fetch existing sessions in range, keyed by date
+    qs = DisciplineSession.objects.filter(
+        user=request.user,
+        session_date__gte=from_date,
+        session_date__lte=to_date,
+    ).values(
+        'session_date', 'session_state', 'violations_count',
+        'hard_violations', 'soft_violations'
     )
 
-    # Fallback: most recent session of any kind
-    if not latest:
-        latest = (
-            DisciplineSession.objects
-            .filter(user=request.user)
-            .order_by('-session_date')
-            .first()
-        )
+    sessions_by_date = {entry['session_date']: entry for entry in qs}
 
-    # Last fallback: no sessions at all
-    anchor = latest.session_date if latest else ddate.today()
-
-    # Mon–Sun week containing the anchor date
-    week_start = anchor - timedelta(days=anchor.weekday())
-    week_end   = week_start + timedelta(days=6)
-
-    sessions_qs = (
-        DisciplineSession.objects
-        .filter(user=request.user, session_date__gte=week_start, session_date__lte=week_end)
-        .values('session_date', 'session_state', 'violations_count',
-                'hard_violations', 'soft_violations')
-    )
-    sessions_by_date = {row['session_date']: row for row in sessions_qs}
-
-    _STATE_LABEL = {'green': 'Normal', 'yellow': 'Caution', 'red': 'Restricted'}
-
+    # Build full day-by-day timeline, filling gaps with empty entries
     timeline = []
-    for i in range(7):
-        day = week_start + timedelta(days=i)
-        row = sessions_by_date.get(day, {
-            'session_date':     day,
-            'session_state':    'green',
-            'violations_count': 0,
-            'hard_violations':  0,
-            'soft_violations':  0,
-        })
+    current = from_date
+    while current <= to_date:
+        if current in sessions_by_date:
+            entry = sessions_by_date[current]
+        else:
+            entry = {
+                'session_date': current,
+                'session_state': None,
+                'violations_count': 0,
+                'hard_violations': 0,
+                'soft_violations': 0,
+            }
+
         timeline.append({
-            **row,
-            'label': _STATE_LABEL.get(row['session_state'], 'Normal'),
+            **entry,
+            'session_date': current.isoformat(),       
+            'day_label': current.strftime('%a'),       
+            'day_full': current.strftime('%A'),        
         })
+        current += timedelta(days=1)
 
     return Response(timeline)
