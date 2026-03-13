@@ -7,19 +7,38 @@ from .serializers import RuleSerializer
 
 
 class RuleListCreateView(generics.ListCreateAPIView):
-    """GET /api/rules/ — list current user's rules + admin defaults.
-       POST /api/rules/ — create a user custom rule."""
+    """
+    GET /api/rules/ — list current user's rules + admin defaults.
+      Use ?is_active=true to see only active rules.
+      Use ?is_active=false to see only inactive rules.
+      Omit the parameter to see ALL non-deleted rules.
+    POST /api/rules/ — create a user custom rule.
+    """
     serializer_class = RuleSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         from django.db.models import Q
-        return Rule.objects.filter(
-            deleted_at__isnull=True,
-            is_active=True
+        
+        # Base query: get all non-deleted rules for this user or admin
+        qs = Rule.objects.filter(
+            deleted_at__isnull=True
         ).filter(
             Q(is_admin_defined=True) | Q(user=self.request.user)
-        ).order_by('-is_admin_defined', 'category', 'rule_name')
+        )
+
+        # Check for 'is_active' in the URL query parameters
+        is_active_param = self.request.query_params.get('is_active')
+        
+        if is_active_param is not None:
+            # Convert string "true"/"false" from URL into a boolean
+            is_active_bool = is_active_param.lower() in ['true', '1', 't', 'y', 'yes']
+            qs = qs.filter(is_active=is_active_bool)
+        else:
+            pass
+
+        #  Return ordered queryset
+        return qs.order_by('-is_admin_defined', 'category', 'rule_name')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user, is_admin_defined=False)
