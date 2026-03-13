@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from django.contrib.auth.password_validation import validate_password
 from .models import User
 
 
@@ -6,7 +7,6 @@ class UserSerializer(serializers.ModelSerializer):
     """User serializer"""
     class Meta:
         model = User
-
         fields = ['id', 'email', 'first_name', 'last_name', 'subscription_type', 'profile_picture', 'created_at']
         read_only_fields = ['id', 'created_at']
 
@@ -42,3 +42,26 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'profile_picture']
+
+
+# ==========================================
+# New Password & Auth Serializers
+# ==========================================
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, validators=[validate_password])
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    uidb64 = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True, validators=[validate_password])
+
+
+class GoogleLoginSerializer(serializers.Serializer):
+    token = serializers.CharField(required=True)

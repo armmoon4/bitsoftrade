@@ -813,23 +813,44 @@ def get_overview_report_data(user, qs, filters):
         'netDailyPnl': net_daily_pnl
     }
 
-    # Session Health
-    # Using the most active discipline session from today, similar to get_active_session logic
-    today_session = DisciplineSession.objects.filter(user=user).order_by('-session_date').first()
-    if today_session and today_session.session_date == today:
-        session_color = today_session.session_state
-        session_status_label = "Normal" if session_color == 'green' else ("Warning" if session_color == 'yellow' else "Locked")
-        today_trades = Trade.objects.filter(user=user, trade_date=today, deleted_at__isnull=True).count()
-        today_violations = today_session.violations_count
-        today_mistakes = TradeMistake.objects.filter(trade__user=user, trade__trade_date=today).count()
-        journal_completed = today_session.journal_completed
-    else:
-        session_color = "green"
-        session_status_label = "Normal"
-        today_trades = Trade.objects.filter(user=user, trade_date=today, deleted_at__isnull=True).count()
-        today_violations = 0
-        today_mistakes = TradeMistake.objects.filter(trade__user=user, trade__trade_date=today).count()
-        journal_completed = False
+    # Session Health — reuse the same priority logic as discipline/views.py _get_active_session:
+    # 1. Most recent RED session, 2. Most recent YELLOW session, 3. Today's GREEN fallback.
+    active_session = (
+        DisciplineSession.objects
+        .filter(user=user, session_state='red')
+        .order_by('-session_date')
+        .first()
+    ) or (
+        DisciplineSession.objects
+        .filter(user=user, session_state='yellow')
+        .order_by('-session_date')
+        .first()
+    )
+
+    if active_session is None:
+        from django.utils import timezone as tz
+        from datetime import datetime as dt_, time as dtime_
+        active_session, _ = DisciplineSession.objects.get_or_create(
+            user=user,
+            session_date=today,
+            defaults={'session_state': 'green'},
+        )
+        if active_session.lock_cycle_started_at is None:
+            day_start = tz.make_aware(dt_.combine(today, dtime_.min))
+            active_session.lock_cycle_started_at = day_start
+            active_session.save(update_fields=['lock_cycle_started_at'])
+        active_session.refresh_from_db()
+
+    session_color = active_session.session_state
+    session_status_label = (
+        "Normal" if session_color == 'green'
+        else ("Warning" if session_color == 'yellow' else "Locked")
+    )
+    session_date = active_session.session_date
+    today_trades = Trade.objects.filter(user=user, trade_date=session_date, deleted_at__isnull=True).count()
+    today_violations = active_session.violations_count
+    today_mistakes = TradeMistake.objects.filter(trade__user=user, trade__trade_date=session_date).count()
+    journal_completed = active_session.journal_completed
 
     sessionHealth = {
         'status': session_status_label,

@@ -3,11 +3,26 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
+
+# New imports for Password Reset and Google Auth
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from django.core.mail import send_mail
+from django.conf import settings
+from google.oauth2 import id_token
+from google.auth.transport import requests as google_requests
+
+from .models import User
 from .serializers import (
     UserSerializer, 
     UserRegistrationSerializer, 
     UserLoginSerializer,
-    UserProfileUpdateSerializer
+    UserProfileUpdateSerializer,
+    ChangePasswordSerializer,
+    PasswordResetRequestSerializer,
+    PasswordResetConfirmSerializer,
+    GoogleLoginSerializer
 )
 
 
@@ -19,6 +34,10 @@ def get_tokens_for_user(user):
         'access': str(refresh.access_token),
     }
 
+
+# ==========================================
+# Existing Auth Views
+# ==========================================
 
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
@@ -42,11 +61,9 @@ def login_view(request):
     """User login endpoint"""
     serializer = UserLoginSerializer(data=request.data)
     if serializer.is_valid():
-        # Changed username to email
         email = serializer.validated_data['email']
         password = serializer.validated_data['password']
         
-        # Authenticate using email
         user = authenticate(request, email=email, password=password)
         
         if user is not None:
@@ -58,7 +75,6 @@ def login_view(request):
             }, status=status.HTTP_200_OK)
         else:
             return Response({
-                # Updated error message
                 'error': 'Invalid email or password'
             }, status=status.HTTP_401_UNAUTHORIZED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -73,13 +89,9 @@ def logout_view(request):
         if refresh_token:
             token = RefreshToken(refresh_token)
             token.blacklist()
-        return Response({
-            'message': 'Logout successful'
-        }, status=status.HTTP_200_OK)
+        return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
     except Exception:
-        return Response({
-            'message': 'Logout successful'
-        }, status=status.HTTP_200_OK)
+        return Response({'message': 'Logout successful'}, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
@@ -112,3 +124,124 @@ def profile_view(request):
                 'user': UserSerializer(request.user).data
             })
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==========================================
+# New Password Management Views
+# ==========================================
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def change_password_view(request):
+    """Allows authenticated users to change their password."""
+    serializer = ChangePasswordSerializer(data=request.data)
+    if serializer.is_valid():
+        user = request.user
+        if not user.check_password(serializer.validated_data['old_password']):
+            return Response({'old_password': ['Wrong password.']}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user.set_password(serializer.validated_data['new_password'])
+        user.save()
+        return Response({'message': 'Password updated successfully'}, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def request_password_reset(request):
+    """Generates a reset link and sends it to the user's email."""
+    serializer = PasswordResetRequestSerializer(data=request.data)
+    if serializer.is_valid():
+        email = serializer.validated_data['email']
+        user = User.objects.filter(email=email).first()
+        
+        if user:
+            uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
+            token = default_token_generator.make_token(user)
+            
+            # Update this URL to match your frontend route
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000') 
+            reset_link = f"{frontend_url}/reset-password?uid={uidb64}&token={token}"
+            
+            send_mail(
+                subject='Password Reset Request - BitsOfTrade',
+                message=f'Click the link below to reset your password:\n\n{reset_link}\n\nIf you did not request this, please ignore this email.',
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[user.email],
+                fail_silently=False,
+            )
+            
+        return Response({'message': 'If an account with that email exists, a reset link has been sent.'}, status=status.HTTP_200_OK)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def confirm_password_reset(request):
+    """Verifies the token from the URL and sets the new password."""
+    serializer = PasswordResetConfirmSerializer(data=request.data)
+    if serializer.is_valid():
+        uidb64 = serializer.validated_data['uidb64']
+        token = serializer.validated_data['token']
+        new_password = serializer.validated_data['new_password']
+        
+        try:
+            uid = force_str(urlsafe_base64_decode(uidb64))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            user = None
+
+        if user is not None and default_token_generator.check_token(user, token):
+            user.set_password(new_password)
+            user.save()
+            return Response({'message': 'Password reset successful.'}, status=status.HTTP_200_OK)
+        else:
+            return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
+            
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+# ==========================================
+# New Google Sign-In View
+# ==========================================
+
+@api_view(['POST'])
+@permission_classes([permissions.AllowAny])
+def google_login_view(request):
+    """Verifies Google ID token, creates user if needed, and returns JWTs."""
+    serializer = GoogleLoginSerializer(data=request.data)
+    if serializer.is_valid():
+        token = serializer.validated_data['token']
+        
+        try:
+            CLIENT_ID = getattr(settings, 'GOOGLE_OAUTH2_CLIENT_ID', None)
+            if not CLIENT_ID:
+                return Response({'error': 'Google Client ID not configured on server'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+            idinfo = id_token.verify_oauth2_token(token, google_requests.Request(), CLIENT_ID)
+            
+            email = idinfo['email']
+            first_name = idinfo.get('given_name', '')
+            last_name = idinfo.get('family_name', '')
+            
+            user, created = User.objects.get_or_create(email=email)
+            
+            if created:
+                user.first_name = first_name
+                user.last_name = last_name
+                user.set_unusable_password() # They use Google to login, so no local password
+                user.save()
+            
+            tokens = get_tokens_for_user(user)
+            
+            return Response({
+                'message': 'Google Login successful',
+                'user': UserSerializer(user).data,
+                'tokens': tokens,
+                'is_new_user': created
+            }, status=status.HTTP_200_OK)
+            
+        except ValueError:
+            return Response({'error': 'Invalid Google token'}, status=status.HTTP_400_BAD_REQUEST)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
