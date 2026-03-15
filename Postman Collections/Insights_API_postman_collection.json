@@ -6,7 +6,7 @@
     },
     "item": [
         {
-            "name": "Get Metrics Snapshot",
+            "name": "Get Metrics",
             "request": {
                 "auth": {
                     "type": "bearer",
@@ -21,15 +21,8 @@
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/insights/metrics/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "insights",
-                        "metrics",
-                        ""
-                    ]
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "insights", "metrics", ""]
                 }
             }
         }

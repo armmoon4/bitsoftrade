@@ -1,0 +1,237 @@
+{
+    "info": {
+        "name": "Strategies API",
+        "description": "API endpoints for the Strategies module managing user, template, and community strategies.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "List My Strategies",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ""]
+                }
+            }
+        },
+        {
+            "name": "Create Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"strategy_name\": \"Opening Range Breakout\",\n  \"description\": \"Trade breakouts from the first 15-min range.\",\n  \"tags\": [\"breakout\", \"morning\"],\n  \"market_types\": [\"Indian Stocks\", \"Options\"],\n  \"entry_rules\": [\"15m candle closes above resistance\", \"Volume > 1.5x average\"],\n  \"exit_rules\": [\"Exit 50% at 1:2 RR\", \"Trail stop loss using 9 EMA\"],\n  \"risk_management_rules\": [\"Max 1% account risk per trade\", \"Stop trading after 2 consecutive losses\"],\n  \"trade_type\": \"intraday\",\n  \"is_public\": false,\n  \"sample_size_threshold\": 30\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ""]
+                }
+            }
+        },
+        {
+            "name": "Community Strategies",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/community/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", "community", ""]
+                }
+            }
+        },
+        {
+            "name": "Template Strategies",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/templates/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", "templates", ""]
+                }
+            }
+        },
+        {
+            "name": "Get Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Full Update Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "PUT",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"strategy_name\": \"Opening Range Breakout\",\n  \"description\": \"Trade breakouts from the first 15-min range.\",\n  \"tags\": [\"breakout\", \"morning\"],\n  \"market_types\": [\"Indian Stocks\", \"Options\"],\n  \"entry_rules\": [\"Wait for pullback to VWAP\", \"RSI must be above 50\"],\n  \"exit_rules\": [\"Exit 50% at 1:2 RR\", \"Trail stop loss using 9 EMA\"],\n  \"risk_management_rules\": [\"Max 1% account risk per trade\"],\n  \"trade_type\": \"swing\",\n  \"is_public\": false,\n  \"maturity_status\": \"developing\",\n  \"sample_size_threshold\": 30\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Partial Update Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "PATCH",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"strategy_name\": \"Updated Strategy Name\",\n  \"trade_type\": \"swing\",\n  \"entry_rules\": [\"Wait for pullback to VWAP\", \"RSI must be above 50\"]\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Delete Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Add to Mine (Clone Community Strategy)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/add-to-mine/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", "add-to-mine", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Assign Trades — Specific Trade IDs",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"trade_ids\": [\n    \"11111111-1111-1111-1111-111111111111\",\n    \"22222222-2222-2222-2222-222222222222\"\n  ]\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/assign-trades/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", "assign-trades", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Assign Trades — All Untagged",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"assign_all_untagged\": true\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/assign-trades/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", "assign-trades", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        },
+        {
+            "name": "Assign Trades — All Trades",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"assign_all\": true\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/strategies/:id/assign-trades/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "strategies", ":id", "assign-trades", ""],
+                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}

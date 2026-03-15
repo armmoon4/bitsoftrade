@@ -14,9 +14,7 @@ if TYPE_CHECKING:
     from django.db.models import QuerySet
 
 
-# ---------------------------------------------------------------------------
 # Formatting
-# ---------------------------------------------------------------------------
 
 def fmt_date(d) -> str:
     """Format a date as 'Mon D' without zero-padding (cross-platform)."""
@@ -25,9 +23,7 @@ def fmt_date(d) -> str:
     return str(d)
 
 
-# ---------------------------------------------------------------------------
 # Streak calculation
-# ---------------------------------------------------------------------------
 
 def consecutive_streaks(values: list[float]) -> tuple[int, int]:
     """Return (max_winning_streak, max_losing_streak) from a list of daily P&Ls."""
@@ -45,10 +41,7 @@ def consecutive_streaks(values: list[float]) -> tuple[int, int]:
         max_loss = max(max_loss, cur_loss)
     return max_win, max_loss
 
-
-# ---------------------------------------------------------------------------
 # Daily aggregation
-# ---------------------------------------------------------------------------
 
 def build_daily_rows(qs: "QuerySet") -> list[dict]:
     """
@@ -94,9 +87,7 @@ def build_cumulative_and_daily_series(
     return cumulative, daily
 
 
-# ---------------------------------------------------------------------------
 # Win-rate helper
-# ---------------------------------------------------------------------------
 
 def win_rate(qs: "QuerySet") -> float:
     """Return win-rate percentage (0-100) for a trade queryset."""
@@ -107,9 +98,7 @@ def win_rate(qs: "QuerySet") -> float:
     return round((wins / total) * 100, 1)
 
 
-# ---------------------------------------------------------------------------
 # Profit-factor helper
-# ---------------------------------------------------------------------------
 
 def profit_factor(gross_profit: Decimal, gross_loss: Decimal, ndigits: int = 2) -> float:
     """Return profit factor, safe against zero gross_loss."""

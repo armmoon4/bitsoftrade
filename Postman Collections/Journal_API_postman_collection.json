@@ -51,7 +51,25 @@
                     }
                 },
                 {
-                    "name": "Update Daily Journal",
+                    "name": "Full Update Daily Journal",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PUT",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"journal_date\": \"2025-01-15\",\n  \"session_state\": \"green\",\n  \"prompt_text\": \"What went well today?\",\n  \"reflection\": \"Updated reflection.\",\n  \"intention_next_session\": \"Stay disciplined.\",\n  \"limits_followed\": \"mostly\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/daily/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "daily", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "journal_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Partial Update Daily Journal",
                     "request": {
                         "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
                         "method": "PATCH",
@@ -129,7 +147,25 @@
                     }
                 },
                 {
-                    "name": "Update Trade Note",
+                    "name": "Full Update Trade Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PUT",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"trade\": \"trade_uuid\",\n  \"note_text\": \"Updated trade note text.\",\n  \"tags\": [\"#FOMO\"]\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/trade-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "trade-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Partial Update Trade Note",
                     "request": {
                         "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
                         "method": "PATCH",
@@ -184,7 +220,7 @@
                         "header": [ { "key": "Content-Type", "value": "application/json" } ],
                         "body": {
                             "mode": "raw",
-                            "raw": "{\n  \"log_date\": \"2025-01-15\",\n  \"emotional_state\": \"fomo\",\n  \"confidence_before\": 6,\n  \"satisfaction_after\": 4,\n  \"pressure_source\": \"missed_move\"\n}"
+                            "raw": "{\n  \"log_date\": \"2025-01-15\",\n  \"trade\": \"trade_uuid\",\n  \"emotional_state\": \"fomo\",\n  \"confidence_before\": 6,\n  \"satisfaction_after\": 4,\n  \"pressure_source\": \"missed_move\"\n}"
                         },
                         "url": {
                             "raw": "{{baseUrl}}/api/journal/psychology/",
@@ -207,7 +243,25 @@
                     }
                 },
                 {
-                    "name": "Update Psychology Log",
+                    "name": "Full Update Psychology Log",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PUT",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"log_date\": \"2025-01-15\",\n  \"trade\": \"trade_uuid\",\n  \"emotional_state\": \"calm\",\n  \"confidence_before\": 8,\n  \"satisfaction_after\": 7,\n  \"pressure_source\": null\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/psychology/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "psychology", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "psych_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Partial Update Psychology Log",
                     "request": {
                         "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
                         "method": "PATCH",
@@ -285,7 +339,25 @@
                     }
                 },
                 {
-                    "name": "Update Session Recap",
+                    "name": "Full Update Session Recap",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PUT",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"recap_date\": \"2025-01-15\",\n  \"session_state\": \"yellow\",\n  \"outcome\": \"good\",\n  \"what_went_right\": [\"Respected stop loss\"],\n  \"what_slipped\": [\"Overtraded in the afternoon\"],\n  \"rule_to_focus\": \"Max 3 trades per session\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/recaps/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "recaps", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "recap_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Partial Update Session Recap",
                     "request": {
                         "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
                         "method": "PATCH",
@@ -363,7 +435,25 @@
                     }
                 },
                 {
-                    "name": "Update Learning Note",
+                    "name": "Full Update Learning Note",
+                    "request": {
+                        "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
+                        "method": "PUT",
+                        "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"lesson_source\": \"Trading in the Zone\",\n  \"key_takeaway\": \"Updated takeaway.\",\n  \"application_plan\": \"Updated application plan.\",\n  \"linked_type\": \"rule\",\n  \"linked_id\": \"rule_uuid\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{baseUrl}}/api/journal/learning-notes/:id/",
+                            "host": [ "{{baseUrl}}" ],
+                            "path": [ "api", "journal", "learning-notes", ":id", "" ],
+                            "variable": [ { "key": "id", "value": "note_uuid" } ]
+                        }
+                    }
+                },
+                {
+                    "name": "Partial Update Learning Note",
                     "request": {
                         "auth": { "type": "bearer", "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ] },
                         "method": "PATCH",

@@ -1,0 +1,178 @@
+{
+    "info": {
+        "name": "Mistakes API",
+        "description": "API endpoints for the Mistakes module managing a library of categorized trading mistakes.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "List Mistakes",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", ""]
+                }
+            }
+        },
+        {
+            "name": "Create Custom Mistake",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"mistake_name\": \"Revenge Trading\",\n  \"category\": \"psychology\",\n  \"description\": \"Entering trades to recover losses immediately.\",\n  \"severity_weight\": 9\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", ""]
+                }
+            }
+        },
+        {
+            "name": "Get Mistake",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", ":id", ""],
+                    "variable": [ { "key": "id", "value": "mistake_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Full Update Mistake",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "PUT",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"mistake_name\": \"Revenge Trading\",\n  \"category\": \"psychology\",\n  \"description\": \"Updated description.\",\n  \"severity_weight\": 8\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", ":id", ""],
+                    "variable": [ { "key": "id", "value": "mistake_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Partial Update Mistake",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "PATCH",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"mistake_name\": \"Updated Mistake Name\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", ":id", ""],
+                    "variable": [ { "key": "id", "value": "mistake_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Delete Mistake",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", ":id", ""],
+                    "variable": [ { "key": "id", "value": "mistake_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "List Trade Mistake Links",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/trade-links/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", "trade-links", ""]
+                }
+            }
+        },
+        {
+            "name": "Link Mistake to Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"trade\": \"trade_uuid_here\",\n  \"mistake\": \"mistake_uuid_here\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/trade-links/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", "trade-links", ""]
+                }
+            }
+        },
+        {
+            "name": "Mistakes Analytics",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/mistakes/analytics/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "mistakes", "analytics", ""]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}

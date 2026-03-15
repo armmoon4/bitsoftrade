@@ -1,0 +1,208 @@
+{
+    "info": {
+        "name": "Reports API",
+        "description": "API endpoints for the Reports module providing on-demand analytical reports derived from trade data.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Performance Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/performance/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "performance", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Risk Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/risk/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "risk", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Behavior Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/behavior/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "behavior", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Strategy Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/strategy/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "strategy", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Journal Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/journal/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "journal", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Mistakes Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/mistakes/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "mistakes", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Overview Report",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/reports/overview/?from=2025-01-01&to=2025-01-31&market=all&broker=all",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "reports", "overview", ""],
+                    "query": [
+                        { "key": "from",   "value": "2025-01-01" },
+                        { "key": "to",     "value": "2025-01-31" },
+                        { "key": "market", "value": "all" },
+                        { "key": "broker", "value": "all" }
+                    ]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}
