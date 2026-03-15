@@ -21,15 +21,8 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/register/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "register",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "register", ""]
         }
       }
     },
@@ -49,15 +42,8 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/login/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "login",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "login", ""]
         }
       }
     },
@@ -87,15 +73,8 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/logout/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "logout",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "logout", ""]
         }
       }
     },
@@ -115,15 +94,8 @@
         "method": "GET",
         "url": {
           "raw": "{{baseUrl}}/api/auth/me/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "me",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "me", ""]
         }
       }
     },
@@ -143,15 +115,8 @@
         "method": "GET",
         "url": {
           "raw": "{{baseUrl}}/api/auth/profile/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "profile",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "profile", ""]
         }
       }
     },
@@ -181,15 +146,8 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/profile/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "profile",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "profile", ""]
         }
       }
     },
@@ -219,15 +177,102 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/profile/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "profile",
-            ""
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "profile", ""]
+        }
+      }
+    },
+    {
+      "name": "Change Password",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
           ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"old_password\": \"password123\",\n  \"new_password\": \"newpassword456\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/password/change/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "password", "change", ""]
+        }
+      }
+    },
+    {
+      "name": "Request Password Reset",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"test@example.com\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/password/reset/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "password", "reset", ""]
+        }
+      }
+    },
+    {
+      "name": "Confirm Password Reset",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"uidb64\": \"<uidb64_from_reset_link>\",\n  \"token\": \"<token_from_reset_link>\",\n  \"new_password\": \"newpassword456\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/password/reset/confirm/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "password", "reset", "confirm", ""]
+        }
+      }
+    },
+    {
+      "name": "Google Login",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"token\": \"<google_oauth2_id_token>\"\n}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/google-login/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "google-login", ""]
         }
       }
     },
@@ -247,15 +292,8 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/token/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "token",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "token", ""]
         }
       }
     },
@@ -275,16 +313,8 @@
         },
         "url": {
           "raw": "{{baseUrl}}/api/auth/token/refresh/",
-          "host": [
-            "{{baseUrl}}"
-          ],
-          "path": [
-            "api",
-            "auth",
-            "token",
-            "refresh",
-            ""
-          ]
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "token", "refresh", ""]
         }
       }
     }

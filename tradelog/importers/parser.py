@@ -95,7 +95,7 @@ def detect_and_normalize(raw_rows, broker_hint=''):
     if is_upstox:
         return 'upstox', normalize_upstox(raw_rows)
 
-    # Fallbacks:
+    # Fallback:
     raise ValueError(
     "Unrecognized broker format. Only Zerodha, Groww, and Upstox CSVs are supported."
 )
