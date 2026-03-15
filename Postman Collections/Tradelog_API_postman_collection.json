@@ -1,0 +1,269 @@
+{
+    "info": {
+        "name": "Tradelog API",
+        "description": "API endpoints for the Tradelog module managing trade creation, retrieval, update, soft-delete, and bulk CSV/Excel import.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "List Trades",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?page=1&page_size=5",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "page",      "value": "1" },
+                        { "key": "page_size", "value": "5" },
+                        { "key": "filter",    "value": "",  "disabled": true, "description": "wins | losses | disciplined | violations" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Wins Only",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?filter=wins",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "filter", "value": "wins" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Losses Only",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?filter=losses",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "filter", "value": "losses" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Disciplined Only",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?filter=disciplined",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "filter", "value": "disciplined" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Violations Only",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?filter=violations",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "filter", "value": "violations" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "Create Trade (Manual)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"trade_date\": \"2025-01-15\",\n  \"trade_time\": \"10:30:00\",\n  \"symbol\": \"RELIANCE\",\n  \"market_type\": \"indian_stocks\",\n  \"direction\": \"long\",\n  \"quantity\": \"10\",\n  \"entry_price\": \"2450.00\",\n  \"exit_price\": \"2510.00\",\n  \"fees\": \"25.00\",\n  \"stop_loss\": \"2400.00\",\n  \"target\": \"2550.00\",\n  \"leverage\": \"1\",\n  \"strategy\": null,\n  \"entry_confidence\": 7,\n  \"satisfaction_rating\": 8,\n  \"emotional_state\": \"calm\",\n  \"violation_modes\": [],\n  \"lessons_learned\": \"Waited for confirmation before entry.\",\n  \"rules_followed\": [\"Respected stop loss\"],\n  \"screenshot_urls\": [],\n  \"broker_name\": \"Zerodha\",\n  \"import_source\": \"manual\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""]
+                }
+            }
+        },
+        {
+            "name": "Get Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ":id", ""],
+                    "variable": [ { "key": "id", "value": "trade_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Full Update Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "PUT",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"trade_date\": \"2025-01-15\",\n  \"trade_time\": \"10:30:00\",\n  \"symbol\": \"RELIANCE\",\n  \"market_type\": \"indian_stocks\",\n  \"direction\": \"long\",\n  \"quantity\": \"10\",\n  \"entry_price\": \"2450.00\",\n  \"exit_price\": \"2520.00\",\n  \"fees\": \"25.00\",\n  \"stop_loss\": \"2400.00\",\n  \"target\": \"2550.00\",\n  \"leverage\": \"1\",\n  \"strategy\": null,\n  \"entry_confidence\": 7,\n  \"satisfaction_rating\": 9,\n  \"emotional_state\": \"calm\",\n  \"violation_modes\": [],\n  \"lessons_learned\": \"Updated lesson.\",\n  \"rules_followed\": [\"Respected stop loss\", \"No revenge trades\"],\n  \"screenshot_urls\": [],\n  \"broker_name\": \"Zerodha\",\n  \"import_source\": \"manual\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ":id", ""],
+                    "variable": [ { "key": "id", "value": "trade_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Partial Update Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "PATCH",
+                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"exit_price\": \"2520.00\",\n  \"satisfaction_rating\": 9,\n  \"lessons_learned\": \"Should have held longer.\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ":id", ""],
+                    "variable": [ { "key": "id", "value": "trade_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Delete Trade",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "DELETE",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/:id/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ":id", ""],
+                    "variable": [ { "key": "id", "value": "trade_uuid_here" } ]
+                }
+            }
+        },
+        {
+            "name": "Import Trades — CSV",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "",
+                            "description": "Upload a .csv file"
+                        },
+                        {
+                            "key": "broker_name",
+                            "value": "zerodha",
+                            "type": "text",
+                            "description": "Optional broker hint: zerodha | upstox | groww. Leave blank for auto-detect."
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/import/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", "import", ""]
+                }
+            }
+        },
+        {
+            "name": "Import Trades — Excel",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "POST",
+                "body": {
+                    "mode": "formdata",
+                    "formdata": [
+                        {
+                            "key": "file",
+                            "type": "file",
+                            "src": "",
+                            "description": "Upload a .xlsx or .xls file"
+                        },
+                        {
+                            "key": "broker_name",
+                            "value": "",
+                            "type": "text",
+                            "description": "Optional broker hint: zerodha | upstox | groww. Leave blank for auto-detect."
+                        }
+                    ]
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/import/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", "import", ""]
+                }
+            }
+        }
+    ],
+    "variable": [
+        {
+            "key": "baseUrl",
+            "value": "http://localhost:13025"
+        },
+        {
+            "key": "access_token",
+            "value": ""
+        }
+    ]
+}
