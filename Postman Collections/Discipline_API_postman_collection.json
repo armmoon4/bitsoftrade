@@ -6,7 +6,7 @@
     },
     "item": [
         {
-            "name": "Get Today's Session",
+            "name": "Get Current Session",
             "request": {
                 "auth": {
                     "type": "bearer",
@@ -21,15 +21,8 @@
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/discipline/current-session/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "discipline",
-                        "current-session",
-                        ""
-                    ]
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "discipline", "current-session", ""]
                 }
             }
         },
@@ -49,20 +42,13 @@
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/discipline/sessions/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "discipline",
-                        "sessions",
-                        ""
-                    ]
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "discipline", "sessions", ""]
                 }
             }
         },
         {
-            "name": "Unlock Session",
+            "name": "Unlock Session — Complete Journal",
             "request": {
                 "auth": {
                     "type": "bearer",
@@ -87,15 +73,70 @@
                 },
                 "url": {
                     "raw": "{{baseUrl}}/api/discipline/unlock/",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "discipline",
-                        "unlock",
-                        ""
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "discipline", "unlock", ""]
+                }
+            }
+        },
+        {
+            "name": "Unlock Session — Complete Trade Review",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
                     ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"action\": \"complete_trade_review\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/discipline/unlock/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "discipline", "unlock", ""]
+                }
+            }
+        },
+        {
+            "name": "Unlock Session — Complete All (starts cooldown)",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [
+                        {
+                            "key": "token",
+                            "value": "{{access_token}}",
+                            "type": "string"
+                        }
+                    ]
+                },
+                "method": "POST",
+                "header": [
+                    {
+                        "key": "Content-Type",
+                        "value": "application/json"
+                    }
+                ],
+                "body": {
+                    "mode": "raw",
+                    "raw": "{\n  \"action\": \"complete_all\"\n}"
+                },
+                "url": {
+                    "raw": "{{baseUrl}}/api/discipline/unlock/",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "discipline", "unlock", ""]
                 }
             }
         },
@@ -115,24 +156,11 @@
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/discipline/violations-timeline/?from=2025-01-01&to=2025-01-31",
-                    "host": [
-                        "{{baseUrl}}"
-                    ],
-                    "path": [
-                        "api",
-                        "discipline",
-                        "violations-timeline",
-                        ""
-                    ],
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "discipline", "violations-timeline", ""],
                     "query": [
-                        {
-                            "key": "from",
-                            "value": "2025-01-01"
-                        },
-                        {
-                            "key": "to",
-                            "value": "2025-01-31"
-                        }
+                        { "key": "from", "value": "2025-01-01" },
+                        { "key": "to",   "value": "2025-01-31" }
                     ]
                 }
             }

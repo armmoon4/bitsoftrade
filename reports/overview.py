@@ -70,10 +70,7 @@ def get_overview_report_data(user, qs, filters) -> dict:
         "exclusiveMetrics": exclusive_metrics,
     }
 
-
-# ---------------------------------------------------------------------------
 # Private helpers
-# ---------------------------------------------------------------------------
 
 def _resolve_comparison_periods(user, filters, today: date):
     """Return (this_period_qs, prev_period_qs, vs_label)."""

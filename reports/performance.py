@@ -132,10 +132,8 @@ def get_performance_report_data(qs) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
-# Private helpers
-# ---------------------------------------------------------------------------
 
+# Private helpers
 _SESSIONS = [
     ("Early Morning", 555, 660),
     ("Late Morning", 660, 750),

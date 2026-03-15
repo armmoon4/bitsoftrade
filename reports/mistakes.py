@@ -31,9 +31,7 @@ def get_mistakes_report_data(qs) -> dict:
     }
 
 
-# ---------------------------------------------------------------------------
 # Private helpers
-# ---------------------------------------------------------------------------
 
 def _aggregate_mistakes(trade_ids) -> tuple[dict, float, int]:
     from mistakes.models import TradeMistake

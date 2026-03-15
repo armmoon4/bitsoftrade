@@ -193,35 +193,56 @@ def unlock_session_view(request):
 #     return Response(list(timeline))
 
 
+from datetime import date, timedelta
+from django.utils.dateparse import parse_date
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def violations_timeline_view(request):
     """
     GET /api/discipline/violations-timeline/?from=YYYY-MM-DD&to=YYYY-MM-DD
-    Returns per-day session states in the range.
+    Returns per-day session states in the range, including empty days.
     """
-    from_date = request.query_params.get('from')
-    to_date = request.query_params.get('to')
+    from_date_str = request.query_params.get('from')
+    to_date_str = request.query_params.get('to')
 
-    qs = DisciplineSession.objects.filter(user=request.user)
-    if from_date:
-        qs = qs.filter(session_date__gte=from_date)
-    if to_date:
-        qs = qs.filter(session_date__lte=to_date)
+    today = date.today()
+    from_date = parse_date(from_date_str) if from_date_str else today - timedelta(days=6)
+    to_date = parse_date(to_date_str) if to_date_str else today
 
-    timeline = qs.values(
+    # Fetch existing sessions in range, keyed by date
+    qs = DisciplineSession.objects.filter(
+        user=request.user,
+        session_date__gte=from_date,
+        session_date__lte=to_date,
+    ).values(
         'session_date', 'session_state', 'violations_count',
         'hard_violations', 'soft_violations'
-    ).order_by('session_date')
+    )
 
-    result = []
-    for entry in timeline:
-        d = entry['session_date']
-        result.append({
+    sessions_by_date = {entry['session_date']: entry for entry in qs}
+
+    # Build full day-by-day timeline, filling gaps with empty entries
+    timeline = []
+    current = from_date
+    while current <= to_date:
+        if current in sessions_by_date:
+            entry = sessions_by_date[current]
+        else:
+            entry = {
+                'session_date': current,
+                'session_state': None,
+                'violations_count': 0,
+                'hard_violations': 0,
+                'soft_violations': 0,
+            }
+
+        timeline.append({
             **entry,
-            'session_date': d.isoformat(),
-            'day_label': d.strftime('%a'),  
-            'day_full': d.strftime('%A'),     
+            'session_date': current.isoformat(),       
+            'day_label': current.strftime('%a'),       
+            'day_full': current.strftime('%A'),        
         })
+        current += timedelta(days=1)
 
-    return Response(result)
+    return Response(timeline)
