@@ -1,34 +1,50 @@
 {
     "info": {
         "name": "Strategies API",
-        "description": "API endpoints for the Strategies module managing user, template, and community strategies.",
+        "description": "API endpoints for the Strategies module.\n\n**Setup:**\n1. Set `baseUrl` (default: http://localhost:13025)\n2. Set `access_token` to your JWT bearer token\n3. Run **Create Strategy** once — `strategy_id` is saved automatically\n4. All other requests will use that `strategy_id` automatically",
         "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "auth": {
+        "type": "bearer",
+        "bearer": [
+            { "key": "token", "value": "{{access_token}}", "type": "string" }
+        ]
     },
     "item": [
         {
             "name": "List My Strategies",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/strategies/",
                     "host": ["{{baseUrl}}"],
                     "path": ["api", "strategies", ""]
-                }
+                },
+                "description": "Returns all strategies belonging to the authenticated user."
             }
         },
         {
             "name": "Create Strategy",
+            "event": [
+                {
+                    "listen": "test",
+                    "script": {
+                        "type": "text/javascript",
+                        "exec": [
+                            "var json = pm.response.json();",
+                            "if (json && json.id) {",
+                            "    pm.collectionVariables.set('strategy_id', json.id);",
+                            "    console.log('strategy_id saved:', json.id);",
+                            "}"
+                        ]
+                    }
+                }
+            ],
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "POST",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "body": {
                     "mode": "raw",
                     "raw": "{\n  \"strategy_name\": \"Opening Range Breakout\",\n  \"description\": \"Trade breakouts from the first 15-min range.\",\n  \"tags\": [\"breakout\", \"morning\"],\n  \"market_types\": [\"Indian Stocks\", \"Options\"],\n  \"entry_rules\": [\"15m candle closes above resistance\", \"Volume > 1.5x average\"],\n  \"exit_rules\": [\"Exit 50% at 1:2 RR\", \"Trail stop loss using 9 EMA\"],\n  \"risk_management_rules\": [\"Max 1% account risk per trade\", \"Stop trading after 2 consecutive losses\"],\n  \"trade_type\": \"intraday\",\n  \"is_public\": false,\n  \"sample_size_threshold\": 30\n}"
@@ -37,201 +53,194 @@
                     "raw": "{{baseUrl}}/api/strategies/",
                     "host": ["{{baseUrl}}"],
                     "path": ["api", "strategies", ""]
-                }
+                },
+                "description": "Creates a new strategy. The returned `id` is automatically saved to the `strategy_id` collection variable."
             }
         },
         {
             "name": "Community Strategies",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/strategies/community/",
                     "host": ["{{baseUrl}}"],
                     "path": ["api", "strategies", "community", ""]
-                }
+                },
+                "description": "Returns all public strategies excluding the authenticated user's own."
             }
         },
         {
             "name": "Template Strategies",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "GET",
                 "url": {
                     "raw": "{{baseUrl}}/api/strategies/templates/",
                     "host": ["{{baseUrl}}"],
                     "path": ["api", "strategies", "templates", ""]
-                }
+                },
+                "description": "Returns all admin-created template strategies."
             }
         },
         {
             "name": "Get Strategy",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "GET",
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", ""]
+                },
+                "description": "Retrieve a single strategy by ID. Uses `strategy_id` collection variable."
             }
         },
         {
             "name": "Full Update Strategy",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "PUT",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "body": {
                     "mode": "raw",
                     "raw": "{\n  \"strategy_name\": \"Opening Range Breakout\",\n  \"description\": \"Trade breakouts from the first 15-min range.\",\n  \"tags\": [\"breakout\", \"morning\"],\n  \"market_types\": [\"Indian Stocks\", \"Options\"],\n  \"entry_rules\": [\"Wait for pullback to VWAP\", \"RSI must be above 50\"],\n  \"exit_rules\": [\"Exit 50% at 1:2 RR\", \"Trail stop loss using 9 EMA\"],\n  \"risk_management_rules\": [\"Max 1% account risk per trade\"],\n  \"trade_type\": \"swing\",\n  \"is_public\": false,\n  \"maturity_status\": \"developing\",\n  \"sample_size_threshold\": 30\n}"
                 },
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", ""]
+                },
+                "description": "Full replacement update (PUT). All fields required."
             }
         },
         {
             "name": "Partial Update Strategy",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "PATCH",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "body": {
                     "mode": "raw",
                     "raw": "{\n  \"strategy_name\": \"Updated Strategy Name\",\n  \"trade_type\": \"swing\",\n  \"entry_rules\": [\"Wait for pullback to VWAP\", \"RSI must be above 50\"]\n}"
                 },
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", ""]
+                },
+                "description": "Partial update (PATCH). Only include fields you want to change."
             }
         },
         {
             "name": "Delete Strategy",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "DELETE",
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", ""]
+                },
+                "description": "Soft-deletes the strategy (sets deleted_at timestamp). Returns 204."
             }
         },
         {
             "name": "Add to Mine (Clone Community Strategy)",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "POST",
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/add-to-mine/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/add-to-mine/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", "add-to-mine", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", "add-to-mine", ""]
+                },
+                "description": "Clones a public community strategy into your own account. The source strategy must have `is_public: true`."
             }
         },
         {
             "name": "Assign Trades — Specific Trade IDs",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "POST",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"trade_ids\": [\n    \"11111111-1111-1111-1111-111111111111\",\n    \"22222222-2222-2222-2222-222222222222\"\n  ]\n}"
+                    "raw": "{\n  \"trade_ids\": [\n    \"{{trade_id_1}}\",\n    \"{{trade_id_2}}\"\n  ]\n}"
                 },
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/assign-trades/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/assign-trades/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", "assign-trades", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", "assign-trades", ""]
+                },
+                "description": "Assigns specific trades to this strategy by UUID. Replace `trade_id_1` and `trade_id_2` collection variables with real trade UUIDs."
             }
         },
         {
             "name": "Assign Trades — All Untagged",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "POST",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "body": {
                     "mode": "raw",
                     "raw": "{\n  \"assign_all_untagged\": true\n}"
                 },
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/assign-trades/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/assign-trades/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", "assign-trades", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", "assign-trades", ""]
+                },
+                "description": "Assigns all trades that currently have no strategy assigned (`strategy` is null)."
             }
         },
         {
             "name": "Assign Trades — All Trades",
             "request": {
-                "auth": {
-                    "type": "bearer",
-                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
-                },
                 "method": "POST",
-                "header": [ { "key": "Content-Type", "value": "application/json" } ],
+                "header": [
+                    { "key": "Content-Type", "value": "application/json" }
+                ],
                 "body": {
                     "mode": "raw",
                     "raw": "{\n  \"assign_all\": true\n}"
                 },
                 "url": {
-                    "raw": "{{baseUrl}}/api/strategies/:id/assign-trades/",
+                    "raw": "{{baseUrl}}/api/strategies/{{strategy_id}}/assign-trades/",
                     "host": ["{{baseUrl}}"],
-                    "path": ["api", "strategies", ":id", "assign-trades", ""],
-                    "variable": [ { "key": "id", "value": "00000000-0000-0000-0000-000000000000" } ]
-                }
+                    "path": ["api", "strategies", "{{strategy_id}}", "assign-trades", ""]
+                },
+                "description": "Assigns ALL of the authenticated user's trades to this strategy, overwriting any existing assignment."
             }
         }
     ],
     "variable": [
         {
             "key": "baseUrl",
-            "value": "http://localhost:13025"
+            "value": "http://localhost:13025",
+            "description": "Base URL of your Django server"
         },
         {
             "key": "access_token",
-            "value": ""
+            "value": "",
+            "description": "JWT access token from your login endpoint"
+        },
+        {
+            "key": "strategy_id",
+            "value": "",
+            "description": "Auto-populated after running Create Strategy. Or paste a UUID manually."
+        },
+        {
+            "key": "trade_id_1",
+            "value": "",
+            "description": "A real trade UUID from your tradelog — used in Assign Trades (Specific)"
+        },
+        {
+            "key": "trade_id_2",
+            "value": "",
+            "description": "A second real trade UUID — used in Assign Trades (Specific)"
         }
     ]
 }
