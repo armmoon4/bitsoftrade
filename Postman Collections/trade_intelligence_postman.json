@@ -1,0 +1,402 @@
+{
+  "info": {
+    "name": "Trade Intelligence API",
+    "description": "Postman collection for the Trade Intelligence analyze endpoint. Generates a rich intelligence report across five sections: Intelligence Summary, Doing Well, Holding Back, Repeating Patterns, and Discipline Health.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "trade-intelligence-v1"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string",
+      "description": "Base URL of the Django server"
+    },
+    {
+      "key": "auth_token",
+      "value": "your-auth-token-here",
+      "type": "string",
+      "description": "Bearer token for authentication"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{auth_token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Analyze — Last 30 Days (Default)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades for the last 30 days with no additional filters. This is the default behaviour when no timeRange is specified."
+      },
+      "response": [
+        {
+          "name": "200 OK — Full Report",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": "{\n  \"period\": \"Last 30 Days\",\n  \"total_trades\": 142,\n  \"intelligence_summary\": {\n    \"text\": \"Over the Last 30 Days, your performance is positive, but discipline consistency is improving but fragile. Most profits came from trend-following trades executed during GREEN sessions. Losses cluster during RED sessions driven by FOMO and early entries.\",\n    \"performance\": \"positive\",\n    \"discipline_consistency\": \"improving but fragile\",\n    \"best_profit_session_state\": \"GREEN\",\n    \"loss_cluster_session_state\": \"RED\",\n    \"total_pnl\": 1240.50,\n    \"wins\": 89,\n    \"losses\": 53,\n    \"win_rate_pct\": 62.7\n  },\n  \"doing_well\": [\n    {\n      \"id\": \"confirmation_rate\",\n      \"label\": \"Waited for confirmation\",\n      \"value\": 101,\n      \"out_of\": 142,\n      \"pct\": 71.1,\n      \"description\": \"You waited for confirmation 101 out of 142 times\",\n      \"view_in_plan\": false\n    },\n    {\n      \"id\": \"strategy_adherence\",\n      \"label\": \"Strategy rule adherence\",\n      \"value\": 78,\n      \"out_of\": 95,\n      \"pct\": 82.1,\n      \"description\": \"78 of 95 strategy trades followed strategy rules\",\n      \"view_in_plan\": true\n    },\n    {\n      \"id\": \"rr_improvement\",\n      \"label\": \"Risk-to-reward improved\",\n      \"value\": 0.34,\n      \"out_of\": null,\n      \"pct\": null,\n      \"description\": \"Your risk-to-reward improved by +0.34x comparing first vs second half\",\n      \"view_in_plan\": false\n    },\n    {\n      \"id\": \"avg_loss_vs_threshold\",\n      \"label\": \"Average loss vs max trade threshold\",\n      \"value\": 1.8,\n      \"out_of\": 3.0,\n      \"pct\": null,\n      \"description\": \"Average loss of 1.8% vs max trade threshold of 3.0%\",\n      \"view_in_plan\": false\n    },\n    {\n      \"id\": \"best_entry_window\",\n      \"label\": \"Best entries in first 30 mins\",\n      \"value\": 74.5,\n      \"out_of\": 100,\n      \"pct\": 74.5,\n      \"description\": \"74.5% win rate on entries in hour 09:00 (best window)\",\n      \"view_in_plan\": true\n    }\n  ],\n  \"holding_back\": [\n    {\n      \"id\": \"fomo_after_loss\",\n      \"label\": \"FOMO entries after a loss\",\n      \"value\": 18,\n      \"out_of\": 53,\n      \"pct\": 34.0,\n      \"description\": \"FOMO entries appear 34.0% after a loss\",\n      \"avg_session_pnl_after\": -312.40\n    },\n    {\n      \"id\": \"fomo_days\",\n      \"label\": \"Days affected by FOMO pattern\",\n      \"value\": 21,\n      \"out_of\": 142,\n      \"pct\": 14.8,\n      \"description\": \"This pattern appeared in 21 trades across the period\"\n    },\n    {\n      \"id\": \"risk_after_losses\",\n      \"label\": \"Risk analysis after 2 consecutive losses\",\n      \"value\": 4,\n      \"out_of\": null,\n      \"pct\": null,\n      \"description\": \"Max consecutive losing days: 4. Declines scale after losing streaks.\"\n    },\n    {\n      \"id\": \"position_size_violations\",\n      \"label\": \"Position size rule violations\",\n      \"value\": 5,\n      \"out_of\": 9,\n      \"pct\": 55.6,\n      \"description\": \"5 position size violations detected — review before ignoring size rules\"\n    },\n    {\n      \"id\": \"premature_exits\",\n      \"label\": \"Premature exit trades\",\n      \"value\": 22,\n      \"out_of\": 142,\n      \"pct\": 15.5,\n      \"description\": \"15.5% of trades had premature exits, causing avg profit left on table\"\n    }\n  ],\n  \"repeating_patterns\": [\n    {\n      \"id\": \"revenge_trading\",\n      \"label\": \"Revenge trading after loss\",\n      \"value\": 11,\n      \"out_of\": 142,\n      \"description\": \"Revenge trading (angry/FOMO/overconfident) appears after losses — 11 occurrences\",\n      \"stat\": \"11 occurrences detected\",\n      \"journal_mention_pct\": 22.0\n    },\n    {\n      \"id\": \"consecutive_losses\",\n      \"label\": \"Consecutive losing days\",\n      \"value\": 4,\n      \"out_of\": null,\n      \"description\": \"4 consecutive losing days detected in the period\",\n      \"stat\": \"Max streak: 4 days\"\n    },\n    {\n      \"id\": \"emotional_clarity\",\n      \"label\": \"Emotional clarity streak (calm/confident)\",\n      \"value\": 14,\n      \"out_of\": 142,\n      \"description\": \"Emotional clarity held for 14 straight trades\",\n      \"stat\": \"14 consecutive calm/confident trades\"\n    },\n    {\n      \"id\": \"nervous_before_violations\",\n      \"label\": \"Nervous/Anxious before risk violations\",\n      \"value\": 7,\n      \"out_of\": 20,\n      \"description\": \"\\\"Anxious\\\" self-described in 35.0% of psychology entries\",\n      \"stat\": \"35.0% of all psych logs\"\n    },\n    {\n      \"id\": \"red_day_discipline\",\n      \"label\": \"Discipline on RED days\",\n      \"value\": 4,\n      \"out_of\": 28,\n      \"description\": \"4 RED days — 2 had revenge entries\",\n      \"stat\": \"4 red days, 2 with revenge entries\"\n    }\n  ],\n  \"discipline_health\": {\n    \"discipline_score\": 73.4,\n    \"health_rating\": \"Improving but fragile\",\n    \"violated_boundaries\": 9,\n    \"hard_violations\": 3,\n    \"sessions_count\": 28,\n    \"sessions_per_violation\": 3.1,\n    \"trend\": \"Improving\",\n    \"green_sessions\": 17,\n    \"yellow_sessions\": 7,\n    \"red_sessions\": 4,\n    \"reminder\": \"Your discipline is improving, but fragile. One uncommitted session could trigger a cascade. Focus on the 3-second pause before every entry.\",\n    \"session_pnl_summary\": {\n      \"green_pnl\": 1820.00,\n      \"yellow_pnl\": -210.50,\n      \"red_pnl\": -369.00\n    }\n  }\n}",
+          "_postman_previewlanguage": "json"
+        },
+        {
+          "name": "200 OK — No Trades Found",
+          "status": "OK",
+          "code": 200,
+          "header": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": "{\n  \"period\": \"Last 30 Days\",\n  \"total_trades\": 0,\n  \"message\": \"No trades found in the selected period.\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    },
+    {
+      "name": "Analyze — Last 7 Days",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last7\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades for the last 7 days."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Last 90 Days",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last90\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades for the last 90 days."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Last 365 Days",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last365\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades for the last 365 days."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — All Time",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"all\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze all available trade history with no date restriction."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Custom Date Range",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"custom\",\n  \"fromDate\": \"2025-01-01\",\n  \"toDate\": \"2025-03-31\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades within a custom date range. Both fromDate and toDate are required in YYYY-MM-DD format when timeRange is 'custom'."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Filter by Market",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last30\",\n  \"market\": \"forex\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades filtered to a specific market type (e.g. forex, crypto, stocks). The filter is case-sensitive and matches the market_type field on the Trade model."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Filter by Broker",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last30\",\n  \"broker\": \"IC Markets\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades filtered to a specific broker. The match is case-insensitive."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Filter by Market + Broker",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last90\",\n  \"market\": \"crypto\",\n  \"broker\": \"Binance\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Analyze trades filtered by both market type and broker over the last 90 days."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — Custom Range + Market + Broker",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"custom\",\n  \"fromDate\": \"2025-06-01\",\n  \"toDate\": \"2025-09-30\",\n  \"market\": \"forex\",\n  \"broker\": \"Pepperstone\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Full filter combination: custom date range with market and broker filters applied."
+      },
+      "response": []
+    },
+    {
+      "name": "Analyze — No Auth (Expect 401)",
+      "request": {
+        "method": "POST",
+        "auth": {
+          "type": "noauth"
+        },
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"timeRange\": \"last30\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "Request made without an Authorization header. Expects a 401 Unauthorized response."
+      },
+      "response": [
+        {
+          "name": "401 Unauthorized",
+          "status": "Unauthorized",
+          "code": 401,
+          "header": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": "{\n  \"detail\": \"Authentication credentials were not provided.\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    },
+    {
+      "name": "Analyze — Wrong Method GET (Expect 405)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{base_url}}/api/trade-intelligence/analyze/",
+          "host": ["{{base_url}}"],
+          "path": ["api", "trade-intelligence", "analyze", ""]
+        },
+        "description": "GET request to a POST-only endpoint. Expects a 405 Method Not Allowed response."
+      },
+      "response": [
+        {
+          "name": "405 Method Not Allowed",
+          "status": "Method Not Allowed",
+          "code": 405,
+          "header": [
+            { "key": "Content-Type", "value": "application/json" }
+          ],
+          "body": "{\n  \"detail\": \"Method \\\"GET\\\" not allowed.\"\n}",
+          "_postman_previewlanguage": "json"
+        }
+      ]
+    }
+  ]
+}
