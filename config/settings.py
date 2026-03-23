@@ -198,4 +198,4 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'email@del.com' 
 EMAIL_HOST_PASSWORD = 'sss sss sss sss'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-GOOGLE_OAUTH2_CLIENT_ID = 'google-client-id-here.apps.googleusercontent.com'
+GOOGLE_OAUTH2_CLIENT_ID = '1091653163034-72ph3c8q6lreb6e6a7fq3v6o0bgdas94.apps.googleusercontent.com'
