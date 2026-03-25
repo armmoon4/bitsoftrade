@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Account** module handles user authentication, registration, profile management, and subscription-based access control for the BitsOfTrade platform.
+The **Account** module handles user authentication, registration, profile management, onboarding, and subscription-based access control for the BitsOfTrade platform.
 
 ---
 
@@ -58,7 +58,8 @@ Creates a new user account and returns JWT tokens.
     "last_name": "Doe",
     "subscription_type": "none",
     "profile_picture": null,
-    "created_at": "2025-01-01T00:00:00Z"
+    "created_at": "2025-01-01T00:00:00Z",
+    "onboarding_completed": false
   },
   "tokens": {
     "refresh": "<refresh_token>",
@@ -104,7 +105,8 @@ Authenticates a user and returns JWT tokens.
     "last_name": "Doe",
     "subscription_type": "tool",
     "profile_picture": null,
-    "created_at": "2025-01-01T00:00:00Z"
+    "created_at": "2025-01-01T00:00:00Z",
+    "onboarding_completed": false
   },
   "tokens": {
     "refresh": "<refresh_token>",
@@ -112,6 +114,10 @@ Authenticates a user and returns JWT tokens.
   }
 }
 ```
+
+> **Onboarding Logic:** Check `user.onboarding_completed` in the response.
+> - `false` → Redirect to `/onboarding`
+> - `true` → Redirect to `/dashboard`
 
 **Error Response — `401 Unauthorized`:**
 
@@ -165,7 +171,8 @@ Returns the profile of the currently authenticated user.
   "last_name": "Doe",
   "subscription_type": "both",
   "profile_picture": "/media/profiles/avatar.jpg",
-  "created_at": "2025-01-01T00:00:00Z"
+  "created_at": "2025-01-01T00:00:00Z",
+  "onboarding_completed": true
 }
 ```
 
@@ -219,7 +226,29 @@ Partially updates the user's profile (only provided fields are updated).
 
 ---
 
-### 6. Change Password
+### 6. Complete Onboarding
+
+**`POST /api/auth/onboarding/complete/`**
+
+Marks the onboarding flow as completed for the currently authenticated user. Call this endpoint when the user finishes the onboarding steps. After this, subsequent logins will return `onboarding_completed: true` and the frontend should redirect directly to the dashboard.
+
+**Permissions:** Authenticated
+
+**Request Body:** None required.
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "message": "Onboarding completed"
+}
+```
+
+**Error Response — `401 Unauthorized`:** *(if not authenticated)*
+
+---
+
+### 7. Change Password
 
 **`POST /api/auth/password/change/`**
 
@@ -252,7 +281,7 @@ Allows an authenticated user to change their current password.
 
 ---
 
-### 7. Request Password Reset
+### 8. Request Password Reset
 
 **`POST /api/auth/password/reset/`**
 
@@ -276,7 +305,7 @@ Generates a password reset link and sends it to the user's email address. Always
 
 ---
 
-### 8. Confirm Password Reset
+### 9. Confirm Password Reset
 
 **`POST /api/auth/password/reset/confirm/`**
 
@@ -310,7 +339,7 @@ Verifies the token from the reset link and sets the new password.
 
 ---
 
-### 9. Google Login
+### 10. Google Login
 
 **`POST /api/auth/google-login/`**
 
@@ -336,7 +365,8 @@ Verifies a Google ID token, creates a new user account if one does not exist, an
     "last_name": "Doe",
     "subscription_type": "none",
     "profile_picture": null,
-    "created_at": "2025-01-01T00:00:00Z"
+    "created_at": "2025-01-01T00:00:00Z",
+    "onboarding_completed": false
   },
   "tokens": {
     "refresh": "<refresh_token>",
@@ -345,6 +375,8 @@ Verifies a Google ID token, creates a new user account if one does not exist, an
   "is_new_user": true
 }
 ```
+
+> **Note:** For Google login, you can use either `is_new_user` or `onboarding_completed` to detect first-time users. `onboarding_completed` is more reliable — it stays `false` even if a user closes mid-onboarding, whereas `is_new_user` is only `true` on the very first login.
 
 **Error Responses:**
 
@@ -357,7 +389,7 @@ Verifies a Google ID token, creates a new user account if one does not exist, an
 
 ---
 
-### 10. Token — Obtain Pair
+### 11. Token — Obtain Pair
 
 **`POST /api/auth/token/`**
 
@@ -381,7 +413,7 @@ Standard SimpleJWT endpoint. Returns access and refresh tokens directly from ema
 
 ---
 
-### 11. Token — Refresh
+### 12. Token — Refresh
 
 **`POST /api/auth/token/refresh/`**
 
@@ -413,6 +445,7 @@ Returns a new access token using a valid refresh token.
 | `last_name`            | string   | Last name                                                            |
 | `profile_picture`      | image    | Uploaded to `profiles/`                                              |
 | `trading_capital`      | decimal  | User's capital for % based trading rules                             |
+| `onboarding_completed` | boolean  | `false` until user completes onboarding; persists across sessions    |
 | `subscription_type`    | enum     | `none` / `tool` / `learning` / `both`                                |
 | `subscription_status`  | enum     | `active` / `expired` / `cancelled`                                   |
 | `subscription_start`   | datetime | When the subscription started                                        |
@@ -433,6 +466,67 @@ Returns a new access token using a valid refresh token.
 |-----------------------|---------|----------------------------------------------------------------------------------|
 | `has_tool_access`     | boolean | `True` if subscription is `tool` or `both`, status is `active`, and not expired  |
 | `has_learning_access` | boolean | `True` if subscription is `learning` or `both`, status is `active`, and not expired |
+
+---
+
+## Onboarding Flow
+
+The onboarding flag is designed to show the onboarding page **only on a user's very first login**, and never again after they complete it.
+
+### How it works
+
+```
+User logs in / registers
+        │
+        ▼
+  onboarding_completed == false?
+        │
+   YES  │  NO
+        │   └──► Redirect to /dashboard
+        ▼
+  Show /onboarding page
+        │
+  User completes onboarding
+        │
+        ▼
+  POST /api/auth/onboarding/complete/
+        │
+        ▼
+  Redirect to /dashboard
+  (all future logins go straight to /dashboard)
+```
+
+### Frontend Implementation Guide
+
+**On login/register response:**
+```javascript
+const { user, tokens } = response.data;
+
+if (!user.onboarding_completed) {
+  router.push('/onboarding');
+} else {
+  router.push('/dashboard');
+}
+```
+
+**On finishing onboarding:**
+```javascript
+await axios.post('/api/auth/onboarding/complete/', {}, {
+  headers: { Authorization: `Bearer ${accessToken}` }
+});
+
+router.push('/dashboard');
+```
+
+### Onboarding State Reference
+
+| Scenario                        | `onboarding_completed` |
+|---------------------------------|------------------------|
+| Brand new user (just registered) | `false`               |
+| Google sign-in, new account     | `false`                |
+| User closed mid-onboarding      | `false`                |
+| User completed onboarding       | `true`                 |
+| Returning user (any login)      | `true`                 |
 
 ---
 
@@ -526,6 +620,9 @@ urlpatterns = [
     # Profile Management
     path('me/',                     views.current_user_view,        name='current_user'),
     path('profile/',                views.profile_view,             name='profile'),
+
+    # Onboarding
+    path('onboarding/complete/',    views.complete_onboarding_view, name='complete_onboarding'),
 
     # Password Management
     path('password/change/',        views.change_password_view,     name='change_password'),

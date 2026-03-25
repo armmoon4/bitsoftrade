@@ -26,4 +26,7 @@ urlpatterns = [
     
     # Google Auth
     path('google-login/', views.google_login_view, name='google_login'),
+
+    # Onboarding
+    path('onboarding/complete/', views.complete_onboarding_view, name='complete_onboarding'),
 ]

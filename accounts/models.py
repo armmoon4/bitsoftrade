@@ -51,6 +51,9 @@ class User(AbstractUser):
         ('cancelled', 'Cancelled'),
     ]
 
+    #Onboardings
+    onboarding_completed = models.BooleanField(default=False)
+
     # Profile
     profile_picture = models.ImageField(upload_to='profiles/', blank=True, null=True)
 

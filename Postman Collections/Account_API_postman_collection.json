@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Account API",
-    "description": "API endpoints for the Account module handling user authentication, registration, profile management, and subscription-based access control.",
+    "description": "API endpoints for the Account module handling user authentication, registration, profile management, onboarding, and subscription-based access control.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -180,6 +180,38 @@
           "host": ["{{baseUrl}}"],
           "path": ["api", "auth", "profile", ""]
         }
+      }
+    },
+    {
+      "name": "Complete Onboarding",
+      "request": {
+        "auth": {
+          "type": "bearer",
+          "bearer": [
+            {
+              "key": "token",
+              "value": "{{access_token}}",
+              "type": "string"
+            }
+          ]
+        },
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/auth/onboarding/complete/",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "auth", "onboarding", "complete", ""]
+        },
+        "description": "Marks onboarding as completed for the authenticated user. Call this when the user finishes the onboarding flow. After this, user.onboarding_completed will be true on all future logins."
       }
     },
     {

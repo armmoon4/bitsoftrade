@@ -245,3 +245,15 @@ def google_login_view(request):
             return Response({'error': 'Invalid Google token'}, status=status.HTTP_400_BAD_REQUEST)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+# ==========================================
+# Onboarding
+# ==========================================
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def complete_onboarding_view(request):
+    """Mark onboarding as completed for the current user."""
+    request.user.onboarding_completed = True
+    request.user.save(update_fields=['onboarding_completed'])
+    return Response({'message': 'Onboarding completed'}, status=status.HTTP_200_OK)
