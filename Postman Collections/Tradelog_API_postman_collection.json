@@ -20,7 +20,25 @@
                     "query": [
                         { "key": "page",      "value": "1" },
                         { "key": "page_size", "value": "5" },
-                        { "key": "filter",    "value": "",  "disabled": true, "description": "wins | losses | disciplined | violations" }
+                        { "key": "filter",          "value": "",    "disabled": true, "description": "wins | losses | disciplined | violations" },
+                        { "key": "broker",          "value": "",    "disabled": true, "description": "e.g. zerodha | upstox | groww (case-insensitive)" },
+                        { "key": "market_type",     "value": "",    "disabled": true, "description": "indian_stocks | forex | crypto | options" },
+                        { "key": "date_range",      "value": "",    "disabled": true, "description": "today | this_week | this_month | custom" },
+                        { "key": "date_from",       "value": "",    "disabled": true, "description": "YYYY-MM-DD — used when date_range=custom" },
+                        { "key": "date_to",         "value": "",    "disabled": true, "description": "YYYY-MM-DD — used when date_range=custom" },
+                        { "key": "direction",       "value": "",    "disabled": true, "description": "long | short" },
+                        { "key": "outcome",         "value": "",    "disabled": true, "description": "win | loss | open" },
+                        { "key": "instrument_type", "value": "",    "disabled": true, "description": "indian_stocks | forex | crypto | options (alias for market_type)" },
+                        { "key": "strategy",        "value": "",    "disabled": true, "description": "Strategy UUID" },
+                        { "key": "emotional_state", "value": "",    "disabled": true, "description": "calm | anxious | confident | fearful | fomo | angry | overconfident | uncertain" },
+                        { "key": "discipline_status","value": "",   "disabled": true, "description": "disciplined | violations" },
+                        { "key": "review_status",   "value": "",    "disabled": true, "description": "tagged | untagged" },
+                        { "key": "rule_breach",     "value": "",    "disabled": true, "description": "comma-separated e.g. fomo_entry,overtrading" },
+                        { "key": "pnl_min",         "value": "",    "disabled": true, "description": "P&L lower bound e.g. -10000" },
+                        { "key": "pnl_max",         "value": "",    "disabled": true, "description": "P&L upper bound e.g. 10000" },
+                        { "key": "mistakes",        "value": "",    "disabled": true, "description": "comma-separated: fomo_entry | revenge_trading | oversized_position | premature_exit | ignored_stop_loss | overtrading" },
+                        { "key": "tags",            "value": "",    "disabled": true, "description": "comma-separated tag strings — searches violation_modes and rules_followed" },
+                        { "key": "search",          "value": "",    "disabled": true, "description": "free-text search on symbol, broker_name, lessons_learned" }
                     ]
                 }
             }
@@ -93,6 +111,340 @@
                     "path": ["api", "tradelog", "trades", ""],
                     "query": [
                         { "key": "filter", "value": "violations" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Broker",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?broker=zerodha",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "broker", "value": "zerodha", "description": "zerodha | upstox | groww (case-insensitive)" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Market Type",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?market_type=indian_stocks",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "market_type", "value": "indian_stocks", "description": "indian_stocks | forex | crypto | options" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — This Month",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?date_range=this_month",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "date_range", "value": "this_month", "description": "today | this_week | this_month | custom" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Custom Date Range",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?date_range=custom&date_from=2025-01-01&date_to=2025-03-31",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "date_range", "value": "custom" },
+                        { "key": "date_from",  "value": "2025-01-01", "description": "YYYY-MM-DD" },
+                        { "key": "date_to",    "value": "2025-03-31", "description": "YYYY-MM-DD" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Direction",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?direction=long",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "direction", "value": "long", "description": "long | short" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Outcome",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?outcome=win",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "outcome", "value": "win", "description": "win | loss | open" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Strategy",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?strategy={{strategy_uuid}}",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "strategy", "value": "{{strategy_uuid}}", "description": "Strategy UUID" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Emotional State",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?emotional_state=fomo",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "emotional_state", "value": "fomo", "description": "calm | anxious | confident | fearful | fomo | angry | overconfident | uncertain" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Discipline Status",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?discipline_status=violations",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "discipline_status", "value": "violations", "description": "disciplined | violations" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Review Status",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?review_status=untagged",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "review_status", "value": "untagged", "description": "tagged | untagged" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Rule Breach",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?rule_breach=fomo_entry,overtrading",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "rule_breach", "value": "fomo_entry,overtrading", "description": "comma-separated violation mode strings" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By P&L Range",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?pnl_min=-10000&pnl_max=10000",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "pnl_min", "value": "-10000", "description": "P&L lower bound" },
+                        { "key": "pnl_max", "value": "10000",  "description": "P&L upper bound" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Mistakes",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?mistakes=fomo_entry,revenge_trading",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "mistakes", "value": "fomo_entry,revenge_trading", "description": "comma-separated: fomo_entry | revenge_trading | oversized_position | premature_exit | ignored_stop_loss | overtrading" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — By Tags",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?tags=breakout,trend",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "tags", "value": "breakout,trend", "description": "comma-separated — searches violation_modes and rules_followed JSON" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Search",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?search=RELIANCE",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "search", "value": "RELIANCE", "description": "free-text: symbol, broker_name, lessons_learned" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Combined Filters",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?market_type=indian_stocks&date_range=this_month&outcome=win&emotional_state=calm",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "market_type",     "value": "indian_stocks" },
+                        { "key": "date_range",      "value": "this_month" },
+                        { "key": "outcome",         "value": "win" },
+                        { "key": "emotional_state", "value": "calm" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — Untagged Broker Losses",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?broker=zerodha&review_status=untagged&pnl_max=0",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "broker",         "value": "zerodha" },
+                        { "key": "review_status",  "value": "untagged" },
+                        { "key": "pnl_max",        "value": "0" }
+                    ]
+                }
+            }
+        },
+        {
+            "name": "List Trades — FOMO Mistakes This Week",
+            "request": {
+                "auth": {
+                    "type": "bearer",
+                    "bearer": [ { "key": "token", "value": "{{access_token}}", "type": "string" } ]
+                },
+                "method": "GET",
+                "url": {
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?mistakes=fomo_entry,revenge_trading&direction=long&date_range=this_week",
+                    "host": ["{{baseUrl}}"],
+                    "path": ["api", "tradelog", "trades", ""],
+                    "query": [
+                        { "key": "mistakes",    "value": "fomo_entry,revenge_trading" },
+                        { "key": "direction",   "value": "long" },
+                        { "key": "date_range",  "value": "this_week" }
                     ]
                 }
             }
@@ -257,13 +609,8 @@
         }
     ],
     "variable": [
-        {
-            "key": "baseUrl",
-            "value": "http://localhost:13025"
-        },
-        {
-            "key": "access_token",
-            "value": ""
-        }
+        { "key": "baseUrl",       "value": "http://localhost:13025" },
+        { "key": "access_token",  "value": "" },
+        { "key": "strategy_uuid", "value": "" }
     ]
 }
