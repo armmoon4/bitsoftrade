@@ -28,10 +28,10 @@ Authorization: Bearer <access_token>
 
 List endpoints use `StandardResultsSetPagination`:
 
-| Parameter   | Default | Max  | Description |
-|-------------|---------|------|-------------|
-| `page`      | 1       | —    | Page number |
-| `page_size` | 5       | 100  | Results per page |
+| Parameter   | Default | Max  | Description          |
+|-------------|---------|------|----------------------|
+| `page`      | 1       | —    | Page number          |
+| `page_size` | 5       | 100  | Results per page     |
 
 ```json
 {
@@ -56,13 +56,38 @@ Returns all non-deleted trades for the authenticated user, ordered by most recen
 
 **Permissions:** Authenticated
 
-**Query Parameters:**
+**Query Parameters — all filters are combinable (ANDed together):**
 
-| Parameter | Type   | Description |
-|-----------|--------|-------------|
-| `filter`  | string | `wins` — trades with `total_pnl > 0`. `losses` — trades with `total_pnl < 0`. `disciplined` — trades where `is_disciplined = true`. `violations` — trades where `is_disciplined = false`. Omit to return all. |
-| `page`    | integer | Page number |
-| `page_size` | integer | Results per page (max 100) |
+| Parameter          | Type    | Values / Example                                                                                      | Description                                                        |
+|--------------------|---------|-------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
+| `filter`           | string  | `wins` \| `losses` \| `disciplined` \| `violations`                                                  | Outcome quick-filter tab                                           |
+| `broker`           | string  | `zerodha`, `upstox`, `groww` …                                                                        | Matches `broker_name` (case-insensitive)                           |
+| `market_type`      | enum    | `indian_stocks` \| `forex` \| `crypto` \| `options`                                                  | Top-bar instrument filter                                          |
+| `date_range`       | enum    | `today` \| `this_week` \| `this_month` \| `custom`                                                   | Date window shortcut                                               |
+| `date_from`        | date    | `YYYY-MM-DD`                                                                                          | Used when `date_range=custom`                                      |
+| `date_to`          | date    | `YYYY-MM-DD`                                                                                          | Used when `date_range=custom`                                      |
+| `direction`        | enum    | `long` \| `short`                                                                                     | Trade direction                                                    |
+| `outcome`          | enum    | `win` \| `loss` \| `open`                                                                             | `win` = pnl > 0, `loss` = pnl < 0, `open` = no exit price         |
+| `instrument_type`  | enum    | `indian_stocks` \| `forex` \| `crypto` \| `options`                                                  | Alias for `market_type` — same field                               |
+| `strategy`         | UUID    | `<strategy-uuid>`                                                                                     | Filter by linked strategy                                          |
+| `emotional_state`  | enum    | `calm` \| `anxious` \| `confident` \| `fearful` \| `fomo` \| `angry` \| `overconfident` \| `uncertain` | Psychology tag                                                  |
+| `discipline_status`| enum    | `disciplined` \| `violations`                                                                         | Maps to `is_disciplined` boolean                                   |
+| `review_status`    | enum    | `tagged` \| `untagged`                                                                                | Maps to `is_tagged_complete` boolean                               |
+| `rule_breach`      | string  | `fomo_entry,overtrading` (comma-separated)                                                            | Matches values inside `violation_modes` JSON array                 |
+| `pnl_min`          | decimal | `-10000`                                                                                              | P&L range lower bound (₹)                                         |
+| `pnl_max`          | decimal | `10000`                                                                                               | P&L range upper bound (₹)                                         |
+| `mistakes`         | string  | `fomo_entry,revenge_trading,oversized_position,premature_exit,ignored_stop_loss,overtrading`          | Comma-separated — searches `violation_modes` JSON array            |
+| `tags`             | string  | `tag1,tag2` (comma-separated)                                                                         | Searches `violation_modes` AND `rules_followed` JSON arrays        |
+| `search`           | string  | `RELIANCE`                                                                                            | Free-text: matches `symbol`, `broker_name`, `lessons_learned`      |
+| `page`             | integer | `1`                                                                                                   | Page number                                                        |
+| `page_size`        | integer | `5` (max 100)                                                                                         | Results per page                                                   |
+
+**Example combined query:**
+```
+GET /api/tradelog/trades/?market_type=indian_stocks&date_range=this_month&outcome=win&emotional_state=calm
+GET /api/tradelog/trades/?broker=zerodha&review_status=untagged&pnl_max=0
+GET /api/tradelog/trades/?mistakes=fomo_entry,revenge_trading&direction=long&date_range=this_week
+```
 
 **Success Response — `200 OK`:** paginated list of trade objects.
 
@@ -82,30 +107,30 @@ After a successful save the view automatically:
 
 **Request Body:**
 
-| Field                | Type    | Required | Description |
-|----------------------|---------|----------|-------------|
-| `trade_date`         | date    | ✅        | `YYYY-MM-DD` |
-| `symbol`             | string  | ✅        | Ticker symbol (max 100 chars) |
-| `market_type`        | enum    | ✅        | `indian_stocks` / `forex` / `crypto` / `options` |
-| `direction`          | enum    | ✅        | `long` / `short` |
-| `quantity`           | decimal | ✅        | Number of units (up to 4 decimal places) |
-| `entry_price`        | decimal | ✅        | Entry price (up to 4 decimal places) |
-| `exit_price`         | decimal | ❌        | Exit price. Required for P&L calculation. If omitted, `total_pnl` stays `null`. |
-| `fees`               | decimal | ❌        | Brokerage / transaction fees. Defaults to `0`. |
-| `stop_loss`          | decimal | ❌        | Stop loss price (nullable) |
-| `target`             | decimal | ❌        | Target price (nullable) |
-| `leverage`           | decimal | ❌        | Leverage multiplier. Defaults to `1`. |
-| `trade_time`         | time    | ❌        | Entry time `HH:MM:SS` (nullable) |
-| `strategy`           | UUID    | ❌        | Linked strategy ID (nullable) |
-| `entry_confidence`   | integer | ❌        | Pre-trade confidence 1–10 (nullable) |
-| `satisfaction_rating`| integer | ❌        | Post-trade satisfaction 1–10 (nullable) |
-| `emotional_state`    | enum    | ❌        | `calm` / `anxious` / `confident` / `fearful` / `fomo` / `angry` / `overconfident` / `uncertain` |
-| `violation_modes`    | array   | ❌        | List of violation mode strings. Defaults to `[]`. |
-| `lessons_learned`    | string  | ❌        | Free-text lessons |
-| `rules_followed`     | array   | ❌        | List of rule strings followed. Defaults to `[]`. |
-| `screenshot_urls`    | array   | ❌        | List of screenshot URL strings. Defaults to `[]`. |
-| `broker_name`        | string  | ❌        | Broker name (nullable) |
-| `import_source`      | enum    | ❌        | `manual` / `csv_import`. Defaults to `manual`. |
+| Field                 | Type    | Required | Description |
+|-----------------------|---------|----------|-------------|
+| `trade_date`          | date    | ✅        | `YYYY-MM-DD` |
+| `symbol`              | string  | ✅        | Ticker symbol (max 100 chars) |
+| `market_type`         | enum    | ✅        | `indian_stocks` / `forex` / `crypto` / `options` |
+| `direction`           | enum    | ✅        | `long` / `short` |
+| `quantity`            | decimal | ✅        | Number of units (up to 4 decimal places) |
+| `entry_price`         | decimal | ✅        | Entry price (up to 4 decimal places) |
+| `exit_price`          | decimal | ❌        | Exit price. Required for P&L calculation. If omitted, `total_pnl` stays `null`. |
+| `fees`                | decimal | ❌        | Brokerage / transaction fees. Defaults to `0`. |
+| `stop_loss`           | decimal | ❌        | Stop loss price (nullable) |
+| `target`              | decimal | ❌        | Target price (nullable) |
+| `leverage`            | decimal | ❌        | Leverage multiplier. Defaults to `1`. |
+| `trade_time`          | time    | ❌        | Entry time `HH:MM:SS` (nullable) |
+| `strategy`            | UUID    | ❌        | Linked strategy ID (nullable) |
+| `entry_confidence`    | integer | ❌        | Pre-trade confidence 1–10 (nullable) |
+| `satisfaction_rating` | integer | ❌        | Post-trade satisfaction 1–10 (nullable) |
+| `emotional_state`     | enum    | ❌        | `calm` / `anxious` / `confident` / `fearful` / `fomo` / `angry` / `overconfident` / `uncertain` |
+| `violation_modes`     | array   | ❌        | List of violation mode strings. Defaults to `[]`. |
+| `lessons_learned`     | string  | ❌        | Free-text lessons |
+| `rules_followed`      | array   | ❌        | List of rule strings followed. Defaults to `[]`. |
+| `screenshot_urls`     | array   | ❌        | List of screenshot URL strings. Defaults to `[]`. |
+| `broker_name`         | string  | ❌        | Broker name (nullable) |
+| `import_source`       | enum    | ❌        | `manual` / `csv_import`. Defaults to `manual`. |
 
 > **Read-only fields** (cannot be set in the request body): `id`, `user`, `total_pnl`, `is_disciplined`, `session`, `created_at`, `updated_at`.
 
@@ -219,13 +244,7 @@ Bulk-imports trades from a CSV or Excel file. Automatically detects broker forma
 
 ```json
 { "error": "Unsupported file type. Upload CSV or Excel." }
-```
-
-```json
 { "error": "File parsing failed: <detail>" }
-```
-
-```json
 { "error": "Format normalization failed: <detail>" }
 ```
 
@@ -235,39 +254,39 @@ Bulk-imports trades from a CSV or Excel file. Automatically detects broker forma
 
 ## Trade Model Reference
 
-| Field                | Type     | Writable | Description |
-|----------------------|----------|----------|-------------|
-| `id`                 | UUID     | ❌        | Primary key |
-| `user`               | FK       | ❌        | Trade owner — set from authenticated user |
-| `session`            | FK       | ❌        | Linked `DisciplineSession` — set by the post_save signal |
-| `strategy`           | FK       | ✅        | Linked `Strategy` (nullable) |
-| `trade_date`         | date     | ✅        | Trade date |
-| `trade_time`         | time     | ✅        | Entry time (nullable) |
-| `symbol`             | string   | ✅        | Ticker symbol |
-| `market_type`        | enum     | ✅        | `indian_stocks` / `forex` / `crypto` / `options` |
-| `direction`          | enum     | ✅        | `long` / `short` |
-| `quantity`           | decimal  | ✅        | Units traded |
-| `entry_price`        | decimal  | ✅        | Entry price |
-| `exit_price`         | decimal  | ✅        | Exit price (nullable — open trade if null) |
-| `fees`               | decimal  | ✅        | Transaction fees. Defaults to `0`. |
-| `stop_loss`          | decimal  | ✅        | Stop loss price (nullable) |
-| `target`             | decimal  | ✅        | Target price (nullable) |
-| `leverage`           | decimal  | ✅        | Leverage multiplier. Defaults to `1`. |
-| `total_pnl`          | decimal  | ❌        | Calculated P&L — set automatically after save |
-| `entry_confidence`   | integer  | ✅        | 1–10 pre-trade confidence (nullable) |
-| `satisfaction_rating`| integer  | ✅        | 1–10 post-trade satisfaction (nullable) |
-| `emotional_state`    | enum     | ✅        | `calm` / `anxious` / `confident` / `fearful` / `fomo` / `angry` / `overconfident` / `uncertain` (nullable) |
-| `violation_modes`    | array    | ✅        | List of violation mode strings. Defaults to `[]`. |
-| `lessons_learned`    | string   | ✅        | Free-text lessons |
-| `rules_followed`     | array    | ✅        | List of rule strings followed. Defaults to `[]`. |
-| `is_disciplined`     | boolean  | ❌        | Set by the Rule Engine signal — `true` if no hard violations for this trade in the current lock cycle |
-| `is_tagged_complete` | boolean  | ❌        | Auto-set to `true` when `strategy`, `emotional_state`, and `entry_confidence` are all present |
-| `screenshot_urls`    | array    | ✅        | List of screenshot URL strings. Defaults to `[]`. |
-| `import_source`      | enum     | ✅        | `manual` / `csv_import`. Defaults to `manual`. |
-| `broker_name`        | string   | ✅        | Broker name (nullable) |
-| `deleted_at`         | datetime | ❌        | Soft-delete timestamp (null = active) |
-| `created_at`         | datetime | ❌        | Auto-set on creation |
-| `updated_at`         | datetime | ❌        | Auto-updated on save |
+| Field                 | Type     | Writable | Description |
+|-----------------------|----------|----------|-------------|
+| `id`                  | UUID     | ❌        | Primary key |
+| `user`                | FK       | ❌        | Trade owner — set from authenticated user |
+| `session`             | FK       | ❌        | Linked `DisciplineSession` — set by the post_save signal |
+| `strategy`            | FK       | ✅        | Linked `Strategy` (nullable) |
+| `trade_date`          | date     | ✅        | Trade date |
+| `trade_time`          | time     | ✅        | Entry time (nullable) |
+| `symbol`              | string   | ✅        | Ticker symbol |
+| `market_type`         | enum     | ✅        | `indian_stocks` / `forex` / `crypto` / `options` |
+| `direction`           | enum     | ✅        | `long` / `short` |
+| `quantity`            | decimal  | ✅        | Units traded |
+| `entry_price`         | decimal  | ✅        | Entry price |
+| `exit_price`          | decimal  | ✅        | Exit price (nullable — open trade if null) |
+| `fees`                | decimal  | ✅        | Transaction fees. Defaults to `0`. |
+| `stop_loss`           | decimal  | ✅        | Stop loss price (nullable) |
+| `target`              | decimal  | ✅        | Target price (nullable) |
+| `leverage`            | decimal  | ✅        | Leverage multiplier. Defaults to `1`. |
+| `total_pnl`           | decimal  | ❌        | Calculated P&L — set automatically after save |
+| `entry_confidence`    | integer  | ✅        | 1–10 pre-trade confidence (nullable) |
+| `satisfaction_rating` | integer  | ✅        | 1–10 post-trade satisfaction (nullable) |
+| `emotional_state`     | enum     | ✅        | `calm` / `anxious` / `confident` / `fearful` / `fomo` / `angry` / `overconfident` / `uncertain` (nullable) |
+| `violation_modes`     | array    | ✅        | List of violation mode strings. Defaults to `[]`. |
+| `lessons_learned`     | string   | ✅        | Free-text lessons |
+| `rules_followed`      | array    | ✅        | List of rule strings followed. Defaults to `[]`. |
+| `is_disciplined`      | boolean  | ❌        | Set by the Rule Engine signal — `true` if no hard violations |
+| `is_tagged_complete`  | boolean  | ❌        | Auto-set to `true` when `strategy`, `emotional_state`, and `entry_confidence` are all present |
+| `screenshot_urls`     | array    | ✅        | List of screenshot URL strings. Defaults to `[]`. |
+| `import_source`       | enum     | ✅        | `manual` / `csv_import`. Defaults to `manual`. |
+| `broker_name`         | string   | ✅        | Broker name (nullable) |
+| `deleted_at`          | datetime | ❌        | Soft-delete timestamp (null = active) |
+| `created_at`          | datetime | ❌        | Auto-set on creation |
+| `updated_at`          | datetime | ❌        | Auto-updated on save |
 
 ### Computed Properties
 
@@ -308,9 +327,9 @@ The signal is **skipped** when an `update_fields` save only touches: `total_pnl`
 ```python
 # tradelog/urls.py
 urlpatterns = [
-    path('trades/',          TradeListCreateView.as_view(), name='trade-list-create'),
-    path('trades/import/',   TradeImportView.as_view(),     name='trade-import'),
-    path('trades/<uuid:pk>/',TradeDetailView.as_view(),     name='trade-detail'),
+    path('trades/',           TradeListCreateView.as_view(), name='trade-list-create'),
+    path('trades/import/',    TradeImportView.as_view(),     name='trade-import'),
+    path('trades/<uuid:pk>/', TradeDetailView.as_view(),     name='trade-detail'),
 ]
 ```
 
