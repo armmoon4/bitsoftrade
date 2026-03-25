@@ -3,11 +3,13 @@ import csv
 from .zerodha import normalize_zerodha
 from .groww import normalize_groww
 from .upstox import normalize_upstox
+from .dhan import normalize_dhan
 
 _HEADER_KEYWORDS = (
     'symbol', 'scrip', 'trade_id', 'stock_name', 'execution_date',
     'order_execution_time', 'instrument', 'isin', 'trade_date', 'date',
     'order_id', 'side', 'trade_num', 'segment', 'series',
+    'buy/sell', 'trade_price',  # Dhan-specific
 )
 
 def extract_rows_from_raw_data(raw_data):
@@ -86,7 +88,7 @@ def detect_and_normalize(raw_rows, broker_hint=''):
     )
     if is_groww:
         return 'groww', normalize_groww(raw_rows)
-    
+
     # Upstox detection
     is_upstox = (
         broker_hint == 'upstox' or
@@ -95,7 +97,15 @@ def detect_and_normalize(raw_rows, broker_hint=''):
     if is_upstox:
         return 'upstox', normalize_upstox(raw_rows)
 
-    # Fallback:
+    # Dhan detection
+    is_dhan = (
+        broker_hint == 'dhan' or
+        {'name', 'buy/sell', 'trade_price', 'trade_value', 'status'}.issubset(headers)
+    )
+    if is_dhan:
+        return 'dhan', normalize_dhan(raw_rows)
+
+    # Fallback
     raise ValueError(
-    "Unrecognized broker format. Only Zerodha, Groww, and Upstox CSVs are supported."
-)
+        "Unrecognized broker format. Only Zerodha, Groww, Upstox, and Dhan CSVs are supported."
+    )
