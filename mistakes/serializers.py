@@ -6,7 +6,7 @@ class MistakeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mistake
         fields = '__all__'
-        read_only_fields = ['id', 'created_at', 'is_admin_defined', 'created_by_admin']
+        read_only_fields = ['id', 'created_at', 'is_admin_defined', 'created_by_admin', 'deleted_at']
 
 
 class TradeMistakeSerializer(serializers.ModelSerializer):

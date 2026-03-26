@@ -13,6 +13,17 @@ class Mistake(models.Model):
         ('risk', 'Risk'),
     ]
 
+    MISTAKE_MODE = [
+        ('overtrading', 'Overtrading'),
+        ('revenge_trading', 'Revenge Trading'),
+        ('fomo', 'FOMO'),
+        ('early_exit', 'Early Exit'),
+        ('ignored_stop_loss', 'Ignored Stop Loss'),
+        ('late_exit', 'Late Exit'),
+        ('no_plan', 'No Plan'),
+        ('oversized_position', 'Oversized Position'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     created_by_admin = models.ForeignKey(
         'admin_panel.Admin', on_delete=models.SET_NULL, null=True, blank=True,
@@ -23,6 +34,10 @@ class Mistake(models.Model):
         related_name='custom_mistakes'
     )
     mistake_name = models.CharField(max_length=200)
+    mistake_mode = models.CharField(
+        max_length=30, choices=MISTAKE_MODE, null=True, blank=True,
+        help_text='Behavioural pattern this mistake falls under'
+    )
     category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
     description = models.TextField(blank=True)
     severity_weight = models.IntegerField(help_text='1-10 severity score')
