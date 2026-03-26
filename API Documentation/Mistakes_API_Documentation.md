@@ -2,7 +2,7 @@
 
 ## Overview
 
-The **Mistakes** module manages trading mistakes and their linkage to trades. Mistakes can be **admin-defined** (global, visible to all users) or **user-custom**. The module also provides a dedicated analytics endpoint that surfaces usage trends, P&L impact, clustering detection, and severity distribution.
+The **Mistakes** module manages trading mistakes and their linkage to trades. Mistakes can be **admin-defined** (global, visible to all users) or **user-custom**. The module also provides a dedicated analytics endpoint that surfaces mistake frequency trends, P&L impact metrics, and severity distribution.
 
 ---
 
@@ -45,6 +45,7 @@ Returns all non-deleted mistakes visible to the authenticated user: **admin-defi
     "created_by_admin": null,
     "user": null,
     "mistake_name": "Overtrading",
+    "mistake_mode": "overtrading",
     "category": "psychology",
     "description": "Taking more trades than the plan allows.",
     "severity_weight": 7,
@@ -66,13 +67,27 @@ Creates a new user-custom mistake. `is_admin_defined` is always forced to `false
 
 **Request Body:**
 
-| Field             | Type    | Required | Description |
-|-------------------|---------|----------|-------------|
-| `mistake_name`    | string  | ✅        | Display name (max 200 chars) |
-| `category`        | enum    | ✅        | `execution` / `psychology` / `process` / `risk` |
-| `description`     | string  | ❌        | Optional explanation |
-| `severity_weight` | integer | ✅        | Severity score 1–10 |
-| `user`            | —       | ❌        | Ignored — set from authenticated user |
+| Field             | Type    | Required | Description                                          |
+|-------------------|---------|----------|------------------------------------------------------|
+| `mistake_name`    | string  | ✅        | Display name (max 200 chars)                         |
+| `category`        | enum    | ✅        | `execution` / `psychology` / `process` / `risk`      |
+| `mistake_mode`    | enum    | ❌        | Behavioural pattern — see Mistake Mode choices below |
+| `description`     | string  | ❌        | Optional explanation                                 |
+| `severity_weight` | integer | ✅        | Severity score 1–10                                  |
+| `user`            | —       | ❌        | Ignored — set from authenticated user server-side    |
+
+**Mistake Mode choices:**
+
+| Value               | Label               |
+|---------------------|---------------------|
+| `overtrading`       | Overtrading         |
+| `revenge_trading`   | Revenge Trading     |
+| `fomo`              | FOMO                |
+| `early_exit`        | Early Exit          |
+| `ignored_stop_loss` | Ignored Stop Loss   |
+| `late_exit`         | Late Exit           |
+| `no_plan`           | No Plan             |
+| `oversized_position`| Oversized Position  |
 
 **Success Response — `201 Created`:** full mistake object.
 
@@ -96,11 +111,11 @@ Partially updates the custom mistake.
 
 #### `DELETE /api/mistakes/<uuid:id>/`
 
-Soft-deletes the custom mistake by setting `deleted_at` to now.
+Soft-deletes the custom mistake by setting `deleted_at` to the current timestamp. The record is **not removed** from the database.
 
 **Permissions:** Authenticated (owner only)
 
-**Success Response:** `200 OK` (GET/PUT/PATCH) — full mistake object. `204 No Content` (DELETE).
+**Success Response:** `200 OK` (GET / PUT / PATCH) — full mistake object. `204 No Content` (DELETE).
 
 **Error Response — `403 Forbidden`** *(if an admin-defined mistake is somehow reached)*:
 
@@ -146,10 +161,10 @@ Links a mistake to a trade. Each `(trade, mistake)` pair must be unique — atte
 
 **Request Body:**
 
-| Field     | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `trade`   | UUID | ✅        | ID of the trade to tag |
-| `mistake` | UUID | ✅        | ID of the mistake to link |
+| Field     | Type | Required | Description                    |
+|-----------|------|----------|--------------------------------|
+| `trade`   | UUID | ✅        | ID of the trade to tag         |
+| `mistake` | UUID | ✅        | ID of the mistake to link      |
 
 **Success Response — `201 Created`:**
 
@@ -173,7 +188,7 @@ Links a mistake to a trade. Each `(trade, mistake)` pair must be unique — atte
 }
 ```
 
-> **Note:** There is no DELETE endpoint for `trade-links`. To unlink a mistake from a trade, use the Django admin or handle it directly at the database level.
+> **Note:** There is no DELETE endpoint for `trade-links`. To unlink a mistake from a trade, handle it directly via the Django admin or at the database level.
 
 ---
 
@@ -181,7 +196,13 @@ Links a mistake to a trade. Each `(trade, mistake)` pair must be unique — atte
 
 #### `GET /api/mistakes/analytics/`
 
-Returns a full analytics breakdown: per-mistake usage with 30-day trend, P&L impact metrics, clustering detection across the last 5 trades, and severity distribution.
+Returns a three-section analytics breakdown for the authenticated user:
+
+| Section                      | Scope       | Description                                                    |
+|------------------------------|-------------|----------------------------------------------------------------|
+| `mistake_frequency_last_30`  | Last 30 days| Ranked list of behavioural patterns (`mistake_mode`) by occurrence count |
+| `impact`                     | All time    | P&L and trade-count comparison between impacted and clean trades |
+| `severity_distribution`      | All time    | High / medium / low bucket counts across all tagged mistakes   |
 
 **Permissions:** Authenticated
 
@@ -189,35 +210,49 @@ Returns a full analytics breakdown: per-mistake usage with 30-day trend, P&L imp
 
 ```json
 {
-  "usage": [
+  "mistake_frequency_last_30": [
     {
-      "mistake__id": "uuid",
-      "mistake__mistake_name": "Overtrading",
-      "mistake__description": "Taking more trades than the plan allows.",
-      "mistake__category": "psychology",
-      "mistake__severity_weight": 7,
-      "count": 12,
-      "trend": "Increasing",
-      "last_30": 8,
-      "prev_30": 4
+      "rank": 1,
+      "mistake_mode": "overtrading",
+      "label": "Overtrading",
+      "count": 8
+    },
+    {
+      "rank": 2,
+      "mistake_mode": "fomo",
+      "label": "FOMO",
+      "count": 5
+    },
+    {
+      "rank": 3,
+      "mistake_mode": null,
+      "label": "Unclassified",
+      "count": 2
     }
   ],
   "impact": {
-    "impacted_count": 18,
-    "impacted_percentage": 36.0,
-    "total_pnl_impact": -4200.50,
+    "trades_with_mistakes": 18,
+    "trades_with_mistakes_percentage": 36.0,
+    "loss_from_mistake_trades": -4200.50,
     "clean_trades_count": 32,
     "clean_success_rate": 68.8
   },
-  "clustering": {
-    "recent_mistakes_count": 4,
-    "is_above_average": true,
-    "average_per_5": 1.5
-  },
   "severity_distribution": {
-    "low": 3,
-    "medium": 8,
-    "high": 7
+    "high": {
+      "count": 7,
+      "range": "8-10",
+      "label": "Critical mistakes to eliminate"
+    },
+    "medium": {
+      "count": 8,
+      "range": "5-7",
+      "label": "Needs improvement"
+    },
+    "low": {
+      "count": 3,
+      "range": "1-4",
+      "label": "Minor issues"
+    }
   }
 }
 ```
@@ -226,67 +261,179 @@ Returns a full analytics breakdown: per-mistake usage with 30-day trend, P&L imp
 
 ## Analytics Field Reference
 
-### `usage`
+---
 
-Ordered by `count` descending. One entry per mistake that has been tagged at least once.
+### `mistake_frequency_last_30`
 
-| Field                      | Description |
-|----------------------------|-------------|
-| `mistake__id`              | Mistake UUID |
-| `mistake__mistake_name`    | Mistake display name |
-| `mistake__description`     | Mistake description |
-| `mistake__category`        | Category: `execution` / `psychology` / `process` / `risk` |
-| `mistake__severity_weight` | Severity 1–10 |
-| `count`                    | Total times this mistake has been tagged across all trades |
-| `trend`                    | `Increasing` / `Decreasing` / `Stable` — based on last 30 days vs prior 30 days |
-| `last_30`                  | Tag count in the last 30 days |
-| `prev_30`                  | Tag count in the 30 days before that |
+A **dynamically ranked list** of behavioural patterns (`mistake_mode`) that occurred in the **last 30 days**, ordered by `count` descending. The list is built entirely from real data — only modes that were actually tagged appear. Modes with zero tags in the window are **omitted entirely**.
 
-**Trend logic:**
+---
 
-| Condition             | Trend          |
-|-----------------------|----------------|
-| `last_30 > prev_30`   | `Increasing`   |
-| `last_30 < prev_30`   | `Decreasing`   |
-| `last_30 == prev_30`  | `Stable`       |
+#### How the data is built
+
+1. All `TradeMistake` records for the user where `tagged_at` date ≥ today − 30 days are collected.
+2. They are grouped by `mistake__mistake_mode`.
+3. Each group is counted (`Count('id')`) and sorted highest-to-lowest.
+4. The server loops over the sorted results and assigns `rank` starting at `1`.
+5. The human-readable `label` is resolved from the `Mistake.MISTAKE_MODE` choices dict. If `mistake_mode` is `null`, the label is hardcoded to `"Unclassified"`.
+
+---
+
+#### Field reference
+
+| Field          | Type             | Description |
+|----------------|------------------|-------------|
+| `rank`         | integer          | 1-based position in the list. Rank 1 = most-tagged pattern this period. **Changes every time the endpoint is called** as new tags are added or the 30-day window rolls forward. |
+| `mistake_mode` | string or `null` | Raw `mistake_mode` value stored on the `Mistake` record. `null` means the mistake was created without a mode. |
+| `label`        | string           | Display name for the mode, resolved from server-side choices. Never `null` — falls back to the raw value if unrecognised, or `"Unclassified"` for `null` modes. |
+| `count`        | integer          | Number of `TradeMistake` tags with this mode in the last 30 days. Always ≥ 1 (zero-count modes are not returned). |
+
+---
+
+#### All possible entries
+
+The list can contain **up to 9 entries** — one per distinct `mistake_mode` value (8 named modes + 1 `null`/Unclassified group). Only modes tagged at least once in the window appear.
+
+| `mistake_mode`        | `label`              | Appears when… |
+|-----------------------|----------------------|---------------|
+| `overtrading`         | Overtrading          | ≥1 mistake with this mode was tagged in last 30 days |
+| `revenge_trading`     | Revenge Trading      | same |
+| `fomo`                | FOMO                 | same |
+| `early_exit`          | Early Exit           | same |
+| `ignored_stop_loss`   | Ignored Stop Loss    | same |
+| `late_exit`           | Late Exit            | same |
+| `no_plan`             | No Plan              | same |
+| `oversized_position`  | Oversized Position   | same |
+| `null`                | Unclassified         | ≥1 mistake with `mistake_mode = null` was tagged in last 30 days |
+
+---
+
+#### Rank is dynamic — not fixed
+
+Rank is **not** a stable identifier for a mode. It is purely a position number assigned at query time based on the current `count` ordering. This means:
+
+- A mode ranked `#1` today could be `#3` tomorrow if the user tags other modes more.
+- As the 30-day window rolls forward, old tags drop off, counts decrease, and ranks shift.
+- A mode can disappear from the list entirely once its last tag falls outside the 30-day window.
+
+**Frontend must not hardcode or cache ranks.** Always re-render from the latest API response.
+
+---
+
+#### Edge cases and frontend handling
+
+| Scenario | What the API returns | How frontend should handle |
+|---|---|---|
+| No tags at all in last 30 days | `"mistake_frequency_last_30": []` | Show an empty state: *"No mistakes tagged in the last 30 days"* |
+| Only one mode tagged | Single-item array, `rank: 1` | Render normally |
+| All 8 named modes tagged | 8 entries, ranks 1–8 | Render full list |
+| Some modes have equal `count` | Tied modes appear in **DB-determined order** — no secondary sort is applied server-side | Do not imply an ordering between tied entries; treat them as equal |
+| Mistakes with no `mistake_mode` set (`null`) were tagged | One entry with `"mistake_mode": null, "label": "Unclassified"` | Render as its own row — do not skip `null` mode entries |
+| New tags are added mid-session | Ranks and counts will change on the next API call | Always fetch fresh data before rendering; do not persist rank values in local state |
+
+---
+
+#### Full example — 5 modes tagged
+
+If the user tagged 5 different behavioural patterns in the last 30 days:
+
+```json
+[
+  { "rank": 1, "mistake_mode": "overtrading",       "label": "Overtrading",         "count": 8 },
+  { "rank": 2, "mistake_mode": "fomo",              "label": "FOMO",                "count": 5 },
+  { "rank": 3, "mistake_mode": "revenge_trading",   "label": "Revenge Trading",     "count": 4 },
+  { "rank": 4, "mistake_mode": null,                "label": "Unclassified",        "count": 2 },
+  { "rank": 5, "mistake_mode": "ignored_stop_loss", "label": "Ignored Stop Loss",   "count": 1 }
+]
+```
+
+The 3 modes not tagged (`early_exit`, `late_exit`, `no_plan`, `oversized_position`) are **absent from the response** — they do not appear with `count: 0`.
+
+---
+
+#### Recommended frontend rendering pattern
+
+```js
+// Safe pattern — always iterate what the server returns, never assume fixed ranks
+mistakeFrequency.map((entry) => ({
+  position:  entry.rank,          // display as "#1", "#2", etc.
+  modeName:  entry.label,         // always use label for display, not mistake_mode
+  modeKey:   entry.mistake_mode,  // use as React key or for icon mapping; handle null
+  count:     entry.count,
+}))
+
+// Empty state guard
+if (mistakeFrequency.length === 0) {
+  return <EmptyState message="No mistakes tagged in the last 30 days" />
+}
+```
+
+> **Never use `rank` as a stable key or array index.** Use `mistake_mode` as the key (treating `null` as `"unclassified"` for key purposes).
 
 ---
 
 ### `impact`
 
-Compares trades that have at least one mistake tagged ("impacted") against trades with no mistakes ("clean").
+Compares **all non-deleted trades** for the user split into two groups:
 
-| Field                 | Description |
-|-----------------------|-------------|
-| `impacted_count`      | Number of trades with at least one mistake tagged |
-| `impacted_percentage` | `impacted_count / total_trades × 100`, rounded to 1 decimal |
-| `total_pnl_impact`    | Sum of `total_pnl` across all impacted trades (negative = net loss) |
-| `clean_trades_count`  | Trades with no mistakes tagged |
-| `clean_success_rate`  | Win rate % of clean trades (trades with `total_pnl > 0` / `clean_trades_count × 100`) |
+- **Impacted trades** — trades that have at least one `TradeMistake` record linked to them (all time).
+- **Clean trades** — trades with no `TradeMistake` records linked (all time).
 
----
+`deleted_at__isnull=True` is applied to trades before all calculations, so soft-deleted trades are excluded entirely.
 
-### `clustering`
+| Field                           | Type    | Description                                                                                                              |
+|---------------------------------|---------|--------------------------------------------------------------------------------------------------------------------------|
+| `trades_with_mistakes`          | integer | Number of non-deleted trades that have at least one mistake tagged.                                                      |
+| `trades_with_mistakes_percentage` | float | `(trades_with_mistakes / total_non_deleted_trades) × 100`, rounded to 1 decimal place. Returns `0` if no trades exist.  |
+| `loss_from_mistake_trades`      | float   | Sum of `total_pnl` across all impacted trades, rounded to 2 decimal places. Can be positive or negative depending on actual P&L. Returns `0` if there are no impacted trades. |
+| `clean_trades_count`            | integer | Number of non-deleted trades with no mistakes tagged.                                                                    |
+| `clean_success_rate`            | float   | Win rate of clean trades: `(clean trades with total_pnl > 0 / clean_trades_count) × 100`, rounded to 1 decimal. Returns `0` if `clean_trades_count` is `0`. |
 
-Detects whether mistakes are clustering in recent activity by comparing the last 5 trades against the historical average.
+**Important notes:**
 
-| Field                   | Description |
-|-------------------------|-------------|
-| `recent_mistakes_count` | Total mistake tags across the user's last 5 trades (by `trade_date` then `trade_time` desc) |
-| `is_above_average`      | `true` if `recent_mistakes_count > average_per_5` |
-| `average_per_5`         | Historical average mistakes expected per 5 trades: `(total_mistake_tags / total_trades) × 5`, rounded to 1 decimal |
+- `loss_from_mistake_trades` is **not filtered to only losses** — it is the raw sum of `total_pnl` for all impacted trades. A positive value means impacted trades were, on net, profitable. The field name indicates the intent (measuring the cost of mistakes) but the value reflects actual P&L.
+- `trades_with_mistakes_percentage` uses the **total count of all non-deleted trades** as the denominator, not just impacted trades.
+- `clean_success_rate` is `0` (not `null`) when there are no clean trades — handle this in the UI to avoid showing a misleading 0%.
+
+**Example — interpreting the response:**
+
+```json
+{
+  "trades_with_mistakes": 18,
+  "trades_with_mistakes_percentage": 36.0,
+  "loss_from_mistake_trades": -4200.50,
+  "clean_trades_count": 32,
+  "clean_success_rate": 68.8
+}
+```
+
+18 out of 50 total trades (36%) had at least one mistake tagged. Those impacted trades produced a net P&L of −$4,200.50. The remaining 32 clean trades had a 68.8% win rate.
 
 ---
 
 ### `severity_distribution`
 
-Buckets all tagged mistakes by their `severity_weight`:
+Buckets **all `TradeMistake` records for the user (all time)** into three severity tiers based on the linked `mistake.severity_weight`. Each bucket is an object containing `count`, the score `range`, and a human-readable `label`.
 
-| Bucket   | Range              |
-|----------|--------------------|
-| `low`    | `severity_weight` ≤ 4 |
-| `medium` | 5 ≤ `severity_weight` ≤ 7 |
-| `high`   | `severity_weight` > 7 |
+| Bucket   | Condition                              | `range` | `label`                        |
+|----------|----------------------------------------|---------|--------------------------------|
+| `high`   | `severity_weight > 7` (i.e. 8, 9, 10) | `"8-10"`| `"Critical mistakes to eliminate"` |
+| `medium` | `severity_weight > 4` and `≤ 7` (i.e. 5, 6, 7) | `"5-7"` | `"Needs improvement"` |
+| `low`    | `severity_weight ≤ 4` (i.e. 1, 2, 3, 4) | `"1-4"` | `"Minor issues"`           |
+
+> The buckets are **mutually exclusive and exhaustive** — every tagged mistake falls into exactly one bucket.
+
+**Response shape:**
+
+```json
+{
+  "severity_distribution": {
+    "high":   { "count": 7, "range": "8-10", "label": "Critical mistakes to eliminate" },
+    "medium": { "count": 8, "range": "5-7",  "label": "Needs improvement" },
+    "low":    { "count": 3, "range": "1-4",  "label": "Minor issues" }
+  }
+}
+```
 
 ---
 
@@ -294,31 +441,32 @@ Buckets all tagged mistakes by their `severity_weight`:
 
 ### Mistake
 
-| Field             | Type     | Writable | Description |
-|-------------------|----------|----------|-------------|
-| `id`              | UUID     | ❌        | Primary key |
-| `created_by_admin`| FK       | ❌        | Admin who created it (null for user custom) |
-| `user`            | FK       | ❌        | Owner user (null for admin-defined). Set server-side. |
-| `mistake_name`    | string   | ✅        | Display name (max 200 chars) |
-| `category`        | enum     | ✅        | `execution` / `psychology` / `process` / `risk` |
-| `description`     | string   | ✅        | Optional description |
-| `severity_weight` | integer  | ✅        | 1–10 severity score |
-| `is_custom`       | boolean  | ❌        | Always `true` for user-created mistakes. Set server-side. |
-| `is_admin_defined`| boolean  | ❌        | `true` = global admin mistake. Set server-side. |
-| `deleted_at`      | datetime | ❌        | Soft-delete timestamp (null = active) |
-| `created_at`      | datetime | ❌        | Auto-set on creation |
+| Field              | Type     | Writable | Description                                                          |
+|--------------------|----------|----------|----------------------------------------------------------------------|
+| `id`               | UUID     | ❌        | Primary key, auto-generated                                          |
+| `created_by_admin` | FK       | ❌        | Admin who created it (`null` for user-custom mistakes)               |
+| `user`             | FK       | ❌        | Owner user (`null` for admin-defined). Set server-side on create.    |
+| `mistake_name`     | string   | ✅        | Display name (max 200 chars)                                         |
+| `mistake_mode`     | enum     | ✅        | Behavioural pattern. See Mistake Mode choices above. Nullable.       |
+| `category`         | enum     | ✅        | `execution` / `psychology` / `process` / `risk`                      |
+| `description`      | string   | ✅        | Optional explanation                                                 |
+| `severity_weight`  | integer  | ✅        | 1–10 severity score                                                  |
+| `is_custom`        | boolean  | ❌        | Always `true` for user-created mistakes. Set server-side.            |
+| `is_admin_defined` | boolean  | ❌        | `true` = global admin mistake. Set server-side.                      |
+| `deleted_at`       | datetime | ❌        | Soft-delete timestamp (`null` = active)                              |
+| `created_at`       | datetime | ❌        | Auto-set on creation                                                 |
 
 ### TradeMistake
 
-| Field             | Type     | Writable | Description |
-|-------------------|----------|----------|-------------|
-| `id`              | UUID     | ❌        | Primary key |
-| `trade`           | FK       | ✅        | Linked trade |
-| `mistake`         | FK       | ✅        | Linked mistake |
-| `mistake_name`    | string   | ❌        | Denormalised from `mistake.mistake_name` |
-| `severity_weight` | integer  | ❌        | Denormalised from `mistake.severity_weight` |
-| `category`        | string   | ❌        | Denormalised from `mistake.category` |
-| `tagged_at`       | datetime | ❌        | Auto-set when the link is created |
+| Field            | Type     | Writable | Description                                           |
+|------------------|----------|----------|-------------------------------------------------------|
+| `id`             | UUID     | ❌        | Primary key, auto-generated                           |
+| `trade`          | FK       | ✅        | Linked trade                                          |
+| `mistake`        | FK       | ✅        | Linked mistake                                        |
+| `mistake_name`   | string   | ❌        | Denormalised read-only from `mistake.mistake_name`    |
+| `severity_weight`| integer  | ❌        | Denormalised read-only from `mistake.severity_weight` |
+| `category`       | string   | ❌        | Denormalised read-only from `mistake.category`        |
+| `tagged_at`      | datetime | ❌        | Auto-set when the link is created                     |
 
 ---
 
@@ -338,20 +486,20 @@ urlpatterns = [
 
 ## Error Reference
 
-| Status Code | Meaning |
-|-------------|---------|
-| `200`       | OK — request successful |
-| `201`       | Created — resource created |
-| `204`       | No Content — soft-deleted |
-| `400`       | Bad Request — validation error (e.g. duplicate trade+mistake link) |
-| `401`       | Unauthorized — missing or invalid JWT token |
-| `403`       | Forbidden — cannot delete an admin-defined mistake |
-| `404`       | Not found — resource does not exist or belongs to another user |
+| Status Code | Meaning                                                                      |
+|-------------|------------------------------------------------------------------------------|
+| `200`       | OK — request successful                                                      |
+| `201`       | Created — resource created                                                   |
+| `204`       | No Content — soft-deleted                                                    |
+| `400`       | Bad Request — validation error (e.g. duplicate trade + mistake link)         |
+| `401`       | Unauthorized — missing or invalid JWT token                                  |
+| `403`       | Forbidden — cannot delete an admin-defined mistake                           |
+| `404`       | Not Found — resource does not exist or belongs to another user               |
 
 ---
 
 ## Dependencies
 
-- `tradelog` — `Trade` model (linked by `TradeMistake`, used in analytics)
+- `tradelog` — `Trade` model (linked by `TradeMistake`, used in analytics impact calculations)
 - `admin_panel` — `Admin` model (`created_by_admin` FK on `Mistake`)
 - `accounts` — `User` model
