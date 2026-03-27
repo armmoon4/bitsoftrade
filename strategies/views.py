@@ -98,13 +98,20 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
 
 
 class StrategyListCreateView(generics.ListCreateAPIView):
-    """GET /api/strategies/ — user's strategies.
-       POST /api/strategies/ — create new."""
     serializer_class = StrategySerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Strategy.objects.filter(user=self.request.user, deleted_at__isnull=True)
+        qs = Strategy.objects.filter(user=self.request.user, deleted_at__isnull=True)
+        
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(strategy_name__icontains=search) |  # search by name
+                Q(tags__icontains=search) |            # search by tags
+                Q(trade_type__icontains=search)        # search by segment (intraday/swing/positional)
+            )
+        return qs
 
     def list(self, request, *args, **kwargs):
         qs = self.get_queryset()
