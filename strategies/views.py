@@ -10,7 +10,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
 from .models import Strategy
-from .serializers import StrategySerializer
+from .serializers import StrategySerializer, StrategyMinimalSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -36,12 +36,8 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         if total_trades == 0:
             return default_metrics
 
-        # ── Only consider closed trades (exit_price set) for PnL metrics ──
         closed_qs = qs.filter(exit_price__isnull=False)
 
-        # Recalculate pnl in Python for trades where total_pnl is null
-        # but also ensure DB-stored total_pnl is used when available.
-        # We fetch only what we need to avoid loading full objects unnecessarily.
         closed_trades = closed_qs.values(
             'total_pnl', 'direction', 'entry_price', 'exit_price',
             'quantity', 'fees', 'leverage'
@@ -55,7 +51,6 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         for t in closed_trades:
             pnl = t['total_pnl']
 
-            # If total_pnl not stored, calculate on the fly
             if pnl is None:
                 qty = t['quantity'] or Decimal('0')
                 entry = t['entry_price'] or Decimal('0')
@@ -86,8 +81,8 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         sample_progress = min(round((total_trades / threshold) * 100, 2), 100) if threshold else 0
 
         return {
-            'total_trades': total_trades,          # all linked trades
-            'closed_trades': closed_count,          # trades with exit price
+            'total_trades': total_trades,
+            'closed_trades': closed_count,
             'win_rate': win_rate,
             'total_pnl': total_pnl,
             'profit_factor': profit_factor,
@@ -168,6 +163,15 @@ def template_strategies_view(request):
     return Response(data)
 
 
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def strategy_names_view(request):
+    """GET /api/strategies/names/ — returns only id and strategy_name."""
+    strategies = Strategy.objects.filter(user=request.user, deleted_at__isnull=True)
+    serializer = StrategyMinimalSerializer(strategies, many=True)
+    return Response(serializer.data)
+
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def add_to_mine_view(request, pk):
@@ -183,11 +187,9 @@ def add_to_mine_view(request, pk):
         description=original.description,
         tags=original.tags,
         market_types=original.market_types,
-
         entry_rules=original.entry_rules,
         exit_rules=original.exit_rules,
         risk_management_rules=original.risk_management_rules,
-        
         trade_type=original.trade_type,
         sample_size_threshold=original.sample_size_threshold,
         is_public=False,
@@ -238,7 +240,6 @@ def assign_trades_view(request, pk):
 
     count = qs.update(strategy=strategy)
 
-    # Also trigger calculate_pnl() for any closed trades missing total_pnl
     trades_missing_pnl = Trade.objects.filter(
         strategy=strategy,
         deleted_at__isnull=True,
@@ -249,7 +250,6 @@ def assign_trades_view(request, pk):
         trade.calculate_pnl()
         trade.save(update_fields=['total_pnl'])
 
-    # Recalculate maturity
     total = Trade.objects.filter(strategy=strategy, deleted_at__isnull=True).count()
     strategy.update_maturity(total)
 

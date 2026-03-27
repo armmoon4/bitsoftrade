@@ -3,6 +3,7 @@ from .views import (
     StrategyListCreateView, StrategyDetailView,
     community_strategies_view, template_strategies_view,
     add_to_mine_view, assign_trades_view,
+    strategy_names_view,
 )
 
 urlpatterns = [
@@ -12,4 +13,5 @@ urlpatterns = [
     path('<uuid:pk>/', StrategyDetailView.as_view(), name='strategy-detail'),
     path('<uuid:pk>/add-to-mine/', add_to_mine_view, name='strategy-add-to-mine'),
     path('<uuid:pk>/assign-trades/', assign_trades_view, name='strategy-assign-trades'),
+    path('names/', strategy_names_view, name='strategy-names'),
 ]
