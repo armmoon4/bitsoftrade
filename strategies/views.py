@@ -23,6 +23,9 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         'total_pnl': Decimal('0'),
         'profit_factor': 0,
         'sample_size_progress': 0,
+        'max_drawdown': Decimal('0'),
+        'max_drawdown_pct': 0,
+        'avg_return': Decimal('0'),
     }
 
     try:
@@ -36,7 +39,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         if total_trades == 0:
             return default_metrics
 
-        closed_qs = qs.filter(exit_price__isnull=False)
+        closed_qs = qs.filter(exit_price__isnull=False).order_by('trade_date', 'created_at')
 
         closed_trades = closed_qs.values(
             'total_pnl', 'direction', 'entry_price', 'exit_price',
@@ -47,6 +50,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         gross_loss = Decimal('0')
         total_pnl = Decimal('0')
         wins = 0
+        pnl_list = []  # for max drawdown and avg return
 
         for t in closed_trades:
             pnl = t['total_pnl']
@@ -66,6 +70,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
 
             pnl = Decimal(str(pnl))
             total_pnl += pnl
+            pnl_list.append(pnl)
 
             if pnl > 0:
                 wins += 1
@@ -80,6 +85,28 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         threshold = getattr(strategy, 'sample_size_threshold', 0)
         sample_progress = min(round((total_trades / threshold) * 100, 2), 100) if threshold else 0
 
+        # --- Max Drawdown ---
+        # Build equity curve (cumulative PnL) and find the largest peak-to-trough drop
+        max_drawdown = Decimal('0')
+        max_drawdown_pct = 0
+        if pnl_list:
+            equity = Decimal('0')
+            peak = Decimal('0')
+            for pnl in pnl_list:
+                equity += pnl
+                if equity > peak:
+                    peak = equity
+                drawdown = peak - equity
+                if drawdown > max_drawdown:
+                    max_drawdown = drawdown
+                    if peak > 0:
+                        max_drawdown_pct = round(float(drawdown / peak) * 100, 2)
+                    else:
+                        max_drawdown_pct = 0
+
+        # --- Average Return per closed trade ---
+        avg_return = round(total_pnl / closed_count, 2) if closed_count else Decimal('0')
+
         return {
             'total_trades': total_trades,
             'closed_trades': closed_count,
@@ -87,6 +114,9 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
             'total_pnl': total_pnl,
             'profit_factor': profit_factor,
             'sample_size_progress': sample_progress,
+            'max_drawdown': max_drawdown,
+            'max_drawdown_pct': max_drawdown_pct,
+            'avg_return': avg_return,
         }
 
     except LookupError:
