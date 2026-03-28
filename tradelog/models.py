@@ -42,6 +42,10 @@ class Trade(models.Model):
         null=True, blank=True, related_name='trades'
     )
 
+    @property
+    def strategy_name(self):
+        return self.strategy.strategy_name if self.strategy else None
+
     # ── General
     trade_date = models.DateField()
     trade_time = models.TimeField(null=True, blank=True)

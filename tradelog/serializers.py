@@ -3,6 +3,7 @@ from tradelog.models import Trade
 
 
 class TradeManagementSerializer(serializers.ModelSerializer):
+    strategy_name = serializers.CharField(source='strategy.strategy_name', read_only=True, default=None)
     class Meta:
         model = Trade
         exclude = ['deleted_at']
