@@ -51,7 +51,7 @@ Returns all non-deleted rules visible to the authenticated user: **admin-defined
     "category": "risk",
     "rule_type": "hard",
     "trigger_scope": "per_day",
-    "trigger_condition": { "maxLoss": 5000, "maxDailyPercent": 3 },
+    "trigger_condition": { "maxLoss": 5000 },
     "action": "lock",
     "is_active": true,
     "is_admin_defined": true,
@@ -82,7 +82,7 @@ Creates a new user-custom rule. `is_admin_defined`, `created_by_admin`, and `use
 | `description`       | string  | ❌        | Human-readable explanation                            |
 | `category`          | enum    | ✅        | `risk` / `process` / `psychology` / `time` / `other` |
 | `rule_type`         | enum    | ✅        | `hard` (locks session) or `soft` (warns)              |
-| `trigger_scope`     | enum    | ✅        | `per_day` / `per_trade` / `post_trigger`              |
+| `trigger_scope`     | enum    | ✅        | `per_day` / `per_trade` / `per_session`               |
 | `trigger_condition` | object  | ✅        | JSON condition — see Trigger Condition Reference      |
 | `action`            | enum    | ✅        | `lock` / `warn` / `require_journal`                   |
 | `is_active`         | boolean | ❌        | Default: `true`                                       |
@@ -140,22 +140,20 @@ The `trigger_condition` field is a JSON object. The structure varies by conditio
 ### Max Daily Loss
 
 ```json
-{ "maxLoss": 5000, "maxDailyPercent": 3 }
+{ "maxLoss": 5000 }
 ```
 
-- `maxLoss` — absolute loss limit in base currency
-- `maxDailyPercent` — loss as % of `user.trading_capital`
-- Either key can be used alone or combined. Either condition being met is sufficient to trigger.
-- Requires `user.trading_capital` to be set for `maxDailyPercent` to evaluate.
+- `maxLoss` — absolute loss limit in base currency (INR).
+- Fires when the sum of `total_pnl` across all of today's trades is a loss equal to or exceeding this value.
 
 ### Position Size Limit
 
 ```json
-{ "maxPositionPercent": 10 }
+{ "maxPositionSize": 50000 }
 ```
 
-- Fires if any single trade's position value (`entry_price × quantity`) exceeds X% of `user.trading_capital`.
-- Requires `user.trading_capital` to be set. If not set, the condition is skipped.
+- Fires if any single trade's position value (`entry_price × quantity`) exceeds this absolute amount in base currency (INR).
+- No dependency on `user.trading_capital`.
 
 ### Max Trades Per Day
 
@@ -179,11 +177,11 @@ The `trigger_condition` field is a JSON object. The structure varies by conditio
 
 ## Trigger Scope Behaviour
 
-| Scope          | Evaluation Window                                                                 |
-|----------------|-----------------------------------------------------------------------------------|
-| `per_day`      | Aggregates across all trades in the session's date                                |
-| `per_trade`    | Evaluates against the single trade that just saved. Each trade can independently trigger the same rule. |
-| `post_trigger` | Skips evaluation entirely if `session_state` is `green`. Only fires once the user is already in a warned or locked state. |
+| Scope         | Evaluation Window                                                                                                                                              |
+|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `per_day`     | Aggregates across all trades in the session's date.                                                                                                            |
+| `per_trade`   | Evaluates against the single trade that just saved. Each trade can independently trigger the same rule.                                                        |
+| `per_session` | Skips evaluation entirely if `session_state` is `green`. Only fires once the user has already triggered at least one violation this session (state is `yellow` or `red`). |
 
 ---
 
@@ -198,7 +196,7 @@ The `trigger_condition` field is a JSON object. The structure varies by conditio
 | `description`       | text     | Optional description                                    |
 | `category`          | enum     | `risk` / `process` / `psychology` / `time` / `other`   |
 | `rule_type`         | enum     | `hard` (locks) / `soft` (warns)                         |
-| `trigger_scope`     | enum     | `per_day` / `per_trade` / `post_trigger`                |
+| `trigger_scope`     | enum     | `per_day` / `per_trade` / `per_session`                 |
 | `trigger_condition` | JSON     | Machine-readable condition definition                   |
 | `action`            | enum     | `lock` / `warn` / `require_journal`                     |
 | `is_active`         | boolean  | Whether rule is currently active                        |
@@ -217,7 +215,7 @@ Rules are evaluated automatically after **every trade save** (via `rules.engine.
 2. Loads all active non-deleted rules for the user (admin global + user custom)
 3. Evaluates each rule against today's trades, respecting `trigger_scope`
 4. For `per_trade` rules: deduplicates per `(session, rule, trade, lock_cycle)` — each trade can trigger the same rule independently
-5. For `per_day` / `post_trigger` rules: deduplicates per `(session, rule, lock_cycle)` — fires at most once per rule per lock cycle
+5. For `per_day` / `per_session` rules: deduplicates per `(session, rule, lock_cycle)` — fires at most once per rule per lock cycle
 6. Escalates `DisciplineSession.session_state`: `green` → `yellow` (soft violation) or `red` (hard violation). State only ever escalates within a cycle, never auto-downgrades.
 7. Updates `peak_state` — the highest state ever reached, never downgraded
 8. Creates a `ViolationsLog` entry and increments `violations_count`, `hard_violations`, or `soft_violations` for each new violation
@@ -225,9 +223,9 @@ Rules are evaluated automatically after **every trade save** (via `rules.engine.
 
 ### Session States
 
-| State    | Meaning                        | Triggered by  |
-|----------|--------------------------------|---------------|
-| `green`  | Normal — trading allowed       | Default       |
+| State    | Meaning                        | Triggered by                 |
+|----------|--------------------------------|------------------------------|
+| `green`  | Normal — trading allowed       | Default                      |
 | `yellow` | Warning — cooldown active      | Soft (`warn`) rule violation |
 | `red`    | Locked — trading blocked       | Hard (`lock`) rule violation |
 

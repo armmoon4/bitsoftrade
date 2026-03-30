@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 # ─── State Severity Ordering ──────────────────────────────────────────────────
 _STATE_SEVERITY = {'green': 0, 'yellow': 1, 'red': 2}
 _COOLDOWN_YELLOW_MINUTES = 2   # cooldown for YELLOW 45
-_COOLDOWN_RED_MINUTES = 5     # cooldown for RED 120
+_COOLDOWN_RED_MINUTES = 5      # cooldown for RED 120
 
 
 def evaluate_rules_for_user(user, session, trade=None):
@@ -75,7 +75,7 @@ def evaluate_rules_for_user(user, session, trade=None):
         current_severity = _STATE_SEVERITY.get(session.session_state, 0)
         new_severity = current_severity   # only grows, never shrinks
 
-        # FIX-1: Track whether any new violation was logged this evaluation
+        # Track whether any new violation was logged this evaluation
         # so we know whether to save session counter fields even if state
         # didn't escalate (e.g. already RED, but new violation still needs
         # to be counted).
@@ -105,7 +105,7 @@ def evaluate_rules_for_user(user, session, trade=None):
                         lock_cycle=current_cycle,
                     ).exists()
                 else:
-                    # per_day / post_trigger: one log per rule per cycle
+                    # per_day / per_session: one log per rule per cycle
                     already_logged = ViolationsLog.objects.filter(
                         session=session,
                         rule=rule,
@@ -141,7 +141,6 @@ def evaluate_rules_for_user(user, session, trade=None):
                         else:
                             session.soft_violations = (session.soft_violations or 0) + 1
 
-
                 if violation_type == 'hard':
                     new_severity = max(new_severity, _STATE_SEVERITY['red'])
                 else:
@@ -162,13 +161,11 @@ def evaluate_rules_for_user(user, session, trade=None):
             if new_severity > peak_severity:
                 session.peak_state = new_state
 
-   
             if session.cooldown_ends_at is None or session.cooldown_ends_at < timezone.now():
                 if new_state == 'yellow':
                     session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
                 elif new_state == 'red':
                     session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
-
 
             session.required_actions_completed = False
 
@@ -185,7 +182,6 @@ def evaluate_rules_for_user(user, session, trade=None):
             ])
 
         elif newly_logged_count > 0:
-
             print(f"[RuleEngine] saving session counters only (no state change)")
             session.save(update_fields=[
                 'rules_violated',
@@ -209,9 +205,11 @@ def _evaluate_single_rule(rule, user, today_trades, trade=None, session=None):
     """
     Evaluate one rule against today's trade data.
     Respects rule.trigger_scope:
-      - 'per_day'       → aggregate across all trades today
-      - 'per_trade'     → evaluate only on the single triggering trade
-      - 'post_trigger'  → only evaluate when session is already non-green
+      - 'per_day'      → aggregate across all trades today
+      - 'per_trade'    → evaluate only on the single triggering trade
+      - 'per_session'  → only evaluate when session is already non-green
+                         (i.e. rule is active only after a violation has
+                         already occurred this session)
 
     Returns (triggered: bool, violation_type: 'hard'|'soft')
     """
@@ -220,35 +218,30 @@ def _evaluate_single_rule(rule, user, today_trades, trade=None, session=None):
         triggered = False
         scope = rule.trigger_scope or 'per_day'
 
-        # post_trigger scope: skip evaluation entirely if session is still green.
-        # These rules only apply once the user is already in a locked state.
-        if scope == 'post_trigger':
+        # per_session scope: skip evaluation entirely if session is still green.
+        # These rules only apply once the user has already triggered at least
+        # one violation in the current session (state is yellow or red).
+        if scope == 'per_session':
             if session is None or session.session_state == 'green':
                 return False, rule.rule_type
 
         # ── 1. Max Daily Loss Limit ──────────────────────────────────────────
-        if 'maxLoss' in cond or 'maxDailyPercent' in cond:
+        if 'maxLoss' in cond:
             if scope == 'per_trade' and trade is not None:
                 trade_pnl = trade.total_pnl or Decimal('0')
                 max_loss = cond.get('maxLoss')
                 if max_loss is not None and trade_pnl < 0 and abs(trade_pnl) >= Decimal(str(max_loss)):
                     triggered = True
-                max_pct = cond.get('maxDailyPercent')
-                if not triggered and max_pct is not None and user.trading_capital and trade_pnl < 0:
-                    loss_pct = abs(trade_pnl) / user.trading_capital * 100
-                    if loss_pct >= Decimal(str(max_pct)):
-                        triggered = True
             else:
                 triggered = _check_daily_loss(user, today_trades, cond)
 
         # ── 2. Position Size Limit ───────────────────────────────────────────
-        elif 'maxPositionPercent' in cond:
+        elif 'maxPositionSize' in cond:
             if scope == 'per_trade' and trade is not None:
-                max_pct = cond.get('maxPositionPercent')
-                if max_pct and user.trading_capital:
+                max_size = cond.get('maxPositionSize')
+                if max_size is not None:
                     position_value = (trade.entry_price or 0) * (trade.quantity or 0)
-                    pct = position_value / user.trading_capital * 100
-                    if pct > Decimal(str(max_pct)):
+                    if position_value > Decimal(str(max_size)):
                         triggered = True
             else:
                 triggered = _check_position_size(user, today_trades, cond)
@@ -270,7 +263,7 @@ def _evaluate_single_rule(rule, user, today_trades, trade=None, session=None):
 
 
 def _check_daily_loss(user, today_trades, cond):
-    """Max Daily Loss — absolute INR or % of capital."""
+    """Max Daily Loss — absolute INR amount only."""
     agg = today_trades.aggregate(daily_pnl=Sum('total_pnl'))
     daily_pnl = agg.get('daily_pnl') or Decimal('0')
 
@@ -283,28 +276,20 @@ def _check_daily_loss(user, today_trades, cond):
     if max_loss is not None and abs_loss >= Decimal(str(max_loss)):
         return True
 
-    max_pct = cond.get('maxDailyPercent')
-    if max_pct is not None and user.trading_capital:
-        loss_pct = abs_loss / user.trading_capital * 100
-        if loss_pct >= Decimal(str(max_pct)):
-            return True
-
     return False
 
 
 def _check_position_size(user, today_trades, cond):
-    """Position Size — check if any trade exceeded max % of capital."""
-    max_pct = cond.get('maxPositionPercent')
-    if not max_pct or not user.trading_capital:
+    """Position Size — check if any trade exceeded the max absolute position value."""
+    max_size = cond.get('maxPositionSize')
+    if not max_size:
         return False
 
-    threshold = Decimal(str(max_pct))
-    capital = user.trading_capital
+    threshold = Decimal(str(max_size))
 
     for trade in today_trades:
         position_value = (trade.entry_price or 0) * (trade.quantity or 0)
-        pct = (position_value / capital * 100) if capital else Decimal('0')
-        if pct > threshold:
+        if position_value > threshold:
             return True
 
     return False
