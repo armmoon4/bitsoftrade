@@ -1,13 +1,18 @@
 from rest_framework import generics, permissions
-from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+from rest_framework.response import Response
 from rest_framework.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
+from datetime import timedelta
+
 from .models import DailyJournal, TradeNote, PsychologyLog, SessionRecap, LearningNote
 from .serializers import (
-    DailyJournalSerializer, TradeNoteSerializer, 
+    DailyJournalSerializer, TradeNoteSerializer,
     PsychologyLogSerializer, SessionRecapSerializer, LearningNoteSerializer
 )
-# Assuming you have a core pagination file or you can import from tradelog
-from tradelog.pagination import StandardResultsSetPagination 
+from tradelog.pagination import StandardResultsSetPagination
+
 
 class BaseJournalListCreateView(generics.ListCreateAPIView):
     """Base view to handle common List/Create logic for all journal models."""
@@ -85,3 +90,57 @@ class LearningNoteListCreateView(BaseJournalListCreateView):
 class LearningNoteDetailView(BaseJournalDetailView):
     queryset = LearningNote.objects.all()
     serializer_class = LearningNoteSerializer
+
+
+# --- Journal Streak View ---
+class JournalStreakAPIView(APIView):
+    """
+    Returns the user's current consecutive journaling streak
+    and the list of active journal dates for the current month.
+
+    Uses DailyJournal.journal_date as the activity source —
+    no separate UserActivity model needed.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        today = timezone.now().date()
+
+        # --- 1. CALCULATE CONSECUTIVE STREAK ---
+        # Fetch all journal dates up to today into a Set for O(1) lookups
+        all_journal_dates = set(
+            DailyJournal.objects.filter(
+                user=user,
+                journal_date__lte=today
+            ).values_list('journal_date', flat=True)
+        )
+
+        streak = 0
+        check_date = today
+
+        # Grace: if user hasn't journaled today yet, start counting from yesterday
+        # so we don't reset an active streak prematurely
+        if check_date not in all_journal_dates:
+            check_date -= timedelta(days=1)
+
+        # Walk backwards until the streak breaks
+        while check_date in all_journal_dates:
+            streak += 1
+            check_date -= timedelta(days=1)
+
+        # --- 2. GET THIS MONTH'S ACTIVE DATES ---
+        start_of_month = today.replace(day=1)
+
+        month_dates = DailyJournal.objects.filter(
+            user=user,
+            journal_date__gte=start_of_month,
+            journal_date__lte=today,
+        ).values_list('journal_date', flat=True)
+
+        active_this_month = [d.strftime('%Y-%m-%d') for d in month_dates]
+
+        return Response({
+            "current_streak": streak,
+            "this_month_active_dates": active_this_month,
+        })
