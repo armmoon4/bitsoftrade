@@ -9,7 +9,8 @@ class RuleSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'created_at', 'updated_at',
             'is_admin_defined', 'created_by_admin',
-            'user',  # users cannot assign rules to other users
+            'user',       # users cannot assign rules to other users
+            'deleted_at', # managed internally by destroy() — never set by users
         ]
 
     def validate(self, data):
