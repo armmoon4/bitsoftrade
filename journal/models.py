@@ -30,7 +30,7 @@ class DailyJournal(models.Model):
 
     class Meta:
         db_table = 'daily_journals'
-        unique_together = ('user', 'journal_date') # Enforces 1 session per user per day
+        unique_together = ('user', 'journal_date')
         ordering = ['-journal_date']
 
     def __str__(self):
@@ -41,17 +41,26 @@ class TradeNote(models.Model):
     """Per-trade qualitative notes."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trade_notes')
-    trade = models.ForeignKey('tradelog.Trade', on_delete=models.CASCADE, related_name='notes')
-    
-    note_text = models.TextField()
-    tags = models.JSONField(default=list, blank=True) # e.g. ["#FOMO", "#breakout"]
-    
+
+    TRADE_TYPE_CHOICES = [
+        ('win', 'Win'),
+        ('loss', 'Loss'),
+    ]
+
+    trade_type = models.CharField(max_length=10, choices=TRADE_TYPE_CHOICES, null=True, blank=True)
+    symbol = models.CharField(max_length=20, null=True, blank=True)
+    trade_date = models.DateField(null=True, blank=True)
+    trade_time = models.TimeField(null=True, blank=True)
+    pnl_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
+    description = models.TextField(blank=True)
+    tags = models.JSONField(default=list, blank=True)  # e.g. ["#FOMO", "#breakout"]
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         db_table = 'trade_notes'
-        ordering = ['-created_at']
+        ordering = ['-trade_date', '-trade_time']
 
 
 class PsychologyLog(models.Model):
@@ -93,8 +102,7 @@ class SessionRecap(models.Model):
     """Post-session review linked to the Discipline Guard."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='session_recaps')
-    # session = models.ForeignKey('tradelog.DisciplineSession', on_delete=models.CASCADE, related_name='recaps') wiil implement
-    
+
     OUTCOME_CHOICES = [
         ('good', 'Good'),
         ('neutral', 'Neutral'),
@@ -120,21 +128,11 @@ class LearningNote(models.Model):
     """Notes taken from the Learning Hub or external sources."""
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='learning_notes')
-    
-    LINKED_TYPE_CHOICES = [
-        ('mistake', 'Mistake'),
-        ('rule', 'Rule'),
-        ('strategy', 'Strategy'),
-        ('none', 'None'),
-    ]
 
-    lesson_source = models.CharField(max_length=255)
-    key_takeaway = models.TextField()
-    application_plan = models.TextField()
-    
-    linked_type = models.CharField(max_length=20, choices=LINKED_TYPE_CHOICES, default='none')
-    linked_id = models.UUIDField(null=True, blank=True, help_text="ID of the related mistake, rule, or strategy")
-    
+    lesson_source = models.CharField(max_length=255)   # Lesson Watched / Read
+    key_takeaway = models.TextField()                   # Key Takeaway
+    application_plan = models.TextField()               # How Will I Apply This?
+
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
