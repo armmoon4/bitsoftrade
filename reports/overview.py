@@ -239,16 +239,16 @@ def _performance_stats(user, t_qs) -> dict:
 
 def _exclusive_metrics(snapshot) -> dict:
     return {
-        "di": float(snapshot.di_score),
+        "di": float(snapshot.di_score) if snapshot.di_score is not None else 0.0,
         "vmi": snapshot.vmi_level,
-        "drt": float(snapshot.drt_days),
-        "tpr": float(snapshot.tpr_score),
-        "fie": float(snapshot.fie_amount),
-        "ovr": float(snapshot.ovr_score),
-        "eci": float(snapshot.eci_amount),
-        "cas": float(snapshot.cas_score),
-        "dae": float(snapshot.dae_r),
+        "drt": float(snapshot.drt_days) if snapshot.drt_days is not None else 0.0,
+        "tpr": float(snapshot.tpr_score) if snapshot.tpr_score is not None else 0.0,
+        "fie": float(snapshot.fie_amount) if snapshot.fie_amount is not None else 0.0,
+        "ovr": float(snapshot.ovr_score) if snapshot.ovr_score is not None else 0.0,
+        "eci": float(snapshot.eci_amount) if snapshot.eci_amount is not None else 0.0,
+        "cas": float(snapshot.cas_score) if snapshot.cas_score is not None else 0.0,
+        "dae": float(snapshot.dae_r) if snapshot.dae_r is not None else 0.0,
         "smi": snapshot.smi_status.capitalize() if snapshot.smi_status else "Dev",
         "ddr": snapshot.ddr_level,
-        "cpi": float(snapshot.cpi_score) if snapshot.cpi_score else 100.0,
+        "cpi": float(snapshot.cpi_score) if snapshot.cpi_score is not None else 100.0,
     }
