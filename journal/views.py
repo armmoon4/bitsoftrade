@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
-
+from discipline.views import _get_active_session
 from .models import DailyJournal, TradeNote, PsychologyLog, SessionRecap, LearningNote
 from .serializers import (
     DailyJournalSerializer, TradeNoteSerializer,
@@ -39,17 +39,19 @@ class DailyJournalListCreateView(BaseJournalListCreateView):
     queryset = DailyJournal.objects.all()
     serializer_class = DailyJournalSerializer
 
-    def perform_create(self, serializer):
-        journal_date = serializer.validated_data.get('journal_date')
-        if DailyJournal.objects.filter(user=self.request.user, journal_date=journal_date).exists():
-            raise ValidationError({
-                "journal_date": "You have already created a journal entry for this date."
-            })
-        serializer.save(user=self.request.user)
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['active_session'] = _get_active_session(self.request.user)
+        return context
 
 class DailyJournalDetailView(BaseJournalDetailView):
     queryset = DailyJournal.objects.all()
     serializer_class = DailyJournalSerializer
+
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        context['active_session'] = _get_active_session(self.request.user)
+        return context
 
 
 # --- Trade Notes Views ---
