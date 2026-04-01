@@ -47,6 +47,7 @@ INSTALLED_APPS = [
     'accounts',
     'tradelog',
     'journal',
+    'learninghub',
     'discipline',
     'strategies',
     'rules',

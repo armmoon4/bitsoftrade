@@ -48,6 +48,9 @@ urlpatterns = [
 
     # ── BitsOfTrade Insights (12 metrics)
     path('api/insights/', include('insights.urls')),
+    
+    # ── Learning Hub
+    path('api/learninghub/', include('learninghub.urls')),
 
     # ── Admin Panel 
     path('api/admin/', include('admin_panel.urls')),
