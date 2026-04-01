@@ -56,6 +56,9 @@ INSTALLED_APPS = [
     'mistakes',
     'trade_intelligence',
     'admin_panel',
+    
+    # for API documentation
+    'drf_spectacular',
 
 
 ]
@@ -176,6 +179,7 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
 }
 
 from datetime import timedelta
@@ -200,3 +204,11 @@ EMAIL_HOST_USER = 'email@del.com'
 EMAIL_HOST_PASSWORD = 'sss sss sss sss'
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 GOOGLE_OAUTH2_CLIENT_ID = '1091653163034-72ph3c8q6lreb6e6a7fq3v6o0bgdas94.apps.googleusercontent.com'
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Your Project API',
+    'DESCRIPTION': 'Your project description',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    # OTHER SETTINGS
+}

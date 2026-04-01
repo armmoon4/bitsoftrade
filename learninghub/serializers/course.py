@@ -16,5 +16,16 @@ class CourseSerializer(serializers.ModelSerializer):
             'is_active',
             'created_at',
             'updated_at',
+            'lessons',
             'videos',
         ]
+        
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        lesson = instance.lessons
+        representation['lessons'] = {
+            'id': lesson.id,
+            'title': lesson.title,
+            'description': lesson.description,
+        }
+        return representation

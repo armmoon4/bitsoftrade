@@ -1,13 +1,34 @@
 from rest_framework import generics, status, permissions #type: ignore
 from rest_framework.response import Response #type: ignore
+from rest_framework.parsers import MultiPartParser, FormParser #type: ignore
 
 from learninghub.models import Video
 from learninghub.serializers.video import VideoSerializer
+from drf_spectacular.utils import extend_schema #type: ignore
 
+@extend_schema(
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'title': {'type': 'string'},
+                    'description': {'type': 'string'},
+                    'video': {'type': 'string', 'format': 'binary'},  # 👈 FILE
+                    'course': {'type': 'integer'},
+                    'is_free': {'type': 'boolean'},
+                    'is_complete': {'type': 'boolean'},
+                    'is_active': {'type': 'boolean'},
+                },
+                'required': ['title', 'video', 'course']
+            }
+        },
+        responses={201: VideoSerializer}
+    )
 class VideoListCreateAPIView(generics.ListCreateAPIView):
     queryset = Video.objects.all()
     serializer_class = VideoSerializer
     permission_classes = [permissions.IsAuthenticatedOrReadOnly]
+    parser_classes = [MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
