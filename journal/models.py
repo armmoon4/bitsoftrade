@@ -139,7 +139,11 @@ class LearningNote(models.Model):
     lesson_source = models.CharField(max_length=255)   # Lesson Watched / Read
     key_takeaway = models.TextField()                   # Key Takeaway
     application_plan = models.TextField()               # How Will I Apply This?
-    linked_type = models.CharField(max_length=10, choices=LINKED_CHOICES)
+    linked_type = models.CharField(
+        max_length=10, 
+        choices=LINKED_CHOICES, 
+        default='strategy' 
+    )
 
     created_at = models.DateTimeField(auto_now_add=True)
 
