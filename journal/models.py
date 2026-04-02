@@ -129,9 +129,17 @@ class LearningNote(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='learning_notes')
 
+    LINKED_CHOICES = [
+        ('mistake', 'Mistake'),
+        ('rule', 'Rule'),
+        ('strategy', 'Strategy'),
+    ]
+
+
     lesson_source = models.CharField(max_length=255)   # Lesson Watched / Read
     key_takeaway = models.TextField()                   # Key Takeaway
     application_plan = models.TextField()               # How Will I Apply This?
+    linked_type = models.CharField(max_length=10, choices=LINKED_CHOICES)
 
     created_at = models.DateTimeField(auto_now_add=True)
 
