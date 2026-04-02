@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from .models import Rule
-from .serializers import RuleSerializer
+from .serializers import RuleSerializer, RuleTitleSerializer
 
 
 class RuleListCreateView(generics.ListCreateAPIView):
@@ -60,3 +60,29 @@ class RuleDetailView(generics.RetrieveUpdateDestroyAPIView):
         rule.deleted_at = timezone.now()
         rule.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RuleTitleListView(generics.ListAPIView):
+    """
+    GET /api/rules/titles/ — list only IDs and titles of current user's rules + admin defaults.
+    """
+    serializer_class = RuleTitleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        from django.db.models import Q
+        
+        # Base query: get all non-deleted rules for this user or admin
+        qs = Rule.objects.filter(
+            deleted_at__isnull=True
+        ).filter(
+            Q(is_admin_defined=True) | Q(user=self.request.user)
+        )
+
+        # Optional: Keep the 'is_active' filter if you need it for the dropdowns
+        is_active_param = self.request.query_params.get('is_active')
+        if is_active_param is not None:
+            is_active_bool = is_active_param.lower() in ['true', '1', 't', 'y', 'yes']
+            qs = qs.filter(is_active=is_active_bool)
+
+        return qs.order_by('-is_admin_defined', 'category', 'rule_name')

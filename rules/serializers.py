@@ -1,7 +1,6 @@
 from rest_framework import serializers
 from .models import Rule
 
-
 class RuleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rule
@@ -9,13 +8,18 @@ class RuleSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'created_at', 'updated_at',
             'is_admin_defined', 'created_by_admin',
-            'user',       # users cannot assign rules to other users
-            'deleted_at', # managed internally by destroy() — never set by users
+            'user',       
+            'deleted_at', 
         ]
 
     def validate(self, data):
-        # Strip any attempt to smuggle admin-only fields
         data.pop('is_admin_defined', None)
         data.pop('created_by_admin', None)
         data.pop('user', None)
         return data
+
+# rules list serializer
+class RuleTitleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Rule
+        fields = ['id', 'rule_name'] # Replace 'rule_name' with 'title' if that is your model field
