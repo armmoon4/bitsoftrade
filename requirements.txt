@@ -8,3 +8,4 @@ djangorestframework-simplejwt
 openpyxl>=3.1.2
 google-auth
 requests
+drf-spectacular
