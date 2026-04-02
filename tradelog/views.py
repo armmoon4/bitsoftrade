@@ -7,6 +7,7 @@ from decimal import Decimal, InvalidOperation
 
 from tradelog.models import Trade
 from tradelog.serializers import TradeManagementSerializer
+from tradelog.serializers import TradeSymbolSerializer
 from .pagination import StandardResultsSetPagination
 
 from .importers.parser import parse_csv, parse_excel, detect_and_normalize
@@ -515,3 +516,20 @@ def _create_trade_from_row(row, user, broker_name):
         trade.strategy.update_maturity(total)
 
     return trade
+
+
+class TradeSymbolListView(generics.ListAPIView):
+    """
+    GET /api/tradelog/trades/symbols/
+    Returns a lightweight list of just Trade IDs and Symbols for the authenticated user.
+    Useful for dropdowns or autocomplete features.
+    """
+    serializer_class = TradeSymbolSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None  # Optional: Set to None if you want all of them in one flat list for a dropdown
+
+    def get_queryset(self):
+        return Trade.objects.filter(
+            user=self.request.user, 
+            deleted_at__isnull=True
+        ).only('id', 'symbol')

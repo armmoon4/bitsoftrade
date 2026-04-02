@@ -8,3 +8,9 @@ class TradeManagementSerializer(serializers.ModelSerializer):
         model = Trade
         exclude = ['deleted_at']
         read_only_fields = ['id', 'user', 'total_pnl', 'is_disciplined', 'session', 'created_at', 'updated_at']
+
+
+class TradeSymbolSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Trade
+        fields = ['id', 'symbol']        
