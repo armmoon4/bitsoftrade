@@ -1,14 +1,23 @@
 from rest_framework import serializers
 from django.contrib.auth.password_validation import validate_password
+from discipline.models import DisciplineSession
 from .models import User
 
 
 class UserSerializer(serializers.ModelSerializer):
     """User serializer"""
+    session_state = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'subscription_type', 'profile_picture', 'created_at' , 'onboarding_completed']
+        fields = ['id', 'email', 'first_name', 'last_name', 'subscription_type', 'profile_picture', 'created_at', 'onboarding_completed', 'session_state']
         read_only_fields = ['id', 'created_at']
+
+    def get_session_state(self, obj):
+        active_session = self.context.get('active_session')
+        if active_session:
+            return active_session.session_state
+        return None
+
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):

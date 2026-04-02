@@ -257,3 +257,33 @@ def complete_onboarding_view(request):
     request.user.onboarding_completed = True
     request.user.save(update_fields=['onboarding_completed'])
     return Response({'message': 'Onboarding completed'}, status=status.HTTP_200_OK)
+
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def current_user_view(request):
+    """Get current logged-in user details with active discipline session state."""
+    from discipline.models import DisciplineSession
+    from django.utils.timezone import localdate
+
+    user = request.user
+
+    active_session = (
+        DisciplineSession.objects
+        .filter(user=user, session_state='red')
+        .order_by('-session_date')
+        .first()
+    ) or (
+        DisciplineSession.objects
+        .filter(user=user, session_state='yellow')
+        .order_by('-session_date')
+        .first()
+    ) or (
+        DisciplineSession.objects
+        .filter(user=user, session_date=localdate())
+        .first()
+    )
+
+    serializer = UserSerializer(user, context={'active_session': active_session})
+    return Response(serializer.data)
