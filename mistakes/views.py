@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Count, Sum, Q
 from .models import Mistake, TradeMistake
-from .serializers import MistakeSerializer, TradeMistakeSerializer
+from .serializers import MistakeSerializer, MistakeSimpleSerializer, TradeMistakeSerializer
 
 
 class MistakeListCreateView(generics.ListCreateAPIView):
@@ -155,3 +155,17 @@ def mistakes_analytics_view(request):
         'impact': impact,
         'severity_distribution': severity_distribution,
     })
+
+
+class MistakeSimpleListView(generics.ListAPIView):
+    """GET /api/mistakes/simple/ — returns only id and mistake_name for dropdowns/quick lists."""
+    serializer_class = MistakeSimpleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        # .only() optimizes the database query to fetch just these two fields
+        return Mistake.objects.filter(
+            deleted_at__isnull=True
+        ).filter(
+            Q(is_admin_defined=True) | Q(user=self.request.user)
+        ).select_related('user').only('id', 'mistake_name', 'is_admin_defined', 'category', 'user').order_by('-is_admin_defined', 'category')

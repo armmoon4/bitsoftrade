@@ -17,3 +17,8 @@ class TradeMistakeSerializer(serializers.ModelSerializer):
     class Meta:
         model = TradeMistake
         fields = '__all__'
+
+class MistakeSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Mistake
+        fields = ['id', 'mistake_name']  
