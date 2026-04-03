@@ -7,7 +7,7 @@ class Trade(models.Model):
     """Trade model — the core data unit for all reports, insights and discipline."""
 
     MARKET_CHOICES = [
-        ('indian_stocks', 'Indian Stocks'),
+        ('indian_market', 'Indian Market'),
         ('forex', 'Forex'),
         ('crypto', 'Crypto'),
         ('options', 'Options'),
