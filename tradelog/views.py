@@ -1,12 +1,14 @@
 from rest_framework import generics, permissions, serializers, status
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
 from django.utils import timezone
 from django.db.models import Q
 from decimal import Decimal, InvalidOperation
-
+import uuid
+from django.core.files.storage import FileSystemStorage
 from tradelog.models import Trade
-from tradelog.serializers import TradeManagementSerializer
+from tradelog.serializers import ImageUploadSerializer, TradeManagementSerializer
 from tradelog.serializers import TradeSymbolSerializer
 from .pagination import StandardResultsSetPagination
 
@@ -533,3 +535,241 @@ class TradeSymbolListView(generics.ListAPIView):
             user=self.request.user, 
             deleted_at__isnull=True
         ).only('id', 'symbol')
+
+
+# ─────────────────────────────────────────────
+# SCREENSHOT UPLOAD
+# ─────────────────────────────────────────────
+
+class ImageUploadView(generics.GenericAPIView):
+    """
+    POST /api/tradelog/upload-screenshot/
+    Accepts multiple images, saves them locally, and returns a list of URLs.
+    The caller is responsible for attaching these URLs to a trade via the
+    TradeDetailView PATCH endpoint (screenshot_urls field).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+    serializer_class = ImageUploadSerializer
+
+    def post(self, request, *args, **kwargs):
+        files = request.FILES.getlist('images')
+
+        if not files:
+            return Response({"error": "No images provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        fs = FileSystemStorage()
+        uploaded_urls = []
+
+        for file_obj in files:
+            extension = file_obj.name.split('.')[-1]
+            unique_filename = f"screenshots/{uuid.uuid4()}.{extension}"
+            saved_name = fs.save(unique_filename, file_obj)
+            file_url = fs.url(saved_name)
+            absolute_url = request.build_absolute_uri(file_url)
+            uploaded_urls.append(absolute_url)
+
+        return Response({
+            "message": f"{len(uploaded_urls)} image(s) uploaded successfully.",
+            "urls": uploaded_urls,
+        }, status=status.HTTP_201_CREATED)
+
+
+# ─────────────────────────────────────────────
+# TRADE SCREENSHOT MANAGEMENT
+# ─────────────────────────────────────────────
+
+class TradeScreenshotView(APIView):
+    """
+    Manage screenshots attached to a specific trade (stored in screenshot_urls JSONField).
+
+    GET    /api/tradelog/trades/<uuid:pk>/screenshots/
+        → Returns the current list of screenshot URLs for the trade.
+
+    POST   /api/tradelog/trades/<uuid:pk>/screenshots/
+        → Upload one or more image files. Saves them and appends their URLs
+          to the trade's screenshot_urls list.
+        Body (multipart/form-data): images=<file1>, images=<file2>, ...
+
+    DELETE /api/tradelog/trades/<uuid:pk>/screenshots/
+        → Remove one or more URLs from the trade's screenshot_urls list.
+        Body (JSON): { "urls": ["https://...", "https://..."] }
+        Passing an empty list or omitting "urls" clears ALL screenshots.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def _get_trade(self, request, pk):
+        try:
+            return Trade.objects.get(pk=pk, user=request.user, deleted_at__isnull=True)
+        except Trade.DoesNotExist:
+            return None
+
+    def get(self, request, pk, *args, **kwargs):
+        trade = self._get_trade(request, pk)
+        if not trade:
+            return Response({"error": "Trade not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return Response({
+            "trade_id": str(trade.id),
+            "screenshot_urls": trade.screenshot_urls,
+            "count": len(trade.screenshot_urls),
+        })
+
+    def post(self, request, pk, *args, **kwargs):
+        trade = self._get_trade(request, pk)
+        if not trade:
+            return Response({"error": "Trade not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        files = request.FILES.getlist('images')
+        if not files:
+            return Response({"error": "No images provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        fs = FileSystemStorage()
+        new_urls = []
+
+        for file_obj in files:
+            extension = file_obj.name.rsplit('.', 1)[-1]
+            unique_filename = f"screenshots/{uuid.uuid4()}.{extension}"
+            saved_name = fs.save(unique_filename, file_obj)
+            file_url = fs.url(saved_name)
+            absolute_url = request.build_absolute_uri(file_url)
+            new_urls.append(absolute_url)
+
+        current_urls = trade.screenshot_urls or []
+        trade.screenshot_urls = current_urls + new_urls
+        trade.save(update_fields=['screenshot_urls'])
+
+        return Response({
+            "message": f"{len(new_urls)} screenshot(s) added.",
+            "added_urls": new_urls,
+            "screenshot_urls": trade.screenshot_urls,
+            "count": len(trade.screenshot_urls),
+        }, status=status.HTTP_201_CREATED)
+
+    def delete(self, request, pk, *args, **kwargs):
+        """
+        Body (JSON): { "urls": ["url1", "url2"] }
+        If "urls" key is absent or the list is empty → clears ALL screenshots.
+        """
+        trade = self._get_trade(request, pk)
+        if not trade:
+            return Response({"error": "Trade not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        urls_to_remove = request.data.get('urls', [])
+
+        if not urls_to_remove:
+            # Clear all screenshots
+            removed_count = len(trade.screenshot_urls)
+            trade.screenshot_urls = []
+            trade.save(update_fields=['screenshot_urls'])
+            return Response({
+                "message": f"All {removed_count} screenshot(s) removed.",
+                "screenshot_urls": [],
+                "count": 0,
+            })
+
+        current_urls = trade.screenshot_urls or []
+        updated_urls = [u for u in current_urls if u not in urls_to_remove]
+        removed_count = len(current_urls) - len(updated_urls)
+
+        trade.screenshot_urls = updated_urls
+        trade.save(update_fields=['screenshot_urls'])
+
+        return Response({
+            "message": f"{removed_count} screenshot(s) removed.",
+            "screenshot_urls": trade.screenshot_urls,
+            "count": len(trade.screenshot_urls),
+        })
+
+
+# ─────────────────────────────────────────────
+# BULK OPERATIONS
+# ─────────────────────────────────────────────
+
+class TradeBulkDeleteView(APIView):
+    """
+    POST /api/tradelog/trades/bulk-delete/
+
+    Soft-deletes multiple trades at once. Only deletes trades that belong
+    to the authenticated user and are not already deleted.
+
+    Body (JSON):
+        { "ids": ["uuid1", "uuid2", ...] }          → delete specific trades
+        { "delete_all": true }                       → delete ALL trades for the user
+        { "delete_all": true, <filter params> }      → delete all matching a filter
+            e.g. { "delete_all": true, "outcome": "loss", "date_range": "this_month" }
+
+    Supports all the same filter params as GET /api/tradelog/trades/ when
+    used together with delete_all=true.
+
+    Response:
+        {
+            "deleted": 5,
+            "message": "5 trade(s) soft-deleted successfully."
+        }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        data = request.data
+        delete_all = data.get('delete_all', False)
+
+        base_qs = Trade.objects.filter(user=request.user, deleted_at__isnull=True)
+
+        if delete_all:
+            # Apply optional filters when deleting all
+            qs = _apply_filters(base_qs, data)
+            count = qs.count()
+            qs.update(deleted_at=timezone.now())
+            return Response({
+                "deleted": count,
+                "message": f"{count} trade(s) soft-deleted successfully.",
+            }, status=status.HTTP_200_OK)
+
+        # Specific IDs provided
+        ids = data.get('ids', [])
+        if not ids:
+            return Response(
+                {"error": "Provide either 'ids' list or 'delete_all': true."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if not isinstance(ids, list):
+            return Response(
+                {"error": "'ids' must be a list of trade UUIDs."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate UUIDs
+        valid_ids = []
+        invalid_ids = []
+        for raw_id in ids:
+            try:
+                valid_ids.append(uuid.UUID(str(raw_id)))
+            except (ValueError, AttributeError):
+                invalid_ids.append(raw_id)
+
+        if invalid_ids:
+            return Response(
+                {"error": f"Invalid UUIDs: {invalid_ids}"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        qs = base_qs.filter(id__in=valid_ids)
+        found_count = qs.count()
+        not_found_count = len(valid_ids) - found_count
+
+        qs.update(deleted_at=timezone.now())
+
+        response = {
+            "deleted": found_count,
+            "message": f"{found_count} trade(s) soft-deleted successfully.",
+        }
+        if not_found_count:
+            response["not_found"] = not_found_count
+            response["note"] = (
+                f"{not_found_count} ID(s) were not found or already deleted."
+            )
+
+        return Response(response, status=status.HTTP_200_OK)

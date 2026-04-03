@@ -14,3 +14,12 @@ class TradeSymbolSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trade
         fields = ['id', 'symbol']        
+
+
+class ImageUploadSerializer(serializers.Serializer):
+    # Change this to accept a list of images instead of just one
+    images = serializers.ListField(
+        child=serializers.ImageField(),
+        allow_empty=False,
+        help_text="Upload multiple images"
+    )   
