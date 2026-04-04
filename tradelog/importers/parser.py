@@ -5,6 +5,7 @@ from .groww import normalize_groww
 from .upstox import normalize_upstox
 from .dhan import normalize_dhan
 from .angelone import normalize_angelone
+from .fyers import normalize_fyers
 
 # EXACT cell values that identify a real header row.
 # Using exact match (cell == keyword) instead of substring (kw in cell)
@@ -19,6 +20,8 @@ _HEADER_EXACT = {
     'scrip/contract', 'buy price', 'sell price',
     # Angel One (after normalisation, kept for safety)
     'buy_price', 'sell_price',
+    # Fyers
+    'traded_price', 'qty',
 }
 
 
@@ -166,7 +169,15 @@ def detect_and_normalize(raw_rows, broker_hint=''):
     if is_dhan:
         return 'dhan', normalize_dhan(raw_rows)
 
+    # ── Fyers
+    is_fyers = (
+        broker_hint == 'fyers' or
+        {'symbol', 'side', 'traded_price', 'segment', 'date_&_time'}.issubset(headers)
+    )
+    if is_fyers:
+        return 'fyers', normalize_fyers(raw_rows)
+
     # ── Fallback
     raise ValueError(
-        "Unrecognized broker format. Only Zerodha, Groww, Upstox, Dhan, and Angel One CSVs are supported."
+        "Unrecognized broker format. Only Zerodha, Groww, Upstox, Dhan, Angel One, and Fyers CSVs are supported."
     )
