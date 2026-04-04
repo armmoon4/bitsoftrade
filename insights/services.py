@@ -108,19 +108,38 @@ def _calc_dis(sessions_all, today: date) -> Optional[Decimal]:
         Override in restricted  : −12 pts each
 
     All-time window. Minimum: 1 session.
+
+    NOTE: Hard/soft violation counts are read from ViolationsLog (the
+    authoritative engine-written source), NOT from the denormalized
+    hard_violations/soft_violations fields on DisciplineSession.
+    Those session fields can be stale if a bare session.save() ever ran
+    during an unlock. ViolationsLog is always correct.
     """
+    from discipline.models import ViolationsLog
+
     session_count = sessions_all.count()
     if session_count < 1:
         return None
 
-    agg = sessions_all.aggregate(
-        hard=Sum('hard_violations'),
-        soft=Sum('soft_violations'),
-    )
-    hard_total = int(agg['hard'] or 0)
-    soft_total = int(agg['soft'] or 0)
+    session_ids = list(sessions_all.values_list('id', flat=True))
 
-    repeated_sessions = sessions_all.filter(violations_count__gt=1).count()
+    # Read from ViolationsLog — the single authoritative source written by the engine
+    vlog_agg = ViolationsLog.objects.filter(session_id__in=session_ids).aggregate(
+        hard=Count('id', filter=Q(violation_type='hard')),
+        soft=Count('id', filter=Q(violation_type='soft')),
+    )
+    hard_total = int(vlog_agg['hard'] or 0)
+    soft_total = int(vlog_agg['soft'] or 0)
+
+    # Sessions where more than 1 unique rule was violated (repeated mistakes)
+    repeated_sessions = (
+        ViolationsLog.objects
+        .filter(session_id__in=session_ids)
+        .values('session_id')
+        .annotate(unique_rules=Count('rule_id', distinct=True))
+        .filter(unique_rules__gt=1)
+        .count()
+    )
 
     skipped_journal = sessions_all.filter(
         peak_state='red',
@@ -229,7 +248,7 @@ def _calc_drt(sessions_all) -> Optional[Decimal]:
         if not in_red and s['peak_state'] == 'red':
             in_red = True
             red_idx = idx
-        elif in_red and s['peak_state'] == 'green' and s['violations_count'] == 0:
+        elif in_red and s['peak_state'] == 'green':
             recovery_counts.append(idx - red_idx)
             in_red = False
             red_idx = None
