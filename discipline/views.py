@@ -216,7 +216,7 @@ def violations_timeline_view(request):
         session_date__gte=from_date,
         session_date__lte=to_date,
     ).values(
-        'session_date', 'session_state', 'violations_count',
+        'session_date', 'session_state', 'peak_state', 'violations_count',
         'hard_violations', 'soft_violations'
     )
 
@@ -232,6 +232,7 @@ def violations_timeline_view(request):
             entry = {
                 'session_date': current,
                 'session_state': None,
+                'peak_state': None,
                 'violations_count': 0,
                 'hard_violations': 0,
                 'soft_violations': 0,
