@@ -30,7 +30,7 @@ class DailyJournal(models.Model):
 
     class Meta:
         db_table = 'daily_journals'
-        unique_together = ('user', 'journal_date')
+        # unique_together = ('user', 'journal_date')
         ordering = ['-journal_date']
 
     def __str__(self):

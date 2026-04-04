@@ -44,19 +44,20 @@ class DailyJournalListCreateView(BaseJournalListCreateView):
         context['active_session'] = _get_active_session(self.request.user)
         return context
 
-    def perform_create(self, serializer):
-        # 1. Get the date from the validated request data
-        journal_date = serializer.validated_data.get('journal_date')
+    #_______________DUPLICATEDATEVAL___________________
+    # def perform_create(self, serializer):
+    #     # 1. Get the date from the validated request data
+    #     journal_date = serializer.validated_data.get('journal_date')
 
-        # 2. Check if a journal entry already exists for this user and date
-        if journal_date and DailyJournal.objects.filter(user=self.request.user, journal_date=journal_date).exists():
-            raise ValidationError({
-                "journal_date": ["A daily journal entry for this date already exists. Please update the existing entry instead."]
-            })
+    #     # 2. Check if a journal entry already exists for this user and date
+    #     if journal_date and DailyJournal.objects.filter(user=self.request.user, journal_date=journal_date).exists():
+    #         raise ValidationError({
+    #             "journal_date": ["A daily journal entry for this date already exists. Please update the existing entry instead."]
+    #         })
 
-        # 3. If it doesn't exist, proceed with creation using the base class method
-        super().perform_create(serializer)
-
+    #     # 3. If it doesn't exist, proceed with creation using the base class method
+    #     super().perform_create(serializer)
+    #_______________DUPLICATEDATEVAL___________________
 
 class DailyJournalDetailView(BaseJournalDetailView):
     queryset = DailyJournal.objects.all()
