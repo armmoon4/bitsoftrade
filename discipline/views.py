@@ -163,7 +163,25 @@ def unlock_session_view(request):
         session.journal_completed = False
         session.trade_review_completed = False
 
-    session.save()
+        # Use explicit update_fields so we NEVER touch violations_count /
+        # hard_violations / soft_violations — those fields must only be written
+        # by the rule engine. A bare session.save() would overwrite them with
+        # whatever the in-memory object holds (potentially a stale snapshot).
+        session.save(update_fields=[
+            'session_state',
+            'required_actions_completed',
+            'unlocked_at',
+            'lock_cycle',
+            'lock_cycle_started_at',
+            'cooldown_ends_at',
+            'journal_completed',
+            'trade_review_completed',
+        ])
+    else:
+        # Only recording a checklist action — again use explicit update_fields.
+        session.save(update_fields=['journal_completed', 'trade_review_completed'])
+
+    session.refresh_from_db()
     return Response({
         'message': 'Session unlocked.' if can_unlock else 'Action recorded. Complete required steps to unlock.',
         'session': DisciplineSessionSerializer(session).data,
