@@ -2,7 +2,13 @@
 
 ## Overview
 
-The **Rules** module manages trading rules that power the Discipline Guard. Rules can be **admin-defined** (global, applied to all users) or **user-custom**. Each rule has a type (`hard`/`soft`), a category, a trigger scope, a trigger condition (JSON), and an action. The rule evaluation engine evaluates all active rules after every trade save.
+The **Rules** module manages trading rules that power the Discipline Guard. Rules can be:
+
+- **Admin-defined** — global rules created by the platform admin, applied to all users.
+- **User-custom** — rules created by the user themselves.
+- **System rules** — four pre-built rules automatically seeded for every user on registration. Users can update their thresholds and toggle them on/off, but cannot delete them or rename them.
+
+Each rule has a type (`hard`/`soft`), a category, a trigger scope, a trigger condition (JSON), and an action. The rule evaluation engine evaluates all active rules after every trade save.
 
 ---
 
@@ -30,7 +36,7 @@ Authorization: Bearer <access_token>
 
 **`GET /api/rules/`**
 
-Returns all non-deleted rules visible to the authenticated user: **admin-defined global rules** + **the user's own custom rules**. By default this includes both active and inactive rules. Use the `is_active` query parameter to filter.
+Returns all non-deleted rules visible to the authenticated user: **admin-defined global rules** + **the user's own custom rules** + **the user's system rules**. By default this includes both active and inactive rules. Use the `is_active` query parameter to filter.
 
 **Permissions:** Authenticated
 
@@ -55,6 +61,7 @@ Returns all non-deleted rules visible to the authenticated user: **admin-defined
     "action": "lock",
     "is_active": true,
     "is_admin_defined": true,
+    "is_system_rule": false,
     "user": null,
     "created_at": "2025-01-01T00:00:00Z",
     "updated_at": "2025-01-01T00:00:00Z"
@@ -70,7 +77,7 @@ Returns all non-deleted rules visible to the authenticated user: **admin-defined
 
 **`POST /api/rules/`**
 
-Creates a new user-custom rule. `is_admin_defined`, `created_by_admin`, and `user` are always set server-side and cannot be supplied in the request body.
+Creates a new user-custom rule. `is_admin_defined`, `is_system_rule`, `created_by_admin`, and `user` are always set server-side and cannot be supplied in the request body.
 
 **Permissions:** Authenticated
 
@@ -95,9 +102,9 @@ Creates a new user-custom rule. `is_admin_defined`, `created_by_admin`, and `use
 
 **`GET /api/rules/<uuid:id>/`**
 
-Returns a single rule. Only accessible for the **user's own custom rules**. Admin-defined rules are not accessible via this endpoint and will return `404`.
+Returns a single rule. Accessible for the user's own custom rules and admin-defined rules.
 
-**Permissions:** Authenticated (owner only)
+**Permissions:** Authenticated (owner only for custom rules)
 
 ---
 
@@ -105,11 +112,17 @@ Returns a single rule. Only accessible for the **user's own custom rules**. Admi
 
 **`PUT /api/rules/<uuid:id>/`** / **`PATCH /api/rules/<uuid:id>/`**
 
-Updates a user's custom rule. Only accessible for the **user's own custom rules**. Admin-defined rules are not accessible via this endpoint and will return `404`.
+Updates a user's custom rule. Admin-defined rules and system rules cannot be updated via this endpoint — they return `403`.
 
 **Permissions:** Authenticated (owner only)
 
 **Success Response — `200 OK`:** updated rule object
+
+**Error Response — `403 Forbidden`** *(if rule is admin-defined or system rule)*:
+
+```json
+{ "error": "System rules can only be updated via PATCH /api/rules/system/<id>/." }
+```
 
 ---
 
@@ -117,19 +130,181 @@ Updates a user's custom rule. Only accessible for the **user's own custom rules*
 
 **`DELETE /api/rules/<uuid:id>/`**
 
-Soft-deletes a user's custom rule by setting `deleted_at` to the current timestamp. Only accessible for the **user's own custom rules**.
+Soft-deletes a user's custom rule by setting `deleted_at` to the current timestamp. Admin-defined rules and system rules cannot be deleted.
 
 **Permissions:** Authenticated (owner only)
 
-**Error Response — `403 Forbidden`** *(if somehow an admin-defined rule is reached)*:
+**Error Responses — `403 Forbidden`:**
 
 ```json
-{
-  "error": "Admin-defined rules cannot be deleted."
-}
+{ "error": "Admin-defined rules cannot be deleted." }
+```
+```json
+{ "error": "System rules cannot be deleted." }
 ```
 
 **Success Response — `204 No Content`**
+
+---
+
+### 6. List Rule Titles
+
+**`GET /api/rules/list/`**
+
+Returns only the `id` and `rule_name` of all visible rules. Useful for dropdowns and selectors.
+
+**Permissions:** Authenticated
+
+**Query Parameters:**
+
+| Parameter   | Type    | Description |
+|-------------|---------|-------------|
+| `is_active` | boolean | Filter by active/inactive status. Omit to return all. |
+
+**Success Response — `200 OK`:**
+
+```json
+[
+  { "id": "uuid", "rule_name": "Max Daily Loss" },
+  { "id": "uuid", "rule_name": "Position Size Limit" }
+]
+```
+
+---
+
+### 7. List System Rules
+
+**`GET /api/rules/system/`**
+
+Returns all four system rules belonging to the authenticated user.
+
+**Permissions:** Authenticated
+
+**Query Parameters:**
+
+| Parameter   | Type    | Description |
+|-------------|---------|-------------|
+| `is_active` | boolean | Filter by active/inactive status. Omit to return all. |
+
+**Success Response — `200 OK`:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "rule_name": "Max Daily Loss",
+    "description": "Locks the session when the sum of total_pnl across all trades today reaches a loss equal to or exceeding the set limit (INR).",
+    "category": "risk",
+    "rule_type": "hard",
+    "trigger_scope": "per_day",
+    "trigger_condition": { "maxLoss": 5000 },
+    "action": "lock",
+    "is_active": true,
+    "is_system_rule": true,
+    "is_admin_defined": false,
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z"
+  }
+]
+```
+
+---
+
+### 8. Retrieve System Rule
+
+**`GET /api/rules/system/<uuid:id>/`**
+
+Returns a single system rule belonging to the authenticated user.
+
+**Permissions:** Authenticated
+
+**Success Response — `200 OK`:** system rule object
+
+**Error Response — `404 Not Found`:** rule does not exist or does not belong to the user
+
+---
+
+### 9. Update System Rule
+
+**`PATCH /api/rules/system/<uuid:id>/`**
+
+Partially updates a system rule. Only the threshold value inside `trigger_condition` and `is_active` are guaranteed writable. `rule_name` and `description` are always read-only. Other structural fields (`category`, `rule_type`, `trigger_scope`, `action`) may also be updated.
+
+**Permissions:** Authenticated (owner only)
+
+> `PUT` is not allowed on system rules — returns `405 Method Not Allowed`.
+
+**Allowed PATCH fields:**
+
+| Field               | Editable | Notes |
+|---------------------|----------|-------|
+| `rule_name`         | ❌        | Always locked — cannot be renamed |
+| `description`       | ❌        | Always locked |
+| `category`          | ✅        | |
+| `rule_type`         | ✅        | |
+| `trigger_scope`     | ✅        | |
+| `trigger_condition` | ✅ (value only) | The condition **key** is fixed (e.g. `maxLoss`). Only the numeric threshold value can be changed. Must be a positive number. |
+| `action`            | ✅        | |
+| `is_active`         | ✅        | Toggle the rule on/off |
+
+**Example Request — update Max Daily Loss threshold:**
+
+```json
+PATCH /api/rules/system/<uuid>/
+{
+  "trigger_condition": { "maxLoss": 3000 }
+}
+```
+
+**Example Request — disable the rule:**
+
+```json
+PATCH /api/rules/system/<uuid>/
+{
+  "is_active": false
+}
+```
+
+**Success Response — `200 OK`:** updated system rule object
+
+**Error Response — `400 Bad Request`** *(wrong condition key)*:
+
+```json
+{
+  "trigger_condition": [
+    "You can only update the threshold value. Expected key: {'maxLoss'}, got: {'maxDailyPercent'}."
+  ]
+}
+```
+
+**Error Response — `400 Bad Request`** *(non-positive value)*:
+
+```json
+{
+  "trigger_condition": [
+    "The value for 'maxLoss' must be greater than 0."
+  ]
+}
+```
+
+**Error Response — `405 Method Not Allowed`** *(DELETE attempted)*:
+
+```json
+{ "error": "System rules cannot be deleted." }
+```
+
+---
+
+## System Rules Reference
+
+Four system rules are automatically created for every user on registration. They cannot be deleted or renamed.
+
+| Rule Name              | Condition Key       | Default Value | Scope       | Type   | Action           |
+|------------------------|---------------------|---------------|-------------|--------|------------------|
+| Max Daily Loss         | `maxLoss`           | `5000`        | `per_day`   | `hard` | `lock`           |
+| Position Size Limit    | `maxPositionSize`   | `50000`       | `per_trade` | `hard` | `warn`           |
+| Max Trades Per Day     | `maxTrades`         | `5`           | `per_day`   | `soft` | `warn`           |
+| Consecutive Loss Limit | `consecutiveLosses` | `3`           | `per_day`   | `soft` | `require_journal`|
 
 ---
 
@@ -190,7 +365,7 @@ The `trigger_condition` field is a JSON object. The structure varies by conditio
 | Field               | Type     | Description                                             |
 |---------------------|----------|---------------------------------------------------------|
 | `id`                | UUID     | Primary key                                             |
-| `created_by_admin`  | FK       | Admin who created it (null for user custom rules)       |
+| `created_by_admin`  | FK       | Admin who created it (null for user rules)              |
 | `user`              | FK       | User owner (null for admin-defined rules)               |
 | `rule_name`         | string   | Rule display name                                       |
 | `description`       | text     | Optional description                                    |
@@ -201,6 +376,7 @@ The `trigger_condition` field is a JSON object. The structure varies by conditio
 | `action`            | enum     | `lock` / `warn` / `require_journal`                     |
 | `is_active`         | boolean  | Whether rule is currently active                        |
 | `is_admin_defined`  | boolean  | `true` = global rule created by admin                   |
+| `is_system_rule`    | boolean  | `true` = auto-seeded rule; cannot be deleted or renamed |
 | `deleted_at`        | datetime | Soft-delete timestamp (null = active)                   |
 | `created_at`        | datetime | Creation timestamp                                      |
 | `updated_at`        | datetime | Last update timestamp                                   |
@@ -212,7 +388,7 @@ The `trigger_condition` field is a JSON object. The structure varies by conditio
 Rules are evaluated automatically after **every trade save** (via `rules.engine.evaluate_rules_for_user`). The engine:
 
 1. Reloads the `DisciplineSession` from the database to avoid stale state
-2. Loads all active non-deleted rules for the user (admin global + user custom)
+2. Loads all active non-deleted rules for the user (admin global + user custom + system rules)
 3. Evaluates each rule against today's trades, respecting `trigger_scope`
 4. For `per_trade` rules: deduplicates per `(session, rule, trade, lock_cycle)` — each trade can trigger the same rule independently
 5. For `per_day` / `per_session` rules: deduplicates per `(session, rule, lock_cycle)` — fires at most once per rule per lock cycle
@@ -249,8 +425,11 @@ Each time a session is unlocked, `lock_cycle` increments. This gives every unloc
 ```python
 # rules/urls.py
 urlpatterns = [
-    path('',            RuleListCreateView.as_view(),  name='rule-list-create'),
-    path('<uuid:pk>/',  RuleDetailView.as_view(),      name='rule-detail'),
+    path('',                    RuleListCreateView.as_view(),   name='rule-list-create'),
+    path('list/',               RuleTitleListView.as_view(),    name='rule-title-list'),
+    path('<uuid:pk>/',          RuleDetailView.as_view(),       name='rule-detail'),
+    path('system/',             SystemRuleListView.as_view(),   name='system-rule-list'),
+    path('system/<uuid:pk>/',   SystemRuleUpdateView.as_view(), name='system-rule-detail'),
 ]
 ```
 
@@ -258,12 +437,13 @@ urlpatterns = [
 
 ## Error Reference
 
-| Status Code | Meaning                                                         |
-|-------------|-----------------------------------------------------------------|
-| `200`       | OK                                                              |
-| `201`       | Created                                                         |
-| `204`       | No Content (deleted)                                            |
-| `400`       | Bad Request — validation error                                  |
-| `401`       | Unauthorized                                                    |
-| `403`       | Forbidden — cannot delete an admin-defined rule                 |
-| `404`       | Rule not found or not owned by the requesting user              |
+| Status Code | Meaning                                                                          |
+|-------------|----------------------------------------------------------------------------------|
+| `200`       | OK                                                                               |
+| `201`       | Created                                                                          |
+| `204`       | No Content (deleted)                                                             |
+| `400`       | Bad Request — validation error                                                   |
+| `401`       | Unauthorized                                                                     |
+| `403`       | Forbidden — cannot modify or delete an admin-defined or system rule              |
+| `404`       | Rule not found or not owned by the requesting user                               |
+| `405`       | Method Not Allowed — PUT or DELETE attempted on a system rule                    |
