@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
+
 def normalize_zerodha(raw_rows):
     """
     Zerodha tradebook CSV — one row per execution leg.
@@ -71,14 +72,23 @@ def normalize_zerodha(raw_rows):
             entry_price = buy_vwap
             exit_price = sell_vwap if sells else None
             quantity = total_buy_qty
+            entry_legs = buys
+            exit_legs  = sells
         else:
             entry_price = sell_vwap
             exit_price = buy_vwap if buys else None
             quantity = total_sell_qty
+            entry_legs = sells
+            exit_legs  = buys
+
+        def earliest_time_str(legs, fmt='%H:%M'):
+            times = [l['time'] for l in legs if l.get('time') is not None]
+            return min(times).strftime(fmt) if times else ''
 
         all_legs = buys + sells
-        all_times = [l['time'] for l in all_legs if l['time'] is not None]
-        trade_time_str = min(all_times).strftime('%H:%M') if all_times else ''
+        trade_time_str = earliest_time_str(all_legs)
+        entry_time_str = earliest_time_str(entry_legs)
+        exit_time_str  = earliest_time_str(exit_legs)
 
         market_type_map = {
             'FO':  'options',
@@ -86,22 +96,23 @@ def normalize_zerodha(raw_rows):
             'CDS': 'forex',
             'COM': 'indian_stocks',
             'MF':  'indian_stocks',
-            
         }
         market_type = market_type_map.get(segment, 'indian_stocks')
 
         normalized.append({
-            'symbol': symbol,
-            'trade_date': trade_date_raw,
-            'time': trade_time_str,
-            'direction': direction,
-            'quantity': str(quantity),
+            'symbol':      symbol,
+            'trade_date':  trade_date_raw,
+            'time':        trade_time_str,
+            'entry_time':  entry_time_str,
+            'exit_time':   exit_time_str,
+            'direction':   direction,
+            'quantity':    str(quantity),
             'entry_price': str(entry_price),
-            'exit_price': str(exit_price) if exit_price is not None else '',
-            'fees': '0',
+            'exit_price':  str(exit_price) if exit_price is not None else '',
+            'fees':        '0',
             'market_type': market_type,
-            'exchange': exchange,
-            'segment': segment,
+            'exchange':    exchange,
+            'segment':     segment,
         })
 
     return normalized

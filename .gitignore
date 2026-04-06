@@ -16,6 +16,7 @@ db.sqlite3
 venv/
 env/
 ENV/
+media/
 
 # Django static files (if generated locally)
 staticfiles/

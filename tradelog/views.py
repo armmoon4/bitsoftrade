@@ -54,35 +54,6 @@ def _apply_filters(qs, params):
     """
     Apply all query param filters to a Trade queryset.
     All filters are combinable (ANDed together).
-
-    Supported query params:
-    ┌─────────────────────┬──────────────────────────────────────────────────────────────┐
-    │ Param               │ Values / Notes                                               │
-    ├─────────────────────┼──────────────────────────────────────────────────────────────┤
-    │ filter              │ wins | losses | disciplined | violations                     │
-    │ broker              │ exact broker_name (case-insensitive)                         │
-    │ market_type         │ indian_stocks | forex | crypto | options                     │
-    │ date_range          │ this_month | this_week | today | custom                      │
-    │ date_from           │ YYYY-MM-DD  (used when date_range=custom)                   │
-    │ date_to             │ YYYY-MM-DD  (used when date_range=custom)                   │
-    │ direction           │ long | short                                                 │
-    │ outcome             │ win | loss | open  (open = no exit_price)                   │
-    │ instrument_type     │ same as market_type choices                                  │
-    │ strategy            │ strategy UUID                                                │
-    │ emotional_state     │ calm | anxious | confident | fearful | fomo |               │
-    │                     │ angry | overconfident | uncertain                            │
-    │ discipline_status   │ disciplined | violations                                     │
-    │ review_status       │ tagged | untagged  (is_tagged_complete)                     │
-    │ rule_breach         │ comma-separated violation modes e.g. fomo_entry,overtrading │
-    │ pnl_min             │ decimal  e.g. -10000                                        │
-    │ pnl_max             │ decimal  e.g. 10000                                         │
-    │ mistakes            │ comma-separated: fomo_entry | revenge_trading |             │
-    │                     │ oversized_position | premature_exit |                       │
-    │                     │ ignored_stop_loss | overtrading                             │
-    │ tags                │ comma-separated tag strings (searched inside violation_modes │
-    │                     │ and rules_followed JSON fields)                             │
-    │ search              │ free-text search on symbol, broker_name, lessons_learned    │
-    └─────────────────────┴──────────────────────────────────────────────────────────────┘
     """
     from datetime import date, timedelta
     import calendar
@@ -348,24 +319,6 @@ class TradeListCreateView(generics.ListCreateAPIView):
     POST /api/tradelog/trades/
 
     All query params are combinable. See _apply_filters() for full reference.
-
-    Quick reference:
-        ?filter=wins|losses|disciplined|violations
-        ?broker=zerodha
-        ?market_type=indian_stocks|forex|crypto|options
-        ?date_range=today|this_week|this_month|custom&date_from=YYYY-MM-DD&date_to=YYYY-MM-DD
-        ?direction=long|short
-        ?outcome=win|loss|open
-        ?instrument_type=indian_stocks|forex|crypto|options
-        ?strategy=<uuid>
-        ?emotional_state=calm|anxious|confident|fearful|fomo|angry|overconfident|uncertain
-        ?discipline_status=disciplined|violations
-        ?review_status=tagged|untagged
-        ?rule_breach=fomo_entry,overtrading
-        ?pnl_min=-10000&pnl_max=10000
-        ?mistakes=fomo_entry,revenge_trading,oversized_position,premature_exit,ignored_stop_loss,overtrading
-        ?tags=tag1,tag2
-        ?search=RELIANCE
     """
     serializer_class = TradeManagementSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -431,6 +384,22 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
 # TRADE CREATION HELPER
 # ─────────────────────────────────────────────
 
+def _parse_time_field(raw):
+    """Parse a HH:MM or HH:MM:SS string into a datetime.time object, or return None."""
+    if not raw:
+        return None
+    try:
+        from datetime import time as dtime
+        parts = str(raw).strip().split(':')
+        return dtime(
+            int(parts[0]),
+            int(parts[1]),
+            int(parts[2]) if len(parts) > 2 else 0,
+        )
+    except Exception:
+        return None
+
+
 def _create_trade_from_row(row, user, broker_name):
     """
     Create and save a Trade instance from a normalized row dict.
@@ -458,19 +427,14 @@ def _create_trade_from_row(row, user, broker_name):
         except (ValueError, TypeError):
             continue
 
-    time_raw = row.get('time') or row.get('trade_time', '')
-    trade_time = None
-    if time_raw:
-        try:
-            from datetime import time as dtime
-            parts = str(time_raw).split(':')
-            trade_time = dtime(
-                int(parts[0]),
-                int(parts[1]),
-                int(parts[2]) if len(parts) > 2 else 0
-            )
-        except Exception:
-            pass
+    # ── trade_time: earliest leg across all buys+sells (backward compat)
+    trade_time = _parse_time_field(row.get('time') or row.get('trade_time', ''))
+
+    # ── entry_time: earliest time of entry legs (buy for long, sell for short)
+    entry_time = _parse_time_field(row.get('entry_time', ''))
+
+    # ── exit_time: earliest time of exit legs (sell for long, buy for short)
+    exit_time = _parse_time_field(row.get('exit_time', ''))
 
     already_exists = Trade.objects.filter(
         user=user,
@@ -497,6 +461,8 @@ def _create_trade_from_row(row, user, broker_name):
         session=session,
         trade_date=trade_date,
         trade_time=trade_time,
+        entry_time=entry_time,
+        exit_time=exit_time,
         symbol=symbol or 'UNKNOWN',
         market_type=row.get('market_type', 'indian_stocks'),
         direction='long' if direction in ('long', 'buy', 'b') else 'short',
@@ -532,7 +498,7 @@ class TradeSymbolListView(generics.ListAPIView):
 
     def get_queryset(self):
         return Trade.objects.filter(
-            user=self.request.user, 
+            user=self.request.user,
             deleted_at__isnull=True
         ).only('id', 'symbol')
 
@@ -582,19 +548,6 @@ class ImageUploadView(generics.GenericAPIView):
 class TradeScreenshotView(APIView):
     """
     Manage screenshots attached to a specific trade (stored in screenshot_urls JSONField).
-
-    GET    /api/tradelog/trades/<uuid:pk>/screenshots/
-        → Returns the current list of screenshot URLs for the trade.
-
-    POST   /api/tradelog/trades/<uuid:pk>/screenshots/
-        → Upload one or more image files. Saves them and appends their URLs
-          to the trade's screenshot_urls list.
-        Body (multipart/form-data): images=<file1>, images=<file2>, ...
-
-    DELETE /api/tradelog/trades/<uuid:pk>/screenshots/
-        → Remove one or more URLs from the trade's screenshot_urls list.
-        Body (JSON): { "urls": ["https://...", "https://..."] }
-        Passing an empty list or omitting "urls" clears ALL screenshots.
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -693,21 +646,6 @@ class TradeBulkDeleteView(APIView):
 
     Soft-deletes multiple trades at once. Only deletes trades that belong
     to the authenticated user and are not already deleted.
-
-    Body (JSON):
-        { "ids": ["uuid1", "uuid2", ...] }          → delete specific trades
-        { "delete_all": true }                       → delete ALL trades for the user
-        { "delete_all": true, <filter params> }      → delete all matching a filter
-            e.g. { "delete_all": true, "outcome": "loss", "date_range": "this_month" }
-
-    Supports all the same filter params as GET /api/tradelog/trades/ when
-    used together with delete_all=true.
-
-    Response:
-        {
-            "deleted": 5,
-            "message": "5 trade(s) soft-deleted successfully."
-        }
     """
     permission_classes = [permissions.IsAuthenticated]
 

@@ -2,6 +2,7 @@ from collections import defaultdict
 from datetime import datetime
 from decimal import Decimal, ROUND_HALF_UP
 
+
 def normalize_groww(raw_rows):
     """
     Groww order history CSV/Excel — one row per executed order leg.
@@ -94,10 +95,14 @@ def normalize_groww(raw_rows):
             entry_price = buy_vwap
             exit_price = sell_vwap if sells else None
             quantity = total_buy_qty
+            entry_legs = buys
+            exit_legs  = sells
         else:
             entry_price = sell_vwap
             exit_price = buy_vwap if buys else None
             quantity = total_sell_qty
+            entry_legs = sells
+            exit_legs  = buys
 
         all_legs = buys + sells
         all_dates = [l['date'] for l in all_legs if l.get('date')]
@@ -105,21 +110,28 @@ def normalize_groww(raw_rows):
         if not trade_date_raw:
             continue
 
-        all_times = [l['time'] for l in all_legs if l.get('time') is not None]
-        trade_time_str = min(all_times).strftime('%H:%M') if all_times else ''
+        def earliest_time_str(legs, fmt='%H:%M'):
+            times = [l['time'] for l in legs if l.get('time') is not None]
+            return min(times).strftime(fmt) if times else ''
+
+        trade_time_str = earliest_time_str(all_legs)
+        entry_time_str = earliest_time_str(entry_legs)
+        exit_time_str  = earliest_time_str(exit_legs)
 
         normalized.append({
-            'symbol': symbol,
-            'trade_date': trade_date_raw,
-            'time': trade_time_str,
-            'direction': direction,
-            'quantity': str(quantity),
+            'symbol':      symbol,
+            'trade_date':  trade_date_raw,
+            'time':        trade_time_str,
+            'entry_time':  entry_time_str,
+            'exit_time':   exit_time_str,
+            'direction':   direction,
+            'quantity':    str(quantity),
             'entry_price': str(entry_price),
-            'exit_price': str(exit_price) if exit_price is not None else '',
-            'fees': '0',
+            'exit_price':  str(exit_price) if exit_price is not None else '',
+            'fees':        '0',
             'market_type': 'indian_stocks',
-            'exchange': exchange,
-            'segment': 'EQ',
+            'exchange':    exchange,
+            'segment':     'EQ',
         })
 
     return normalized

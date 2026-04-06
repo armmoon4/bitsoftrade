@@ -124,6 +124,8 @@ def normalize_angelone(raw_rows):
             'symbol':      symbol,
             'trade_date':  trade_date_iso,
             'time':        '',
+            'entry_time':  '',   
+            'exit_time':   '',  
             'direction':   direction,
             'quantity':    str(quantity),
             'entry_price': str(entry_price),

@@ -49,6 +49,8 @@ class Trade(models.Model):
     # ── General
     trade_date = models.DateField()
     trade_time = models.TimeField(null=True, blank=True)
+    entry_time = models.TimeField(null=True, blank=True)   
+    exit_time  = models.TimeField(null=True, blank=True)  
     symbol = models.CharField(max_length=100)
     market_type = models.CharField(max_length=20, choices=MARKET_CHOICES)   ########################  have confusion whenever thecsv upload what it will be
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)

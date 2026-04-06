@@ -7,8 +7,8 @@ def normalize_fyers(raw_rows):
     groups = defaultdict(lambda: {'buys': [], 'sells': [], 'segment': '', 'exchange': ''})
 
     for row in raw_rows:
-        symbol      = row.get('symbol', '').strip()
-        side        = row.get('side', '').strip().lower()      # BUY / SELL
+        symbol       = row.get('symbol', '').strip()
+        side         = row.get('side', '').strip().lower()      # BUY / SELL
         datetime_raw = row.get('date_&_time', '').strip()
 
         if not symbol or not datetime_raw or not side:
@@ -97,18 +97,26 @@ def normalize_fyers(raw_rows):
             entry_price = buy_vwap
             exit_price  = sell_vwap if sells else None
             quantity    = total_buy_qty
+            entry_legs  = buys
+            exit_legs   = sells
         else:
             entry_price = sell_vwap
             exit_price  = buy_vwap if buys else None
             quantity    = total_sell_qty
+            entry_legs  = sells
+            exit_legs   = buys
+
+        def earliest_time_str(legs, fmt='%H:%M:%S'):
+            legs_with_dt = [l for l in legs if l.get('time') is not None]
+            if legs_with_dt:
+                return min(legs_with_dt, key=lambda l: l['time'])['time'].strftime(fmt)
+            legs_with_str = [l for l in legs if l.get('time_str')]
+            return legs_with_str[0]['time_str'] if legs_with_str else ''
 
         all_legs = buys + sells
-        legs_with_dt = [l for l in all_legs if l.get('time') is not None]
-        if legs_with_dt:
-            earliest = min(legs_with_dt, key=lambda l: l['time'])
-            trade_time_str = earliest['time'].strftime('%H:%M:%S')
-        else:
-            trade_time_str = ''
+        trade_time_str = earliest_time_str(all_legs)
+        entry_time_str = earliest_time_str(entry_legs)
+        exit_time_str  = earliest_time_str(exit_legs)
 
         market_type_map = {
             'FO':  'options',
@@ -122,6 +130,8 @@ def normalize_fyers(raw_rows):
             'symbol':      symbol,
             'trade_date':  trade_date_iso,
             'time':        trade_time_str,
+            'entry_time':  entry_time_str,
+            'exit_time':   exit_time_str,
             'direction':   direction,
             'quantity':    str(quantity),
             'entry_price': str(entry_price),
