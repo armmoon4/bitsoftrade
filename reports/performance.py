@@ -78,6 +78,9 @@ def get_performance_report_data(qs) -> dict:
     # ------------------------------------------------- symbol frequency
     symbol_frequency = _symbol_frequency(qs)
 
+    # ------------------------------------------------- hold time vs win rate
+    hold_time_vs_win_rate = _hold_time_vs_win_rate(qs)
+
     return {
         "performance": {
             "total_pnl": agg["net_pnl"],
@@ -123,7 +126,7 @@ def get_performance_report_data(qs) -> dict:
             "most_common_duration": "N/A",
             "trades_count": total,
         },
-        "hold_time_vs_win_rate": [],
+        "hold_time_vs_win_rate": hold_time_vs_win_rate,
         "market_session_breakdown": market_session_breakdown,
         "strategy_effectiveness": strategy_effectiveness,
         "symbol_frequency": symbol_frequency,
@@ -132,14 +135,25 @@ def get_performance_report_data(qs) -> dict:
     }
 
 
-
+# ---------------------------------------------------------------------------
 # Private helpers
+# ---------------------------------------------------------------------------
+
 _SESSIONS = [
     ("Early Morning", 555, 660),
-    ("Late Morning", 660, 750),
-    ("Midday", 750, 810),
-    ("Afternoon", 810, 870),
-    ("Closing", 870, 931),  # inclusive upper bound kept as < 931
+    ("Late Morning",  660, 750),
+    ("Midday",        750, 810),
+    ("Afternoon",     810, 870),
+    ("Closing",       870, 931),
+]
+
+_HOLD_BUCKETS = [
+    ("0–1 Hour",  0,   60),
+    ("1–2 Hours", 60,  120),
+    ("2–3 Hours", 120, 180),
+    ("3–4 Hours", 180, 240),
+    ("4–5 Hours", 240, 300),
+    ("5+ Hours",  300, float("inf")),
 ]
 
 
@@ -256,9 +270,54 @@ def _symbol_frequency(qs) -> dict:
         s["pnl"] = s["pnl"] or Decimal("0")
 
     return {
-        "most_traded_symbol": max(sym_qs, key=lambda x: x["count"])["symbol"],
-        "most_profitable_symbol": max(sym_qs, key=lambda x: x["pnl"])["symbol"],
-        "least_profitable_symbol": min(sym_qs, key=lambda x: x["pnl"])["symbol"],
-        "highest_win_rate_symbol": max(sym_qs, key=lambda x: x["win_rate"])["symbol"],
-        "lowest_win_rate_symbol": min(sym_qs, key=lambda x: x["win_rate"])["symbol"],
+        "most_traded_symbol":       max(sym_qs, key=lambda x: x["count"])["symbol"],
+        "most_profitable_symbol":   max(sym_qs, key=lambda x: x["pnl"])["symbol"],
+        "least_profitable_symbol":  min(sym_qs, key=lambda x: x["pnl"])["symbol"],
+        "highest_win_rate_symbol":  max(sym_qs, key=lambda x: x["win_rate"])["symbol"],
+        "lowest_win_rate_symbol":   min(sym_qs, key=lambda x: x["win_rate"])["symbol"],
     }
+
+
+def _hold_time_vs_win_rate(qs) -> list[dict]:
+    trades = list(
+        qs.filter(entry_time__isnull=False, exit_time__isnull=False)
+        .values("entry_time", "exit_time", "total_pnl")
+    )
+
+    if not trades:
+        return []
+
+    bucket_data = {label: {"wins": 0, "total": 0} for label, *_ in _HOLD_BUCKETS}
+
+    for t in trades:
+        entry  = t["entry_time"]
+        exit_  = t["exit_time"]
+        pnl    = t["total_pnl"] or 0
+
+        entry_mins = entry.hour * 60 + entry.minute
+        exit_mins  = exit_.hour * 60 + exit_.minute
+        duration   = exit_mins - entry_mins
+
+        # Skip bad / overnight data
+        if duration < 0:
+            continue
+
+        for label, lo, hi in _HOLD_BUCKETS:
+            if lo <= duration < hi:
+                bucket_data[label]["total"] += 1
+                if pnl > 0:
+                    bucket_data[label]["wins"] += 1
+                break
+
+    result = []
+    for label, *_ in _HOLD_BUCKETS:
+        d = bucket_data[label]
+        if d["total"] == 0:
+            continue  # omit empty buckets
+        result.append({
+            "duration_range": label,
+            "win_rate": round(d["wins"] / d["total"] * 100, 2),
+            "trades": d["total"],
+        })
+
+    return result
