@@ -4,7 +4,7 @@ from django.conf import settings
 
 
 class Rule(models.Model):
-    """Trading rules — either admin-global or user-custom."""
+    """Trading rules — either admin-global, user-custom, or user-level system rules."""
 
     CATEGORY_CHOICES = [
         ('risk', 'Risk'),
@@ -49,6 +49,14 @@ class Rule(models.Model):
     action = models.CharField(max_length=20, choices=ACTION_CHOICES)
     is_active = models.BooleanField(default=True)
     is_admin_defined = models.BooleanField(default=False, help_text='Admin rules cannot be deleted by users')
+    is_system_rule = models.BooleanField(
+        default=False,
+        help_text=(
+            'System rules are seeded per-user on registration. '
+            'Users can update thresholds and toggle is_active, '
+            'but cannot delete them.'
+        )
+    )
     deleted_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
