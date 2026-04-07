@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import math
 from collections import defaultdict
+from datetime import timedelta
 
 from django.db.models import Avg, Count
 
@@ -23,6 +24,18 @@ PRESSURE_LABEL = {
     "missed_move":  "Missed move",
     "anger":        "Anger",
     "uncertainty":  "Uncertainty",
+}
+
+# Human-readable labels for Mistake.mistake_mode choices
+MODE_LABEL = {
+    "overtrading":         "Overtrading",
+    "revenge_trading":     "Revenge Trading",
+    "fomo":                "FOMO Entry",
+    "early_exit":          "Premature Exit",
+    "ignored_stop_loss":   "Missed Stop Loss",
+    "late_exit":           "Late Exit",
+    "no_plan":             "No Plan",
+    "oversized_position":  "Oversized Position",
 }
 
 
@@ -69,22 +82,35 @@ def get_journal_report_data(user, qs, filters) -> dict:
 
     # ── 2. Mistake Report ───────────────────────────────────────────────────
     mistake_stats, total_cost, mistake_count = _aggregate_mistakes(trade_ids)
-    most_frequent_mistake = (
-        max(mistake_stats, key=lambda n: mistake_stats[n]["count"])
-        if mistake_stats else None
-    )
+    if mistake_stats:
+        top_mode_key = max(mistake_stats, key=lambda k: mistake_stats[k]["count"])
+        most_frequent_mistake = MODE_LABEL.get(top_mode_key, top_mode_key.replace("_", " ").title())
+    else:
+        most_frequent_mistake = None
     avg_cost_per_mistake = round(total_cost / mistake_count, 2) if mistake_count else 0.0
 
     # ── 3. Trigger Analysis ─────────────────────────────────────────────────
-    trigger_analysis = _aggregate_triggers(trade_ids, qs)
+    trigger_analysis = _aggregate_triggers(trade_ids, qs, psych_logs)
 
     # ── 4. Journal Discipline ───────────────────────────────────────────────
-    traded_dates   = set(qs.values_list("trade_date", flat=True).distinct())
+    traded_dates    = set(qs.values_list("trade_date", flat=True).distinct())
     journaled_dates = set(journals.values_list("journal_date", flat=True).distinct())
-    days_traded    = len(traded_dates)
-    days_journaled = len(traded_dates & journaled_dates)
+    days_traded     = len(traded_dates)
+    days_journaled  = len(traded_dates & journaled_dates)
     completion_rate = round((days_journaled / days_traded * 100), 1) if days_traded else 0.0
     missed_days     = days_traded - days_journaled
+
+    current_streak, longest_streak = _compute_journal_streaks(journals)
+
+    # Build display-friendly mistake_frequency (label → count)
+    mistake_frequency_display = {
+        MODE_LABEL.get(mode, mode.replace("_", " ").title()): stats["count"]
+        for mode, stats in mistake_stats.items()
+    }
+    loss_contribution_display = {
+        MODE_LABEL.get(mode, mode.replace("_", " ").title()): round(stats["loss_contribution"], 2)
+        for mode, stats in mistake_stats.items()
+    }
 
     return {
         "psychology_report": {
@@ -99,20 +125,20 @@ def get_journal_report_data(user, qs, filters) -> dict:
             "psychology_insight":       psychology_insight,
         },
         "mistake_report": {
-            "mistake_frequency":         {n: s["count"]                      for n, s in mistake_stats.items()},
-            "loss_contribution":         {n: round(s["loss_contribution"], 2) for n, s in mistake_stats.items()},
-            "most_frequent_mistake":     most_frequent_mistake,
-            "total_mistake_cost":        round(total_cost, 2),
-            "avg_cost_per_mistake":      avg_cost_per_mistake,
-            "clustering_pattern_detected": mistake_count > 3,
+            "mistake_frequency":            mistake_frequency_display,
+            "loss_contribution":            loss_contribution_display,
+            "most_frequent_mistake":        most_frequent_mistake,
+            "total_mistake_cost":           round(total_cost, 2),
+            "avg_cost_per_mistake":         avg_cost_per_mistake,
+            "clustering_pattern_detected":  mistake_count > 3,
         },
         "trigger_analysis": trigger_analysis,
         "journal_discipline": {
-            "completion_rate":       completion_rate,
-            "current_streak":        getattr(user, "current_streak", 0),
-            "longest_streak":        getattr(user, "longest_streak", 0),
+            "completion_rate":        completion_rate,
+            "current_streak":         current_streak,
+            "longest_streak":         longest_streak,
             "missed_journaling_days": missed_days,
-            "journal_count":         journals.count(),
+            "journal_count":          journals.count(),
         },
     }
 
@@ -225,11 +251,17 @@ def _generate_psychology_insight(psych_logs, emotion_impact_pnl: dict) -> str | 
 
 
 def _aggregate_mistakes(trade_ids: list) -> tuple[dict, float, int]:
-    """Aggregate mistake frequency and loss contribution for given trade IDs."""
+    """
+    Aggregate mistake frequency and loss contribution for given trade IDs.
+
+    Groups by ``mistake_mode`` (behavioural pattern) — the same axis used by
+    the standalone mistakes analytics view.  Falls back to the raw mode value
+    when ``mistake_mode`` is NULL (i.e. unclassified mistakes).
+    """
     from mistakes.models import TradeMistake
 
-    mistake_stats: dict[str, dict] = {}
-    total_cost  = 0.0
+    mistake_stats: dict[str, dict] = {}   # keyed by raw mistake_mode string
+    total_cost    = 0.0
     mistake_count = 0
 
     if not trade_ids:
@@ -240,10 +272,11 @@ def _aggregate_mistakes(trade_ids: list) -> tuple[dict, float, int]:
         .filter(trade__in=trade_ids)
         .select_related("mistake", "trade")
     ):
-        name = tm.mistake.mistake_name
+        # Group by mistake_mode; fall back to a sanitised mistake_name if mode is blank
+        mode = tm.mistake.mistake_mode or "unclassified"
         pnl  = float(tm.trade.total_pnl or 0)
 
-        stats = mistake_stats.setdefault(name, {"count": 0, "loss_contribution": 0.0})
+        stats = mistake_stats.setdefault(mode, {"count": 0, "loss_contribution": 0.0})
         stats["count"] += 1
         mistake_count   += 1
 
@@ -255,32 +288,29 @@ def _aggregate_mistakes(trade_ids: list) -> tuple[dict, float, int]:
     return mistake_stats, total_cost, mistake_count
 
 
-def _aggregate_triggers(trade_ids: list, trade_qs) -> dict:
+def _aggregate_triggers(trade_ids: list, trade_qs, psych_logs) -> dict:
     """
     Return trigger analysis keyed by human-readable label.
 
     Sources:
       • PsychologyLog.pressure_source  → money / time / missed_move / anger / uncertainty
+        Uses the full date-filtered psych_logs queryset so standalone logs
+        (not linked to a specific trade) are also included.
       • Consecutive trade streaks       → losing_streak / winning_streak
     """
-    from journal.models import PsychologyLog
-
     trigger_data: dict[str, dict] = {}
 
     # ── pressure-source triggers ────────────────────────────────────────────
-    if trade_ids:
-        for log in (
-            PsychologyLog.objects
-            .filter(trade__in=trade_ids, pressure_source__isnull=False)
-            .select_related("trade")
-        ):
-            raw_trigger = log.pressure_source
-            label       = PRESSURE_LABEL.get(raw_trigger, raw_trigger.replace("_", " ").title())
-            pnl         = float(log.trade.total_pnl or 0)
+    # Use the full date-ranged psych_logs queryset (user + date already filtered).
+    # When a log is linked to a trade, use that trade's PnL; otherwise use 0.
+    for log in psych_logs.filter(pressure_source__isnull=False).select_related("trade"):
+        raw_trigger = log.pressure_source
+        label       = PRESSURE_LABEL.get(raw_trigger, raw_trigger.replace("_", " ").title())
+        pnl         = float(log.trade.total_pnl or 0) if log.trade_id else 0.0
 
-            entry = trigger_data.setdefault(label, {"trades": 0, "total_pnl": 0.0})
-            entry["trades"]    += 1
-            entry["total_pnl"] += pnl
+        entry = trigger_data.setdefault(label, {"trades": 0, "total_pnl": 0.0})
+        entry["trades"]    += 1
+        entry["total_pnl"] += pnl
 
     # ── streak-based triggers ───────────────────────────────────────────────
     trades_ordered = list(
@@ -331,6 +361,49 @@ def _aggregate_triggers(trade_ids: list, trade_qs) -> dict:
         }
 
     return result
+
+
+def _compute_journal_streaks(journals) -> tuple[int, int]:
+    """
+    Compute current journaling streak and longest journaling streak
+    from the filtered DailyJournal queryset.
+
+    Returns (current_streak, longest_streak) as day counts.
+    """
+    from datetime import date as date_cls
+
+    dates = sorted(journals.values_list("journal_date", flat=True).distinct(), reverse=True)
+    if not dates:
+        return 0, 0
+
+    today = date_cls.today()
+    longest = 1
+    current = 0
+    run     = 1
+
+    # Walk forward (dates is sorted DESC) to compute longest and current streak
+    for i in range(len(dates)):
+        if i == 0:
+            # Start current streak from today or yesterday
+            delta = (today - dates[0]).days
+            if delta <= 1:
+                current = 1
+            # check continuing run
+            continue
+
+        gap = (dates[i - 1] - dates[i]).days
+        if gap == 1:
+            run += 1
+            longest = max(longest, run)
+            if current > 0:
+                current += 1
+        else:
+            run = 1
+            # streak is broken; current streak cannot extend further back
+            current = current  # freeze
+
+    longest = max(longest, run)
+    return current, longest
 
 
 def _pearson_correlation(x: list[float], y: list[float]) -> float:
