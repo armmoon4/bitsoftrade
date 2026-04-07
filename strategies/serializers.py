@@ -9,6 +9,7 @@ class StrategySerializer(serializers.ModelSerializer):
     total_pnl = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True, default=0)
     profit_factor = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True, default=0)
     sample_size_progress = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True, default=0)
+    risk_reward_ratio = serializers.CharField(read_only=True, default='N/A')
 
     class Meta:
         model = Strategy

@@ -26,6 +26,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         'max_drawdown': Decimal('0'),
         'max_drawdown_pct': 0,
         'avg_return': Decimal('0'),
+        'risk_reward_ratio': 'N/A',
     }
 
     try:
@@ -50,6 +51,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         gross_loss = Decimal('0')
         total_pnl = Decimal('0')
         wins = 0
+        losses = 0
         pnl_list = []  # for max drawdown and avg return
 
         for t in closed_trades:
@@ -76,6 +78,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
                 wins += 1
                 gross_profit += pnl
             elif pnl < 0:
+                losses += 1
                 gross_loss += abs(pnl)
 
         closed_count = closed_qs.count()
@@ -107,6 +110,18 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
         # --- Average Return per closed trade ---
         avg_return = round(total_pnl / closed_count, 2) if closed_count else Decimal('0')
 
+        # --- Risk:Reward Ratio ---
+        # avg_win / avg_loss  (e.g. 1:2.50 means you risk 1 to gain 2.5)
+        avg_win = (gross_profit / wins) if wins else Decimal('0')
+        avg_loss = (gross_loss / losses) if losses else Decimal('0')
+        if avg_win > 0 and avg_loss > 0:
+            rr_ratio = round(float(avg_win / avg_loss), 2)
+            risk_reward_ratio = f"1:{rr_ratio}"
+        elif avg_win > 0:
+            risk_reward_ratio = "1:∞"   # no losses at all
+        else:
+            risk_reward_ratio = "N/A"
+
         return {
             'total_trades': total_trades,
             'closed_trades': closed_count,
@@ -117,6 +132,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
             'max_drawdown': max_drawdown,
             'max_drawdown_pct': max_drawdown_pct,
             'avg_return': avg_return,
+            'risk_reward_ratio': risk_reward_ratio,
         }
 
     except LookupError:
