@@ -158,7 +158,7 @@ def analyze_view(request):
 
     sorted_trades = list(
         trades.order_by('trade_date', 'trade_time').values(
-            'id', 'total_pnl', 'emotional_state', 'trade_date'
+            'id', 'total_pnl', 'emotional_state', 'trade_date', 'trade_time'
         )
     )
     for i in range(1, len(sorted_trades)):
@@ -251,23 +251,31 @@ def analyze_view(request):
     losing_trades = trades.filter(total_pnl__lt=0)
     if losing_trades.exists():
         avg_loss_val = abs(float(losing_trades.aggregate(a=Avg('total_pnl'))['a'] or 0))
-        # Express as % of average entry notional (entry_price * qty)
+        # Express as % of average entry notional (entry_price * qty) — use losing trades only
         avg_notional = float(
-            trades.aggregate(
+            losing_trades.aggregate(
                 n=Avg(F('entry_price') * F('quantity'))
             )['n'] or 1
         )
         avg_loss_pct = round(avg_loss_val / avg_notional * 100, 1) if avg_notional else 0.0
 
     # Max loss threshold from rules
+    # Try multiple possible JSON key names that admin/system rules may use
     max_loss_rule = Rule.objects.filter(
         Q(is_admin_defined=True) | Q(user=user),
         is_active=True, deleted_at__isnull=True,
-        trigger_condition__has_key='maxLossPercent'
+    ).filter(
+        Q(trigger_condition__has_key='maxLossPercent') |
+        Q(trigger_condition__has_key='maxLoss') |
+        Q(trigger_condition__has_key='maxDailyPercent')
     ).first()
-    max_loss_threshold = float(
-        max_loss_rule.trigger_condition.get('maxLossPercent', 3.0)
-    ) if max_loss_rule else 3.0
+    if max_loss_rule:
+        tc = max_loss_rule.trigger_condition
+        max_loss_threshold = float(
+            tc.get('maxLossPercent') or tc.get('maxLoss') or tc.get('maxDailyPercent') or 3.0
+        )
+    else:
+        max_loss_threshold = 3.0
 
     # ── Revenge-trading detection ────────────────────────────────────────────
     revenge_count       = 0
@@ -371,9 +379,10 @@ def analyze_view(request):
         ) if sess_pnls else 0.0
 
     # ── Premature exit cost ────────────────────────────────────────────────-
+    # Filter by mistake_mode (structured field) rather than free-text mistake_name
     premature_exits = TradeMistake.objects.filter(
         trade_id__in=trade_ids,
-        mistake__mistake_name__icontains='exit'
+        mistake__mistake_mode__in=['early_exit', 'late_exit']
     ).count()
     premature_exit_pct = _safe_pct(premature_exits, total_trades)
 
@@ -389,10 +398,9 @@ def analyze_view(request):
         'YELLOW' if yellow_pnl >= red_pnl else
         'RED'
     )
-    loss_session     = (
-        'YELLOW' if yellow_pnl <= green_pnl and yellow_pnl <= red_pnl else
-        'RED'
-    )
+    # Find which session state had the worst (lowest) PnL
+    _session_pnl_map = {'GREEN': green_pnl, 'YELLOW': yellow_pnl, 'RED': red_pnl}
+    loss_session = min(_session_pnl_map, key=_session_pnl_map.get)
 
     summary_text = (
         f"Over the {period_label}, your performance is {performance_text}, "
