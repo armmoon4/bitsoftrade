@@ -126,12 +126,12 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
             'total_trades': total_trades,
             'closed_trades': closed_count,
             'win_rate': win_rate,
-            'total_pnl': total_pnl,
+            'total_pnl': float(total_pnl),
             'profit_factor': profit_factor,
             'sample_size_progress': sample_progress,
-            'max_drawdown': max_drawdown,
+            'max_drawdown': float(max_drawdown),
             'max_drawdown_pct': max_drawdown_pct,
-            'avg_return': avg_return,
+            'avg_return': float(avg_return),
             'risk_reward_ratio': risk_reward_ratio,
         }
 

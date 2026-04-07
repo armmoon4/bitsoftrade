@@ -5,10 +5,14 @@ from .models import Strategy
 class StrategySerializer(serializers.ModelSerializer):
     # Calculated performance fields — read only, populated by view
     total_trades = serializers.IntegerField(read_only=True, default=0)
-    win_rate = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True, default=0)
-    total_pnl = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True, default=0)
-    profit_factor = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True, default=0)
-    sample_size_progress = serializers.DecimalField(max_digits=5, decimal_places=2, read_only=True, default=0)
+    closed_trades = serializers.IntegerField(read_only=True, default=0)
+    win_rate = serializers.FloatField(read_only=True, default=0)
+    avg_return = serializers.FloatField(read_only=True, default=0)
+    total_pnl = serializers.FloatField(read_only=True, default=0)
+    profit_factor = serializers.FloatField(read_only=True, default=0)
+    max_drawdown = serializers.FloatField(read_only=True, default=0)
+    max_drawdown_pct = serializers.FloatField(read_only=True, default=0)
+    sample_size_progress = serializers.FloatField(read_only=True, default=0)
     risk_reward_ratio = serializers.CharField(read_only=True, default='N/A')
 
     class Meta:
