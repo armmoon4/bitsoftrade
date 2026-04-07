@@ -117,9 +117,9 @@ A high-level narrative and core performance metrics for the period.
 |---|---|---|
 | `text` | `string` | Auto-generated narrative summarising overall performance and discipline. |
 | `performance` | `string` | `"positive"` or `"negative"` based on total P&L. |
-| `discipline_consistency` | `string` | `"strong and consistent"`, `"improving but fragile"`, or `"unstable and needs work"`. |
+| `discipline_consistency` | `string` | `"strong and consistent"` (discipline score ≥ 80), `"improving but fragile"` (score ≥ 65), or `"unstable and needs work"` (score < 65). Note: these thresholds differ from the `health_rating` thresholds in `discipline_health`. |
 | `best_profit_session_state` | `string` | Session state with the highest cumulative P&L — `GREEN`, `YELLOW`, or `RED`. |
-| `loss_cluster_session_state` | `string` | Session state where losses cluster most — `YELLOW` or `RED`. |
+| `loss_cluster_session_state` | `string` | Session state with the lowest (worst) cumulative P&L — `GREEN`, `YELLOW`, or `RED`. |
 | `total_pnl` | `float` | Net P&L across all filtered trades, rounded to 2 decimal places. |
 | `wins` | `integer` | Number of trades with positive P&L. |
 | `losses` | `integer` | Number of trades with negative P&L. |
@@ -162,11 +162,11 @@ Each item has the following shape:
 
 | `id` | Description |
 |---|---|
-| `confirmation_rate` | Trades where `entry_confidence >= 7`, indicating the trader waited for a confirmed setup. |
-| `strategy_adherence` | Trades marked disciplined that also had a strategy assigned — measures rule-following. |
-| `rr_improvement` | Change in average risk-to-reward ratio from the first half to the second half of the period. |
-| `avg_loss_vs_threshold` | Average losing trade size as a percentage of notional, compared against the `maxLossPercent` rule threshold. |
-| `best_entry_window` | Win rate during the single best trading hour of the day. |
+| `confirmation_rate` | Trades where `entry_confidence >= 7`, indicating the trader waited for a confirmed setup. Percentage is out of all trades. |
+| `strategy_adherence` | Trades where `is_disciplined = True` and a strategy is assigned, out of all trades that have a strategy assigned. Measures rule-following within strategy trades only. |
+| `rr_improvement` | Change in P&L-based risk-to-reward ratio (avg winning P&L ÷ avg losing P&L) from the first half to the second half of the period, by trade count. |
+| `avg_loss_vs_threshold` | Average losing trade size as a percentage of notional value (`entry_price × quantity`), compared against the `maxLossPercent`, `maxLoss`, or `maxDailyPercent` rule threshold (defaults to `3.0%` if no matching rule is found). |
+| `best_entry_window` | Win rate during the single highest-performing trading hour of the day, determined dynamically by average P&L per hour. |
 
 **Example:**
 ```json
@@ -202,17 +202,17 @@ Each item follows the same shape as `doing_well`, with an additional optional fi
 
 | Field | Type | Description |
 |---|---|---|
-| `avg_session_pnl_after` | `float` | *(FOMO after loss only)* Average session P&L in sessions where FOMO trades occurred. |
+| `avg_session_pnl_after` | `float` | *(FOMO after loss only)* Average session P&L across all sessions that contained at least one FOMO-tagged trade. |
 
 **Metrics included:**
 
 | `id` | Description |
 |---|---|
-| `fomo_after_loss` | Count and percentage of FOMO-tagged trades that occurred immediately after a losing trade. |
+| `fomo_after_loss` | Count and percentage of FOMO-tagged trades that occurred immediately after a losing trade (consecutive trade pairs, same or different day). |
 | `fomo_days` | Total trades tagged with `emotional_state = "fomo"` across the period. |
-| `risk_after_losses` | Maximum consecutive losing days observed. Signals increasing risk exposure during drawdown. |
-| `position_size_violations` | Violations of rules containing `"position"` in the rule name. |
-| `premature_exits` | Trades linked to a `TradeMistake` record whose mistake name contains `"exit"`. |
+| `risk_after_losses` | Maximum consecutive calendar days with negative net P&L. Signals increasing risk exposure during drawdown. |
+| `position_size_violations` | Violations linked to rules whose `rule_name` contains `"position"` (case-insensitive). |
+| `premature_exits` | Trades linked to a `TradeMistake` record where `mistake_mode` is `"early_exit"` or `"late_exit"`. |
 
 **Example:**
 ```json
@@ -253,17 +253,17 @@ Each item shape:
 | `out_of` | `number \| null` | Denominator, if applicable. |
 | `description` | `string` | Plain-English explanation. |
 | `stat` | `string` | Short statistical summary shown in UI. |
-| `journal_mention_pct` | `float` | *(revenge trading only)* Percentage of journal days where the pattern appeared. |
+| `journal_mention_pct` | `float` | *(revenge trading only)* Revenge trade count as a percentage of total daily journal entries in the period. |
 
 **Patterns included:**
 
 | `id` | Description |
 |---|---|
-| `revenge_trading` | Trades made on the same day after a loss where emotional state is `angry`, `fomo`, or `overconfident`. |
+| `revenge_trading` | Consecutive trade pairs on the **same calendar day** where the prior trade was a loss and the next trade's `emotional_state` is `angry`, `fomo`, or `overconfident`. |
 | `consecutive_losses` | Maximum consecutive calendar days with negative net P&L. |
-| `emotional_clarity` | Longest consecutive streak of trades where emotional state was `calm` or `confident`. |
-| `nervous_before_violations` | Percentage of psychology log entries where `emotional_state = "anxious"`. |
-| `red_day_discipline` | RED-state discipline sessions and count of those that also had revenge entries. |
+| `emotional_clarity` | Longest consecutive streak of trades where `emotional_state` was `calm` or `confident`. |
+| `nervous_before_violations` | Percentage of `PsychologyLog` entries in the period where `emotional_state = "anxious"`. |
+| `red_day_discipline` | Count of RED-state discipline sessions, and count of those sessions that contained at least one trade with an `emotional_state` of `angry`, `fomo`, or `overconfident`. |
 
 **Example:**
 ```json
@@ -296,17 +296,17 @@ A holistic view of the trader's discipline scoring, session quality, violations,
 
 | Field | Type | Description |
 |---|---|---|
-| `discipline_score` | `float` | Score from 0–100. Calculated as `(green sessions / total sessions) × 100`, penalised by 2 points per hard violation, floored at 0. |
-| `health_rating` | `string` | Label derived from `discipline_score`: `"Excellent"` (≥85), `"Improving but fragile"` (≥70), `"Needs Attention"` (≥50), `"Critical"` (<50). |
+| `discipline_score` | `float` | Score from 0–100. See formula below. |
+| `health_rating` | `string` | Label derived from `discipline_score`: `"Excellent"` (≥ 85), `"Improving but fragile"` (≥ 70), `"Needs Attention"` (≥ 50), `"Critical"` (< 50). |
 | `violated_boundaries` | `integer` | Total violations in the period. |
-| `hard_violations` | `integer` | Subset of violations classified as type `"hard"`. |
+| `hard_violations` | `integer` | Subset of violations classified as `violation_type = "hard"`. |
 | `sessions_count` | `integer` | Total discipline sessions in the period. |
-| `sessions_per_violation` | `float` | Average number of sessions between each violation event. Higher is better. |
-| `trend` | `string` | `"Improving"`, `"Declining"`, or `"Stable"` — compares discipline score of first vs second half of sessions. |
+| `sessions_per_violation` | `float` | `total_sessions ÷ max(total_violations, 1)`. Higher is better. Returns `total_sessions` when there are zero violations. |
+| `trend` | `string` | `"Improving"` if the discipline score of the second half of sessions ≥ first half; `"Declining"` if lower; `"Stable"` if fewer than 2 sessions exist in the period. |
 | `green_sessions` | `integer` | Sessions with state `"green"`. |
 | `yellow_sessions` | `integer` | Sessions with state `"yellow"`. |
 | `red_sessions` | `integer` | Sessions with state `"red"`. |
-| `reminder` | `string` | Contextual coaching message based on discipline score. |
+| `reminder` | `string` | Contextual coaching message. Fragile message shown when `discipline_score < 80`; excellent message shown when `discipline_score >= 80`. |
 | `session_pnl_summary` | `object` | Net P&L grouped by session state. |
 | `session_pnl_summary.green_pnl` | `float` | Net P&L across all trades in GREEN sessions. |
 | `session_pnl_summary.yellow_pnl` | `float` | Net P&L across all trades in YELLOW sessions. |
@@ -346,14 +346,26 @@ score = min(score, 100)
 
 ---
 
-## Health Rating Thresholds
+## `discipline_consistency` vs `health_rating` Thresholds
+
+These are two separate labels derived from the same `discipline_score` but using **different thresholds**:
+
+### `discipline_consistency` (in `intelligence_summary`)
+
+| Score Range | Value |
+|---|---|
+| ≥ 80 | `"strong and consistent"` |
+| 65 – 79 | `"improving but fragile"` |
+| < 65 | `"unstable and needs work"` |
+
+### `health_rating` (in `discipline_health`)
 
 | Score Range | Rating |
 |---|---|
-| ≥ 85 | Excellent |
-| 70 – 84 | Improving but fragile |
-| 50 – 69 | Needs Attention |
-| < 50 | Critical |
+| ≥ 85 | `"Excellent"` |
+| 70 – 84 | `"Improving but fragile"` |
+| 50 – 69 | `"Needs Attention"` |
+| < 50 | `"Critical"` |
 
 ---
 
@@ -372,4 +384,6 @@ score = min(score, 100)
 - `market` and `broker` filters are case-insensitive and ignored when set to `"all"`.
 - The `custom` time range requires both `fromDate` and `toDate` in `YYYY-MM-DD` format; if either is missing, the API falls back to `last30`.
 - Soft-deleted trades (`deleted_at` is not null) are always excluded.
+- The `rr_improvement` value is a P&L-based ratio (avg winning P&L ÷ avg losing P&L), not a risk-defined R:R from entry parameters.
+- The `best_entry_window` is determined dynamically as the hour with the highest average P&L across all trades with a recorded `trade_time` — it is not fixed to the first 30 minutes of the session.
 - Emotional state values used internally: `fomo`, `angry`, `overconfident`, `anxious`, `calm`, `confident`.
