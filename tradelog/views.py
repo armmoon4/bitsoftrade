@@ -662,7 +662,7 @@ class TradeBulkDeleteView(APIView):
             qs.update(deleted_at=timezone.now())
             return Response({
                 "deleted": count,
-                "message": f"{count} trade(s) soft-deleted successfully.",
+                "message": f"{count} trade(s) deleted successfully.",
             }, status=status.HTTP_200_OK)
 
         # Specific IDs provided
@@ -702,7 +702,7 @@ class TradeBulkDeleteView(APIView):
 
         response = {
             "deleted": found_count,
-            "message": f"{found_count} trade(s) soft-deleted successfully.",
+            "message": f"{found_count} trade(s) deleted successfully.",
         }
         if not_found_count:
             response["not_found"] = not_found_count
