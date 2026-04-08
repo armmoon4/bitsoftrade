@@ -317,7 +317,7 @@ def _hold_time_vs_win_rate(qs) -> list[dict]:
     for label, *_ in _HOLD_BUCKETS:
         d = bucket_data[label]
         if d["total"] == 0:
-            continue  # omit empty buckets
+            continue  
         result.append({
             "duration_range": label,
             "win_rate": round(d["wins"] / d["total"] * 100, 2),
