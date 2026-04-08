@@ -245,12 +245,18 @@ def _mistake_analysis(user, qs) -> tuple[list[dict], list[dict], float]:
     """
     Build mistake heatmap and top recurring mistakes from TradeMistake records.
 
-    - Heatmap: {mistake_name -> {date -> count}}
+    - Heatmap: {mistake_mode_label -> {date -> count}}
     - Top recurring: sorted by occurrences desc, then loss%, then name.
-    - Pads with ALL admin-defined mistakes (and any user-custom mistakes)
-      that had zero occurrences so the frontend always shows a full list.
+    - Groups by mistake_mode (standardised behavioural pattern) so labels
+      always match the Mistake module's defined MISTAKE_MODE choices.
+    - Falls back to mistake_name when mistake_mode is not set.
+    - Pads zero-occurrence rows for every MISTAKE_MODE choice defined in
+      the Mistake model, plus any user-custom mistakes.
     """
     from mistakes.models import TradeMistake, Mistake
+
+    # Build a display-label lookup from the model's MISTAKE_MODE choices
+    mode_display: dict[str, str] = dict(Mistake.MISTAKE_MODE)
 
     trade_ids   = qs.values_list("id", flat=True)
     mistakes_qs = (
@@ -264,16 +270,19 @@ def _mistake_analysis(user, qs) -> tuple[list[dict], list[dict], float]:
     total_mistake_losses                      = 0.0
 
     for tm in mistakes_qs:
-        name    = tm.mistake.mistake_name
+        # Use the standardised mode display label; fall back to mistake_name
+        mode = tm.mistake.mistake_mode
+        label = mode_display.get(mode, mode) if mode else tm.mistake.mistake_name
+
         day_str = fmt_date(tm.trade.trade_date)
         pnl     = float(tm.trade.total_pnl or 0)
 
-        # Heatmap: count occurrences per mistake per day
-        heatmap_data.setdefault(name, {})
-        heatmap_data[name][day_str] = heatmap_data[name].get(day_str, 0) + 1
+        # Heatmap: count occurrences per mode per day
+        heatmap_data.setdefault(label, {})
+        heatmap_data[label][day_str] = heatmap_data[label].get(day_str, 0) + 1
 
-        # Stats: count + loss per mistake
-        stats = mistake_stats.setdefault(name, {"count": 0, "loss": 0.0})
+        # Stats: count + loss per mode
+        stats = mistake_stats.setdefault(label, {"count": 0, "loss": 0.0})
         stats["count"] += 1
         if pnl < 0:
             loss = abs(pnl)
@@ -281,36 +290,31 @@ def _mistake_analysis(user, qs) -> tuple[list[dict], list[dict], float]:
             total_mistake_losses += loss
 
     formatted_heatmap = [
-        {"mistake_type": name, "occurrences": dates}
-        for name, dates in heatmap_data.items()
+        {"mistake_type": label, "occurrences": dates}
+        for label, dates in heatmap_data.items()
     ]
 
     # Build top_recurring from actual data
     top_recurring_map: dict[str, dict] = {
-        name: {
-            "name":        name,
+        label: {
+            "name":        label,
             "occurrences": stats["count"],
             "loss_percent": round(stats["loss"] / total_mistake_losses * 100, 1)
             if total_mistake_losses else 0,
         }
-        for name, stats in mistake_stats.items()
+        for label, stats in mistake_stats.items()
     }
 
-    # Pad with ALL admin-defined mistakes that had zero occurrences
-    # (replaces the old hardcoded DEFAULT_MISTAKES list)
-    admin_mistakes = (
-        Mistake.objects
-        .filter(is_admin_defined=True, deleted_at__isnull=True)
-        .values_list("mistake_name", flat=True)
-    )
-    for name in admin_mistakes:
-        if name not in top_recurring_map:
-            top_recurring_map[name] = {"name": name, "occurrences": 0, "loss_percent": 0}
+    # Pad with ALL standard MISTAKE_MODE choices that had zero occurrences
+    for _mode_key, mode_label in Mistake.MISTAKE_MODE:
+        if mode_label not in top_recurring_map:
+            top_recurring_map[mode_label] = {"name": mode_label, "occurrences": 0, "loss_percent": 0}
 
-    # Also pad with user-custom mistakes that had zero occurrences
+    # Also pad with user-custom mistakes (no mode set) that had zero occurrences
     user_mistakes = (
         Mistake.objects
-        .filter(user=user, is_admin_defined=False, deleted_at__isnull=True)
+        .filter(user=user, is_admin_defined=False, deleted_at__isnull=True,
+                mistake_mode__isnull=True)
         .values_list("mistake_name", flat=True)
     )
     for name in user_mistakes:
