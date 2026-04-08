@@ -19,6 +19,10 @@ from .utils import (
 
 
 def get_performance_report_data(qs) -> dict:
+    # Filter to only closed trades (non-null PnL) before any calculation,
+    # matching the overview report's `closed_qs` filter so win rate is consistent.
+    qs = qs.filter(total_pnl__isnull=False)
+
     total = qs.count()
     if not total:
         return {"message": "No trades in the selected range."}

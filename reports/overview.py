@@ -139,6 +139,12 @@ def _pnl_card(this_pnl, this_period_qs, prev_period_qs, vs_label: str) -> dict:
 
 
 def _win_rate_card(this_period_qs, prev_period_qs) -> dict:
+    # Filter to only closed trades (non-null PnL) so the win rate
+    # denominator matches the overview's `closed_qs` and performance report's
+    # top-level filter — all three now count only settled trades.
+    this_period_qs = this_period_qs.filter(total_pnl__isnull=False)
+    prev_period_qs = prev_period_qs.filter(total_pnl__isnull=False)
+
     this_wr = win_rate(this_period_qs)
     prev_wr = win_rate(prev_period_qs)
     change = round(this_wr - prev_wr, 1)
