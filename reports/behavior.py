@@ -8,7 +8,6 @@ from django.db.models.functions import TruncDate
 from .utils import fmt_date
 
 
-
 RULE_CATEGORY_MAP = {
     "risk":        "Risk Management",
     "time":        "Time Management",
@@ -26,15 +25,6 @@ ADHERENCE_CATEGORIES = [
     "Time Management",
 ]
 
-# Known system/admin mistake names shown on the frontend even with 0 occurrences
-DEFAULT_MISTAKES = [
-    "Premature Exit",
-    "Overtrading",
-    "FOMO Entry",
-    "Missed Stop Loss",
-    "Revenge Trading",
-]
-
 
 # ---------------------------------------------------------------------------
 # Public entry point
@@ -44,8 +34,6 @@ def get_behavior_report_data(user, qs, filters) -> dict:
     from insights.serializers import MetricsSnapshotSerializer
     from insights.services import calculate_metrics
 
-    # calculate_metrics always returns a snapshot object (creates/updates).
-    # Guard against any unexpected None just in case.
     try:
         snapshot = calculate_metrics(user)
     except Exception:
@@ -55,7 +43,7 @@ def get_behavior_report_data(user, qs, filters) -> dict:
 
     kpis = _build_kpis(user, qs, snapshot, filters)
     violations_timeline = _violations_timeline(user, filters)
-    formatted_heatmap, top_recurring, total_mistake_losses = _mistake_analysis(qs)
+    formatted_heatmap, top_recurring, total_mistake_losses = _mistake_analysis(user, qs)
     insight_text = _behavior_insight(
         kpis["ECI"]["value"], total_mistake_losses, top_recurring
     )
@@ -79,13 +67,7 @@ def get_behavior_report_data(user, qs, filters) -> dict:
 def _trend_direction(current: float, previous: float) -> tuple[str, str]:
     """
     Return (trend_label, arrow) by comparing current vs previous value.
-
-    For scores where HIGHER is BETTER (DIS, ECI):
-        current > previous  →  Improving  ↗
-        current < previous  →  Declining  ↘
-        equal               →  Stable     —
-
-    Returns a tuple: (label, arrow)
+    For scores where HIGHER is BETTER (DIS, ECI).
     """
     if current > previous + 0.5:
         return "Improving", "↗"
@@ -95,9 +77,7 @@ def _trend_direction(current: float, previous: float) -> tuple[str, str]:
 
 
 def _trend_direction_lower_better(current: float, previous: float) -> tuple[str, str]:
-    """
-    Like _trend_direction but for metrics where LOWER is BETTER (VMI, DRT).
-    """
+    """Like _trend_direction but for metrics where LOWER is BETTER (VMI, DRT)."""
     if current < previous - 0.5:
         return "Improving", "↗"
     if current > previous + 0.5:
@@ -136,37 +116,30 @@ def _build_kpis(user, qs, snapshot, filters) -> dict:
         else 100.0
     )
 
-    # Safe getters from snapshot (guard against None)
+    # Safe getters from snapshot
     def _snap(attr, default=0.0):
         if snapshot is None:
             return default
         val = getattr(snapshot, attr, None)
         return float(val) if val is not None else default
 
-    dis_val  = _snap("di_score",  100.0)
-    vmi_val  = _snap("vmi_score", 0.0)
-    drt_val  = _snap("drt_days",  0.0)
+    dis_val   = _snap("di_score",  100.0)
+    vmi_val   = _snap("vmi_score", 0.0)
+    drt_val   = _snap("drt_days",  0.0)
     vmi_level = (snapshot.vmi_level or "Low") if snapshot else "Low"
 
     # Trend computation via prior snapshot (7+ days ago)
     prior = _get_prior_snapshot(user)
 
-    # DIS — higher is better
-    prior_dis = float(prior.di_score) if prior and prior.di_score is not None else dis_val
-    dis_trend_label, dis_arrow = _trend_direction(dis_val, prior_dis)
-
-    # VMI — lower is better
+    prior_dis = float(prior.di_score)  if prior and prior.di_score  is not None else dis_val
     prior_vmi = float(prior.vmi_score) if prior and prior.vmi_score is not None else vmi_val
-    vmi_trend_label, vmi_arrow = _trend_direction_lower_better(vmi_val, prior_vmi)
+    prior_drt = float(prior.drt_days)  if prior and prior.drt_days  is not None else drt_val
 
-    # DRT — lower is better
-    prior_drt = float(prior.drt_days) if prior and prior.drt_days is not None else drt_val
+    dis_trend_label, dis_arrow = _trend_direction(dis_val, prior_dis)
+    vmi_trend_label, vmi_arrow = _trend_direction_lower_better(vmi_val, prior_vmi)
     drt_trend_label, drt_arrow = _trend_direction_lower_better(drt_val, prior_drt)
 
-    # ECI is computed fresh each call; compare to 30-day average ECI from violations
-    # Simpler approach: compare vs prior ECI if we had it; otherwise Stable.
-    # We don't persist ECI in snapshot, so we derive from prior snapshot violations.
-    # For now, use the prior period's violation rate as proxy.
+    # ECI trend — compare vs prior 30-day window (days -37 to -7)
     eci_trend_label = "Stable"
     eci_arrow = "—"
     if prior is not None:
@@ -197,7 +170,7 @@ def _build_kpis(user, qs, snapshot, filters) -> dict:
         },
         "VMI": {
             "value": vmi_val,
-            "trend": vmi_level,          # Low / Medium / High label kept for VMI
+            "trend": vmi_level,           # Low / Medium / High label kept for VMI
             "direction": vmi_trend_label, # Improving / Stable / Declining
             "arrow": vmi_arrow,
         },
@@ -215,27 +188,68 @@ def _build_kpis(user, qs, snapshot, filters) -> dict:
 
 
 def _violations_timeline(user, filters) -> list[dict]:
-    from discipline.models import ViolationsLog
+    """
+    Build a per-day violations timeline from DisciplineSession records.
+    Each entry includes violations_count, hard_violations, soft_violations,
+    and session_state so the frontend can colour-code days (green/yellow/red).
+    Gaps (days with no session) are filled with zero-count entries.
+    """
+    from discipline.models import DisciplineSession
 
     from_date = filters.get("from")
     to_date   = filters.get("to")
 
-    vqs = ViolationsLog.objects.filter(user=user)
-    if from_date:
-        vqs = vqs.filter(violated_at__gte=from_date)
-    if to_date:
-        vqs = vqs.filter(violated_at__lte=to_date)
+    today = date.today()
+    range_from = from_date if from_date else today - timedelta(days=6)
+    range_to   = to_date   if to_date   else today
 
-    rows = (
-        vqs.annotate(date=TruncDate("violated_at"))
-        .values("date")
-        .annotate(count=Count("id"))
-        .order_by("date")
+    qs = DisciplineSession.objects.filter(
+        user=user,
+        session_date__gte=range_from,
+        session_date__lte=range_to,
+    ).values(
+        "session_date", "session_state", "peak_state",
+        "violations_count", "hard_violations", "soft_violations",
     )
-    return [{"date": fmt_date(row["date"]), "violations": row["count"]} for row in rows]
+
+    sessions_by_date = {entry["session_date"]: entry for entry in qs}
+
+    timeline = []
+    current = range_from
+    while current <= range_to:
+        if current in sessions_by_date:
+            entry = sessions_by_date[current]
+            timeline.append({
+                "date":             fmt_date(current),
+                "session_state":    entry["session_state"],
+                "peak_state":       entry["peak_state"],
+                "violations":       entry["violations_count"],
+                "hard_violations":  entry["hard_violations"],
+                "soft_violations":  entry["soft_violations"],
+            })
+        else:
+            timeline.append({
+                "date":             fmt_date(current),
+                "session_state":    None,
+                "peak_state":       None,
+                "violations":       0,
+                "hard_violations":  0,
+                "soft_violations":  0,
+            })
+        current += timedelta(days=1)
+
+    return timeline
 
 
-def _mistake_analysis(qs) -> tuple[list[dict], list[dict], float]:
+def _mistake_analysis(user, qs) -> tuple[list[dict], list[dict], float]:
+    """
+    Build mistake heatmap and top recurring mistakes from TradeMistake records.
+
+    - Heatmap: {mistake_name -> {date -> count}}
+    - Top recurring: sorted by occurrences desc, then loss%, then name.
+    - Pads with ALL admin-defined mistakes (and any user-custom mistakes)
+      that had zero occurrences so the frontend always shows a full list.
+    """
     from mistakes.models import TradeMistake, Mistake
 
     trade_ids   = qs.values_list("id", flat=True)
@@ -245,23 +259,25 @@ def _mistake_analysis(qs) -> tuple[list[dict], list[dict], float]:
         .select_related("mistake", "trade")
     )
 
-    heatmap_data: dict[str, dict[str, int]] = {}
-    mistake_stats: dict[str, dict]          = {}
-    total_mistake_losses                     = 0.0
+    heatmap_data:  dict[str, dict[str, int]] = {}
+    mistake_stats: dict[str, dict]           = {}
+    total_mistake_losses                      = 0.0
 
     for tm in mistakes_qs:
         name    = tm.mistake.mistake_name
         day_str = fmt_date(tm.trade.trade_date)
         pnl     = float(tm.trade.total_pnl or 0)
 
+        # Heatmap: count occurrences per mistake per day
         heatmap_data.setdefault(name, {})
         heatmap_data[name][day_str] = heatmap_data[name].get(day_str, 0) + 1
 
+        # Stats: count + loss per mistake
         stats = mistake_stats.setdefault(name, {"count": 0, "loss": 0.0})
         stats["count"] += 1
         if pnl < 0:
             loss = abs(pnl)
-            stats["loss"] += loss
+            stats["loss"]        += loss
             total_mistake_losses += loss
 
     formatted_heatmap = [
@@ -272,36 +288,34 @@ def _mistake_analysis(qs) -> tuple[list[dict], list[dict], float]:
     # Build top_recurring from actual data
     top_recurring_map: dict[str, dict] = {
         name: {
-            "name": name,
+            "name":        name,
             "occurrences": stats["count"],
             "loss_percent": round(stats["loss"] / total_mistake_losses * 100, 1)
-            if total_mistake_losses
-            else 0,
+            if total_mistake_losses else 0,
         }
         for name, stats in mistake_stats.items()
     }
 
-    # Pad with system default mistakes that had zero occurrences,
-    # so the frontend always has at least these 5 entries.
-    for default_name in DEFAULT_MISTAKES:
-        if default_name not in top_recurring_map:
-            top_recurring_map[default_name] = {
-                "name": default_name,
-                "occurrences": 0,
-                "loss_percent": 0,
-            }
-
-    # Also include any other admin-defined mistakes not yet in the map
-    admin_mistakes = Mistake.objects.filter(
-        is_admin_defined=True, deleted_at__isnull=True
-    ).values_list("mistake_name", flat=True)
+    # Pad with ALL admin-defined mistakes that had zero occurrences
+    # (replaces the old hardcoded DEFAULT_MISTAKES list)
+    admin_mistakes = (
+        Mistake.objects
+        .filter(is_admin_defined=True, deleted_at__isnull=True)
+        .values_list("mistake_name", flat=True)
+    )
     for name in admin_mistakes:
         if name not in top_recurring_map:
-            top_recurring_map[name] = {
-                "name": name,
-                "occurrences": 0,
-                "loss_percent": 0,
-            }
+            top_recurring_map[name] = {"name": name, "occurrences": 0, "loss_percent": 0}
+
+    # Also pad with user-custom mistakes that had zero occurrences
+    user_mistakes = (
+        Mistake.objects
+        .filter(user=user, is_admin_defined=False, deleted_at__isnull=True)
+        .values_list("mistake_name", flat=True)
+    )
+    for name in user_mistakes:
+        if name not in top_recurring_map:
+            top_recurring_map[name] = {"name": name, "occurrences": 0, "loss_percent": 0}
 
     # Sort: highest occurrences first, then loss_percent, then alphabetical
     top_recurring = sorted(
@@ -340,6 +354,11 @@ def _behavior_insight(eci: float, total_mistake_losses: float, top_recurring: li
 
 
 def _rule_adherence(user, qs, filters) -> dict:
+    """
+    Compute per-category rule adherence % from ViolationsLog.
+    Each category starts at 100% and is reduced by the % of trades
+    that had violations in that category.
+    """
     from discipline.models import ViolationsLog
 
     from_date = filters.get("from")
@@ -353,19 +372,15 @@ def _rule_adherence(user, qs, filters) -> dict:
 
     total_trades = qs.count()
 
-    # Initialise all frontend category keys at 100 %
+    # Initialise all frontend category keys at 100%
     adherence: dict[str, float] = {cat: 100.0 for cat in ADHERENCE_CATEGORIES}
 
     if not total_trades:
         return adherence
 
-    # Aggregate violation counts by raw DB category
     for row in vqs.values("rule__category").annotate(count=Count("id")):
         raw_cat     = (row["rule__category"] or "other").lower()
-        display_cat = RULE_CATEGORY_MAP.get(raw_cat)
-        if display_cat is None:
-            # Unmapped category — fall back to "Exit Rules" bucket
-            display_cat = "Exit Rules"
+        display_cat = RULE_CATEGORY_MAP.get(raw_cat, "Exit Rules")  # fallback bucket
 
         pct_violated = (row["count"] / total_trades) * 100
         adherence[display_cat] = max(
