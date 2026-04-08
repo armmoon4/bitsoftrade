@@ -19,10 +19,6 @@ from .utils import (
 
 
 def get_performance_report_data(qs) -> dict:
-    # Filter to only closed trades (non-null PnL) before any calculation,
-    # matching the overview report's `closed_qs` filter so win rate is consistent.
-    qs = qs.filter(total_pnl__isnull=False)
-
     total = qs.count()
     if not total:
         return {"message": "No trades in the selected range."}
@@ -317,7 +313,7 @@ def _hold_time_vs_win_rate(qs) -> list[dict]:
     for label, *_ in _HOLD_BUCKETS:
         d = bucket_data[label]
         if d["total"] == 0:
-            continue  
+            continue  # omit empty buckets
         result.append({
             "duration_range": label,
             "win_rate": round(d["wins"] / d["total"] * 100, 2),
