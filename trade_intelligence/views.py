@@ -54,7 +54,17 @@ def _parse_date_range(request):
 def _safe_pct(numerator, denominator):
     if not denominator:
         return 0.0
-    return round(numerator / denominator * 100, 1)
+    return round((numerator or 0) / denominator * 100, 1)
+
+
+def _safe_float(value, default=0.0):
+    """Safely convert a value to float, returning default if None."""
+    if value is None:
+        return default
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def _discipline_score(sessions_qs):
@@ -129,9 +139,9 @@ def analyze_view(request):
     total_sessions = sessions.count()
 
     # ── Core metrics ────────────────────────────────────────────────────────
-    wins   = trades.filter(total_pnl__gt=0).count()
-    losses = trades.filter(total_pnl__lt=0).count()
-    total_pnl = float(trades.aggregate(t=Sum('total_pnl'))['t'] or 0)
+    wins      = trades.filter(total_pnl__gt=0).count()
+    losses    = trades.filter(total_pnl__lt=0).count()
+    total_pnl = _safe_float(trades.aggregate(t=Sum('total_pnl'))['t'])
 
     # Disciplined trades (is_disciplined flag)
     disciplined_trades   = trades.filter(is_disciplined=True).count()
@@ -147,9 +157,9 @@ def analyze_view(request):
     red_ids    = list(sessions.filter(session_state='red').values_list('id', flat=True))
 
     # PnL by session state
-    green_pnl  = float(trades.filter(session_id__in=green_ids).aggregate(t=Sum('total_pnl'))['t'] or 0)
-    yellow_pnl = float(trades.filter(session_id__in=yellow_ids).aggregate(t=Sum('total_pnl'))['t'] or 0)
-    red_pnl    = float(trades.filter(session_id__in=red_ids).aggregate(t=Sum('total_pnl'))['t'] or 0)
+    green_pnl  = _safe_float(trades.filter(session_id__in=green_ids).aggregate(t=Sum('total_pnl'))['t'])
+    yellow_pnl = _safe_float(trades.filter(session_id__in=yellow_ids).aggregate(t=Sum('total_pnl'))['t'])
+    red_pnl    = _safe_float(trades.filter(session_id__in=red_ids).aggregate(t=Sum('total_pnl'))['t'])
 
     # ── FOMO / emotional data ───────────────────────────────────────────────
     fomo_trades          = trades.filter(emotional_state='fomo').count()
@@ -164,7 +174,8 @@ def analyze_view(request):
     for i in range(1, len(sorted_trades)):
         prev = sorted_trades[i - 1]
         curr = sorted_trades[i]
-        if prev['total_pnl'] is not None and prev['total_pnl'] < 0:
+        prev_pnl = _safe_float(prev['total_pnl'], default=0.0)
+        if prev_pnl < 0:
             trades_after_loss += 1
             if curr['emotional_state'] == 'fomo':
                 fomo_after_loss += 1
@@ -212,19 +223,19 @@ def analyze_view(request):
     # ── R:R improvement ─────────────────────────────────────────────────────
     # Compare avg win/loss in first vs second half
     half = total_trades // 2
-    sorted_ids   = list(trades.order_by('trade_date', 'trade_time').values_list('id', flat=True))
+    sorted_ids      = list(trades.order_by('trade_date', 'trade_time').values_list('id', flat=True))
     first_half_ids  = sorted_ids[:half]
     second_half_ids = sorted_ids[half:]
 
     def _avg_rr(ids):
         wins_  = trades.filter(id__in=ids, total_pnl__gt=0)
         losses_= trades.filter(id__in=ids, total_pnl__lt=0)
-        avg_w  = float(wins_.aggregate(a=Avg('total_pnl'))['a'] or 0)
-        avg_l  = abs(float(losses_.aggregate(a=Avg('total_pnl'))['a'] or 0)) or 1
+        avg_w  = _safe_float(wins_.aggregate(a=Avg('total_pnl'))['a'])
+        avg_l  = abs(_safe_float(losses_.aggregate(a=Avg('total_pnl'))['a'])) or 1
         return round(avg_w / avg_l, 2)
 
-    rr_first  = _avg_rr(first_half_ids)
-    rr_second = _avg_rr(second_half_ids)
+    rr_first       = _avg_rr(first_half_ids)
+    rr_second      = _avg_rr(second_half_ids)
     rr_improvement = round(rr_second - rr_first, 2)
 
     # ── Best trading window (first 30 min = hour 9) ─────────────────────────
@@ -235,32 +246,31 @@ def analyze_view(request):
         .annotate(win_rate=Avg('total_pnl'), cnt=Count('id'))
         .order_by('h')
     )
-    best_hour_data = max(hourly, key=lambda x: float(x['win_rate'] or 0)) if hourly else None
+    best_hour_data = max(hourly, key=lambda x: _safe_float(x['win_rate'])) if hourly else None
     best_hour      = best_hour_data['h'] if best_hour_data else 9
 
     # Win rate in best hour window
     best_hour_trades = trades.filter(trade_time__isnull=False).annotate(
         h=ExtractHour('trade_time')
     ).filter(h=best_hour)
-    bh_wins   = best_hour_trades.filter(total_pnl__gt=0).count()
-    bh_total  = best_hour_trades.count()
+    bh_wins    = best_hour_trades.filter(total_pnl__gt=0).count()
+    bh_total   = best_hour_trades.count()
     bh_win_pct = _safe_pct(bh_wins, bh_total)
 
     # ── Average loss vs threshold ────────────────────────────────────────────
-    avg_loss_pct = 0.0
+    avg_loss_pct  = 0.0
     losing_trades = trades.filter(total_pnl__lt=0)
     if losing_trades.exists():
-        avg_loss_val = abs(float(losing_trades.aggregate(a=Avg('total_pnl'))['a'] or 0))
-        # Express as % of average entry notional (entry_price * qty) — use losing trades only
-        avg_notional = float(
+        avg_loss_val = abs(_safe_float(losing_trades.aggregate(a=Avg('total_pnl'))['a']))
+        avg_notional = _safe_float(
             losing_trades.aggregate(
                 n=Avg(F('entry_price') * F('quantity'))
-            )['n'] or 1
-        )
-        avg_loss_pct = round(avg_loss_val / avg_notional * 100, 1) if avg_notional else 0.0
+            )['n'],
+            default=1.0
+        ) or 1.0
+        avg_loss_pct = round(avg_loss_val / avg_notional * 100, 1)
 
     # Max loss threshold from rules
-    # Try multiple possible JSON key names that admin/system rules may use
     max_loss_rule = Rule.objects.filter(
         Q(is_admin_defined=True) | Q(user=user),
         is_active=True, deleted_at__isnull=True,
@@ -271,21 +281,20 @@ def analyze_view(request):
     ).first()
     if max_loss_rule:
         tc = max_loss_rule.trigger_condition
-        max_loss_threshold = float(
-            tc.get('maxLossPercent') or tc.get('maxLoss') or tc.get('maxDailyPercent') or 3.0
-        )
+        max_loss_threshold = _safe_float(
+            tc.get('maxLossPercent') or tc.get('maxLoss') or tc.get('maxDailyPercent'),
+            default=3.0
+        ) or 3.0
     else:
         max_loss_threshold = 3.0
 
     # ── Revenge-trading detection ────────────────────────────────────────────
-    revenge_count       = 0
-    revenge_window_mins = 15
-    from datetime import datetime as dt, time as dt_time, timedelta as td
-
+    revenge_count = 0
     for i in range(1, len(sorted_trades)):
         prev = sorted_trades[i - 1]
         curr = sorted_trades[i]
-        if prev['total_pnl'] is None or prev['total_pnl'] >= 0:
+        prev_pnl = _safe_float(prev['total_pnl'], default=0.0)
+        if prev_pnl >= 0:
             continue
         # Same day check
         if prev['trade_date'] != curr['trade_date']:
@@ -306,7 +315,8 @@ def analyze_view(request):
     max_loss_streak = 0
     cur_streak      = 0
     for dpnl in daily_pnls:
-        if float(dpnl) < 0:
+        dpnl_val = _safe_float(dpnl, default=0.0)   # ← THE KEY FIX (was crashing on None)
+        if dpnl_val < 0:
             cur_streak += 1
             max_loss_streak = max(max_loss_streak, cur_streak)
         else:
@@ -331,7 +341,7 @@ def analyze_view(request):
 
     # Discipline trend (compare first vs second half sessions)
     if total_sessions >= 2:
-        half_s = total_sessions // 2
+        half_s       = total_sessions // 2
         all_sess_ids = list(sessions.order_by('session_date').values_list('id', flat=True))
         first_sess   = sessions.filter(id__in=all_sess_ids[:half_s])
         second_sess  = sessions.filter(id__in=all_sess_ids[half_s:])
@@ -340,10 +350,9 @@ def analyze_view(request):
         trend = 'Stable'
 
     # ── Emotional clarity streak ─────────────────────────────────────────────
-    # Consecutive calm/confident trades (no fomo/angry/anxious)
-    calm_states     = ('calm', 'confident')
-    clarity_streak  = 0
-    best_clarity    = 0
+    calm_states    = ('calm', 'confident')
+    clarity_streak = 0
+    best_clarity   = 0
     for t in sorted_trades:
         if t['emotional_state'] in calm_states:
             clarity_streak += 1
@@ -352,7 +361,6 @@ def analyze_view(request):
             clarity_streak = 0
 
     # ── Journal "nervous" pattern ────────────────────────────────────────────
-    # Days in range where journal exists
     total_journal_days = DailyJournal.objects.filter(user=user)
     if start:
         total_journal_days = total_journal_days.filter(journal_date__gte=start)
@@ -363,7 +371,6 @@ def analyze_view(request):
     # ── Session avg PnL after FOMO ───────────────────────────────────────────
     avg_session_pnl_after_fomo = 0.0
     if fomo_trades:
-        # trades that are fomo-tagged: look at their session's total pnl
         fomo_sess_ids = list(
             trades.filter(emotional_state='fomo')
             .exclude(session_id__isnull=True)
@@ -371,15 +378,14 @@ def analyze_view(request):
             .distinct()
         )
         sess_pnls = [
-            float(trades.filter(session_id=sid).aggregate(s=Sum('total_pnl'))['s'] or 0)
+            _safe_float(trades.filter(session_id=sid).aggregate(s=Sum('total_pnl'))['s'])
             for sid in fomo_sess_ids
         ]
         avg_session_pnl_after_fomo = round(
             sum(sess_pnls) / len(sess_pnls), 2
         ) if sess_pnls else 0.0
 
-    # ── Premature exit cost ────────────────────────────────────────────────-
-    # Filter by mistake_mode (structured field) rather than free-text mistake_name
+    # ── Premature exit cost ──────────────────────────────────────────────────
     premature_exits = TradeMistake.objects.filter(
         trade_id__in=trade_ids,
         mistake__mistake_mode__in=['early_exit', 'late_exit']
@@ -389,16 +395,15 @@ def analyze_view(request):
     # ── Build intelligence_summary text ─────────────────────────────────────
     performance_text = 'positive' if total_pnl > 0 else 'negative'
     discipline_text  = (
-        'strong and consistent'  if disc_score >= 80 else
-        'improving but fragile'  if disc_score >= 65 else
+        'strong and consistent'   if disc_score >= 80 else
+        'improving but fragile'   if disc_score >= 65 else
         'unstable and needs work'
     )
-    profit_session   = (
+    profit_session = (
         'GREEN' if green_pnl >= yellow_pnl and green_pnl >= red_pnl else
         'YELLOW' if yellow_pnl >= red_pnl else
         'RED'
     )
-    # Find which session state had the worst (lowest) PnL
     _session_pnl_map = {'GREEN': green_pnl, 'YELLOW': yellow_pnl, 'RED': red_pnl}
     loss_session = min(_session_pnl_map, key=_session_pnl_map.get)
 
