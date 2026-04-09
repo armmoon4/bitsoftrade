@@ -20,12 +20,18 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-a&y57f-=s@^tjrf+y_$gdr3e^!gk^eypr1q@bkny9swut)lic$'
+SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-a&y57f-=s@^tjrf+y_$gdr3e^!gk^eypr1q@bkny9swut)lic$')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get('DJANGO_DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = [
+    'localhost',
+    '127.0.0.1',
+    'bitsapi.dsrt321.online',
+    'db',
+    '*' # Remove this '*' once your app is fully working to make it fully secure
+]
 
 
 # Application definition
@@ -112,11 +118,11 @@ DATABASES = {
 
 # Essential for Django 5.0 + Docker
 ALLOWED_HOSTS = ['*'] 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000' , 'https://bitsapi.dsrt321.online']
 
 # Also, update ALLOWED_HOSTS for Docker development
 ALLOWED_HOSTS = ['*'] 
-CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000']
+CSRF_TRUSTED_ORIGINS = ['http://localhost:8000', 'http://127.0.0.1:8000' , 'https://bitsapi.dsrt321.online']
 
 
 # Password validation
@@ -212,3 +218,14 @@ SPECTACULAR_SETTINGS = {
     'SERVE_INCLUDE_SCHEMA': False,
     # OTHER SETTINGS
 }
+
+
+# ==========================================
+# HTTPS & PROXY SETTINGS
+# ==========================================
+# Tells Django to trust the header from proxy (Nginx/Docker)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
+# Ensure cookies are only transmitted securely over HTTPS
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
