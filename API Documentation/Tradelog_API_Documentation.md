@@ -62,13 +62,13 @@ Returns all non-deleted trades for the authenticated user, ordered by most recen
 |--------------------|---------|-------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------|
 | `filter`           | string  | `wins` \| `losses` \| `disciplined` \| `violations`                                                  | Outcome quick-filter tab                                           |
 | `broker`           | string  | `zerodha`, `upstox`, `groww` …                                                                        | Matches `broker_name` (case-insensitive)                           |
-| `market_type`      | enum    | `indian_stocks` \| `forex` \| `crypto` \| `options`                                                  | Top-bar instrument filter                                          |
+| `market_type`      | enum    | `indian_market` \| `forex` \| `crypto` \| `options`                                                  | Top-bar instrument filter                                          |
 | `date_range`       | enum    | `today` \| `this_week` \| `this_month` \| `custom`                                                   | Date window shortcut                                               |
 | `date_from`        | date    | `YYYY-MM-DD`                                                                                          | Used when `date_range=custom`                                      |
 | `date_to`          | date    | `YYYY-MM-DD`                                                                                          | Used when `date_range=custom`                                      |
 | `direction`        | enum    | `long` \| `short`                                                                                     | Trade direction                                                    |
 | `outcome`          | enum    | `win` \| `loss` \| `open`                                                                             | `win` = pnl > 0, `loss` = pnl < 0, `open` = no exit price         |
-| `instrument_type`  | enum    | `indian_stocks` \| `forex` \| `crypto` \| `options`                                                  | Alias for `market_type` — same field                               |
+| `instrument_type`  | enum    | `indian_market` \| `forex` \| `crypto` \| `options`                                                  | Alias for `market_type` — same field                               |
 | `strategy`         | UUID    | `<strategy-uuid>`                                                                                     | Filter by linked strategy                                          |
 | `emotional_state`  | enum    | `calm` \| `anxious` \| `confident` \| `fearful` \| `fomo` \| `angry` \| `overconfident` \| `uncertain` | Psychology tag                                                  |
 | `discipline_status`| enum    | `disciplined` \| `violations`                                                                         | Maps to `is_disciplined` boolean                                   |
@@ -84,7 +84,7 @@ Returns all non-deleted trades for the authenticated user, ordered by most recen
 
 **Example combined queries:**
 ```
-GET /api/tradelog/trades/?market_type=indian_stocks&date_range=this_month&outcome=win&emotional_state=calm
+GET /api/tradelog/trades/?market_type=indian_market&date_range=this_month&outcome=win&emotional_state=calm
 GET /api/tradelog/trades/?broker=zerodha&review_status=untagged&pnl_max=0
 GET /api/tradelog/trades/?mistakes=fomo_entry,revenge_trading&direction=long&date_range=this_week
 ```
@@ -111,7 +111,7 @@ After a successful save the view automatically:
 |-----------------------|---------|----------|-------------|
 | `trade_date`          | date    | ✅        | `YYYY-MM-DD` |
 | `symbol`              | string  | ✅        | Ticker symbol (max 100 chars) |
-| `market_type`         | enum    | ✅        | `indian_stocks` / `forex` / `crypto` / `options` |
+| `market_type`         | enum    | ✅        | `indian_market` / `forex` / `crypto` / `options` |
 | `direction`           | enum    | ✅        | `long` / `short` |
 | `quantity`            | decimal | ✅        | Number of units (up to 4 decimal places) |
 | `entry_price`         | decimal | ✅        | Entry price (up to 4 decimal places) |
@@ -538,7 +538,7 @@ PATCH /api/tradelog/trades/<id>/              (JSON: { "screenshot_urls": [...] 
 | `trade_date`          | date     | ✅        | Trade date |
 | `trade_time`          | time     | ✅        | Entry time (nullable) |
 | `symbol`              | string   | ✅        | Ticker symbol |
-| `market_type`         | enum     | ✅        | `indian_stocks` / `forex` / `crypto` / `options` |
+| `market_type`         | enum     | ✅        | `indian_market` / `forex` / `crypto` / `options` |
 | `direction`           | enum     | ✅        | `long` / `short` |
 | `quantity`            | decimal  | ✅        | Units traded |
 | `entry_price`         | decimal  | ✅        | Entry price |
