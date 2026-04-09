@@ -466,4 +466,752 @@
           "response": []
         },
         {
-          "name":
+          "name": "GET Retrieve Course by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has course details\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "    pm.expect(jsonData).to.have.property('lessons');",
+                  "    pm.expect(jsonData).to.have.property('videos');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/courses/{{courseId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses", "{{courseId}}"]
+            },
+            "description": "## GET /courses/{id}/\n\nRetrieve a single course by its ID.\n\n### Permission: User or Admin\n### Token Type: User Token or Admin Token"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Full Update Course (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated course\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('course');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Advanced Python Programming\",\n  \"about\": \"Deep dive into Python advanced concepts.\",\n  \"description\": \"OOP, decorators, generators, async programming, and more.\",\n  \"lessons\": {{lessonId}},\n  \"course_type\": \"advanced\",\n  \"course_level\": \"advanced\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/courses/{{courseId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses", "{{courseId}}"]
+            },
+            "description": "## PUT /courses/{id}/\n\nFully update a course. All required fields must be provided.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Request Body Fields (All Required for PUT):\n| Field | Type | Description |\n|-------|------|-------------|\n| title | string | Course title |\n| about | string | Short summary |\n| description | string | Full description |\n| lessons | integer | Parent lesson ID |\n| course_type | string | Type label |\n| course_level | string | Difficulty label |\n| is_active | boolean | Visibility status |"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH Partial Update Course (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated course\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('course');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"course_level\": \"intermediate\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/courses/{{courseId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses", "{{courseId}}"]
+            },
+            "description": "## PATCH /courses/{id}/\n\nPartially update a course. Only send the fields you want to change.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Example: Change course level"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Course (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/courses/{{courseId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses", "{{courseId}}"]
+            },
+            "description": "## DELETE /courses/{id}/\n\nDelete a course permanently.\n\n### ⚠️ Warning: \nDeleting a course will **cascade-delete** all associated videos and user progress records.\n\n### Permission: Admin Only\n### Token Type: Admin Token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Videos",
+      "item": [
+        {
+          "name": "GET List All Videos",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Response has videos with course details\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        pm.expect(jsonData[0]).to.have.property('id');",
+                  "        pm.expect(jsonData[0]).to.have.property('title');",
+                  "        pm.expect(jsonData[0]).to.have.property('course');",
+                  "        pm.environment.set(\"videoId\", jsonData[0].id);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/videos/",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos"]
+            },
+            "description": "## GET /videos/\n\nReturns a list of all videos with their associated course details.\n\n### Permission: User or Admin\n### Token Type: User Token or Admin Token"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Upload Video (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains message and video\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('video');",
+                  "    pm.expect(jsonData.video).to.have.property('id');",
+                  "    pm.environment.set(\"videoId\", jsonData.video.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "title",
+                  "value": "Setting Up Python Development Environment",
+                  "type": "text"
+                },
+                {
+                  "key": "description",
+                  "value": "Learn how to install Python and set up your IDE for development.",
+                  "type": "text"
+                },
+                {
+                  "key": "course",
+                  "value": "{{courseId}}",
+                  "type": "text"
+                },
+                {
+                  "key": "is_free",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "is_complete",
+                  "value": "false",
+                  "type": "text"
+                },
+                {
+                  "key": "is_active",
+                  "value": "true",
+                  "type": "text"
+                },
+                {
+                  "key": "video",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{baseUrl}}/videos/",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos"]
+            },
+            "description": "## POST /videos/\n\nUpload a new video file. Must use **multipart/form-data**.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Form Fields:\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| title | string | ✅ Yes | Video title (max 255 chars) |\n| video | file | ✅ Yes | The video file to upload |\n| course | integer | ✅ Yes | ID of the parent Course |\n| description | string | ❌ No | Description of the video |\n| is_free | boolean | ❌ No | Defaults to false |\n| is_complete | boolean | ❌ No | Defaults to false |\n| is_active | boolean | ❌ No | Defaults to true |\n\n### Note: \nSelect a video file in the form-data file field before sending."
+          },
+          "response": []
+        },
+        {
+          "name": "GET Retrieve Video by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has video details\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "    pm.expect(jsonData).to.have.property('course');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/videos/{{videoId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos", "{{videoId}}"]
+            },
+            "description": "## GET /videos/{id}/\n\nRetrieve a single video by its ID.\n\n### Permission: User or Admin\n### Token Type: User Token or Admin Token"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Full Update Video (JSON Body) (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated video\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('video');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Video Title - Complete Python Setup\",\n  \"description\": \"Comprehensive guide to setting up Python on Windows, Mac, and Linux.\",\n  \"course\": {{courseId}},\n  \"is_free\": false,\n  \"is_complete\": true,\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/videos/{{videoId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos", "{{videoId}}"]
+            },
+            "description": "## PUT /videos/{id}/ (JSON)\n\nFully update a video metadata. All required fields must be provided.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Note: \nTo replace the video file itself, use multipart/form-data and include the `video` field.\n\n### Request Body Fields:\n| Field | Type | Description |\n|-------|------|-------------|\n| title | string | Video title |\n| description | string | Video description |\n| course | integer | Parent course ID |\n| is_free | boolean | Free preview flag |\n| is_complete | boolean | Production status |\n| is_active | boolean | Visibility flag |"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH Partial Update Video (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated video\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('video');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_complete\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/videos/{{videoId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos", "{{videoId}}"]
+            },
+            "description": "## PATCH /videos/{id}/\n\nPartially update a video. Only send the fields you want to change.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Example: Mark video as complete"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Video (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/videos/{{videoId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["videos", "{{videoId}}"]
+            },
+            "description": "## DELETE /videos/{id}/\n\nDelete a video permanently.\n\n### Permission: Admin Only\n### Token Type: Admin Token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "User Course Progress",
+      "item": [
+        {
+          "name": "GET List All Course Progress Records",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Response has progress records with stats\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        pm.expect(jsonData[0]).to.have.property('id');",
+                  "        pm.expect(jsonData[0]).to.have.property('user');",
+                  "        pm.expect(jsonData[0]).to.have.property('course');",
+                  "        pm.expect(jsonData[0]).to.have.property('completion_percentage');",
+                  "        pm.expect(jsonData[0]).to.have.property('total_videos');",
+                  "        pm.expect(jsonData[0]).to.have.property('completed_videos');",
+                  "        pm.expect(jsonData[0]).to.have.property('total_UserCourseStart');",
+                  "        pm.expect(jsonData[0]).to.have.property('total_completed_UserCourseStart');",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/course-progress/",
+              "host": ["{{baseUrl}}"],
+              "path": ["course-progress"]
+            },
+            "description": "## GET /course-progress/\n\nReturns all user course progress records with detailed progress stats.\n\n### Permission: Authenticated User\n### Token Type: User Token\n\n### Response Fields:\n| Field | Type | Description |\n|-------|------|-------------|\n| id | integer | Progress record ID |\n| user | object | User's id and email |\n| course | object | Course details |\n| videos_watched | array | List of watched videos |\n| started_at | datetime | When user started course |\n| completed_at | datetime/null | When course completed |\n| completion_percentage | float | % of videos watched |\n| total_videos | integer | Total videos in course |\n| completed_videos | integer | Number watched |\n| is_completed | boolean | All videos watched |\n| total_UserCourseStart | integer | Total progress records (all users) |\n| total_completed_UserCourseStart | integer | Total completed courses (all users) |"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Start Course Progress Tracking",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains message and course_progress\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('course_progress');",
+                  "    pm.expect(jsonData.course_progress).to.have.property('user');",
+                  "    pm.expect(jsonData.course_progress).to.have.property('course');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": {{userId}},\n  \"course\": {{courseId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/course-progress/create/",
+              "host": ["{{baseUrl}}"],
+              "path": ["course-progress", "create"]
+            },
+            "description": "## POST /course-progress/create/\n\nStart tracking a user's progress for a specific course. Creates a new progress record.\n\n### Permission: Authenticated User\n### Token Type: User Token\n\n### Important:\n- Each user can only have **one** progress record per course\n- Duplicate creation returns **400 Bad Request**\n\n### Request Body Fields:\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| user | integer | ✅ Yes | ID of the user enrolling |\n| course | integer | ✅ Yes | ID of the course to track |"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Error Response Examples",
+      "item": [
+        {
+          "name": "400 Bad Request - Missing Field",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Missing title field will cause 400 error\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons"]
+            },
+            "description": "## 400 Bad Request Example\n\n**Expected Response:**\n```json\n{\n  \"title\": [\n    \"This field is required.\"\n  ]\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "400 Bad Request - Duplicate Progress",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user\": {{userId}},\n  \"course\": {{courseId}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/course-progress/create/",
+              "host": ["{{baseUrl}}"],
+              "path": ["course-progress", "create"]
+            },
+            "description": "## 400 Bad Request - Duplicate Course Progress\n\n**Expected Response:**\n```json\n{\n  \"non_field_errors\": [\n    \"The fields user, course must make a unique set.\"\n  ]\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "401 Unauthorized - No Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons"]
+            },
+            "description": "## 401 Unauthorized Example\n\n**Expected Response:**\n```json\n{\n  \"detail\": \"Authentication credentials were not provided.\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "403 Forbidden - User Token on Admin Endpoint",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Test Lesson\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons"]
+            },
+            "description": "## 403 Forbidden Example\n\n**Expected Response:**\n```json\n{\n  \"detail\": \"You do not have permission to perform this action.\"\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "404 Not Found",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/99999/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons", "99999"]
+            },
+            "description": "## 404 Not Found Example\n\n**Expected Response:**\n```json\n{\n  \"detail\": \"Not found.\"\n}\n```"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
