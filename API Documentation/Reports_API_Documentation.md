@@ -53,8 +53,8 @@ All report endpoints share the same filter layer applied to the underlying `Trad
 | Parameter       | Type   | Values / Example                                      | Description |
 |-----------------|--------|-------------------------------------------------------|-------------|
 | `broker`        | string | `zerodha`, `upstox`, `groww` …                        | Matches `broker_name` (case-insensitive). Use `all` or omit to include all. |
-| `market_type`   | enum   | `indian_stocks` \| `forex` \| `crypto` \| `options`  | Filter by instrument/market type. |
-| `instrument_type` | enum | `indian_stocks` \| `forex` \| `crypto` \| `options`  | Alias for `market_type` — same DB field. |
+| `market_type`   | enum   | `indian_market` \| `forex` \| `crypto` \| `options`  | Filter by instrument/market type. |
+| `instrument_type` | enum | `indian_market` \| `forex` \| `crypto` \| `options`  | Alias for `market_type` — same DB field. |
 | `market`        | string | same values as `market_type`                          | Legacy alias for `market_type` — still supported. |
 | `direction`     | enum   | `long` \| `short`                                     | Trade direction. |
 | `strategy`      | UUID   | `<strategy-uuid>`                                     | Filter by linked strategy. |
