@@ -39,23 +39,18 @@ def get_risk_report_data(qs, capital_base_fallback=None) -> dict:
     worst_losing_day = min((d["pnl"] for d in daily_pnls), default=0)
 
     # Cumulative + drawdown
-    drawdown_curve, drawdowns, recovery_times, peak_equity = _compute_drawdown(daily_pnls)
+    drawdown_curve, drawdowns, recovery_times = _compute_drawdown(daily_pnls)
 
     max_dd = max(drawdowns, default=0)
     avg_dd = sum(drawdowns) / len(drawdowns) if drawdowns else 0
     avg_recovery_time = round(sum(recovery_times) / len(recovery_times)) if recovery_times else 0
 
-    # FIXED: Use peak_equity for drawdown percentage calculation
     base_capital = float(capital_base_fallback or cap_agg["max_capital_used"] or 1)
     volatility_pct = _return_volatility(daily_pnls, base_capital)
 
-    # FIXED: Drawdown percentage should use peak_equity, not base_capital
-    if peak_equity > 0:
-        max_dd_pct = (max_dd / peak_equity) * 100
-        avg_dd_pct = (avg_dd / peak_equity) * 100
-    else:
-        max_dd_pct = 0
-        avg_dd_pct = 0
+    max_dd_pct = (max_dd / base_capital) * 100 if base_capital else 0
+    avg_dd_pct = (avg_dd / base_capital) * 100 if base_capital else 0
+
 
     # Risk Statistics & Exposure Analysis additions
     from .utils import consecutive_streaks
@@ -161,7 +156,7 @@ def get_risk_report_data(qs, capital_base_fallback=None) -> dict:
 
 def _compute_drawdown(
     daily_pnls: list[dict],
-) -> tuple[list[dict], list[float], list[int], float]:
+) -> tuple[list[dict], list[float], list[int]]:
     """
     Walk through cumulative P&L and compute per-day drawdown.
 
@@ -169,7 +164,6 @@ def _compute_drawdown(
         drawdown_curve   – [{'date': str, 'drawdown': float}, ...]
         drawdowns        – list of non-zero drawdown values (for avg calculation)
         recovery_times   – list of session counts spent in each drawdown
-        peak_equity      – highest equity value reached (for percentage calculation)
     """
     peak = running = 0.0
     drawdown_curve: list[dict] = []
@@ -177,14 +171,12 @@ def _compute_drawdown(
     recovery_times: list[int] = []
     in_drawdown = False
     current_recovery = 0
-    peak_equity = 0.0
 
     for row in daily_pnls:
         running += row["pnl"]
 
         if running > peak:
             peak = running
-            peak_equity = max(peak_equity, peak)  # Track absolute highest peak
             if in_drawdown:
                 recovery_times.append(current_recovery)
                 in_drawdown = False
@@ -198,7 +190,7 @@ def _compute_drawdown(
         if dd > 0:
             drawdowns.append(dd)
 
-    return drawdown_curve, drawdowns, recovery_times, peak_equity
+    return drawdown_curve, drawdowns, recovery_times
 
 
 def _return_volatility(daily_pnls: list[dict], base_capital: float) -> float:
