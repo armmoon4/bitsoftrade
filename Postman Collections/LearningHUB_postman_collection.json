@@ -1,0 +1,469 @@
+{
+  "info": {
+    "name": "LearningHub API",
+    "description": "LearningHub API Collection - Complete endpoints for Learning Lessons, Courses, Videos, and User Course Progress",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000/api/learninghub",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    },
+    {
+      "key": "adminToken",
+      "value": "your_admin_token_here",
+      "type": "string"
+    },
+    {
+      "key": "lessonId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "courseId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "videoId",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "42",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Variables Setup Info",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}",
+              "host": ["{{baseUrl}}"],
+              "path": []
+            },
+            "description": "## Authentication Setup\n\nAll endpoints require JWT Bearer Token.\n\n### Token Types:\n- **User Token**: `user_id` - Read-only (GET) on most endpoints\n- **Admin Token**: `is_admin: true, admin_id` - Full access (GET, POST, PUT, PATCH, DELETE)\n\n### Setup Variables:\n1. Set `baseUrl` to your API base URL\n2. Set `token` for user-level requests\n3. Set `adminToken` for admin-level requests\n\n### Headers for all requests:\n```\nAuthorization: Bearer {{token}}\nContent-Type: application/json\n```\n\nFor video uploads use:\n```\nContent-Type: multipart/form-data\n```"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Learning Lessons",
+      "item": [
+        {
+          "name": "GET List All Learning Lessons",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Response has lessons with courses\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        pm.expect(jsonData[0]).to.have.property('id');",
+                  "        pm.expect(jsonData[0]).to.have.property('title');",
+                  "        pm.expect(jsonData[0]).to.have.property('courses');",
+                  "        pm.environment.set(\"lessonId\", jsonData[0].id);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons"]
+            },
+            "description": "## GET /learning-lessons/\n\nReturns a list of all learning lessons with their nested courses.\n\n### Permission: User or Admin\n### Token Type: User Token or Admin Token"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Create Learning Lesson (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains message and learning_lesson\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('learning_lesson');",
+                  "    pm.expect(jsonData.learning_lesson).to.have.property('id');",
+                  "    pm.environment.set(\"lessonId\", jsonData.learning_lesson.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Introduction to Programming\",\n  \"description\": \"Learn the basics of programming concepts.\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons"]
+            },
+            "description": "## POST /learning-lessons/\n\nCreate a new learning lesson.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Request Body Fields:\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| title | string | ✅ Yes | Title of the lesson (max 255 chars) |\n| description | string | ❌ No | Detailed description |\n| is_active | boolean | ❌ No | Defaults to true |"
+          },
+          "response": []
+        },
+        {
+          "name": "GET Retrieve Learning Lesson by ID",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has lesson details with courses\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('id');",
+                  "    pm.expect(jsonData).to.have.property('title');",
+                  "    pm.expect(jsonData).to.have.property('courses');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/{{lessonId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons", "{{lessonId}}"]
+            },
+            "description": "## GET /learning-lessons/{id}/\n\nRetrieve a single learning lesson by its ID.\n\n### Permission: User or Admin\n### Token Type: User Token or Admin Token"
+          },
+          "response": []
+        },
+        {
+          "name": "PUT Full Update Learning Lesson (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated lesson\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('learning_lesson');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Updated Lesson Title\",\n  \"description\": \"Updated description with more details.\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/{{lessonId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons", "{{lessonId}}"]
+            },
+            "description": "## PUT /learning-lessons/{id}/\n\nFully update a learning lesson. All fields must be provided.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Request Body Fields (All Required for PUT):\n| Field | Type | Description |\n|-------|------|-------------|\n| title | string | Title of the lesson |\n| description | string | Detailed description |\n| is_active | boolean | Visibility status |"
+          },
+          "response": []
+        },
+        {
+          "name": "PATCH Partial Update Learning Lesson (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains updated lesson\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('learning_lesson');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"is_active\": false\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/{{lessonId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons", "{{lessonId}}"]
+            },
+            "description": "## PATCH /learning-lessons/{id}/\n\nPartially update a learning lesson. Only send the fields you want to change.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Example: Deactivating a lesson"
+          },
+          "response": []
+        },
+        {
+          "name": "DELETE Learning Lesson (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 204 No Content\", function () {",
+                  "    pm.response.to.have.status(204);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/learning-lessons/{{lessonId}}/",
+              "host": ["{{baseUrl}}"],
+              "path": ["learning-lessons", "{{lessonId}}"]
+            },
+            "description": "## DELETE /learning-lessons/{id}/\n\nDelete a learning lesson permanently.\n\n### ⚠️ Warning: \nDeleting a lesson will **cascade-delete** all associated courses and their videos.\n\n### Permission: Admin Only\n### Token Type: Admin Token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Courses",
+      "item": [
+        {
+          "name": "GET List All Courses",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.be.an('array');",
+                  "});",
+                  "",
+                  "pm.test(\"Response has courses with lessons and videos\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.length > 0) {",
+                  "        pm.expect(jsonData[0]).to.have.property('id');",
+                  "        pm.expect(jsonData[0]).to.have.property('title');",
+                  "        pm.expect(jsonData[0]).to.have.property('lessons');",
+                  "        pm.expect(jsonData[0]).to.have.property('videos');",
+                  "        pm.environment.set(\"courseId\", jsonData[0].id);",
+                  "    }",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/courses/",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses"]
+            },
+            "description": "## GET /courses/\n\nReturns a list of all courses with nested lesson info and videos.\n\n### Permission: User or Admin\n### Token Type: User Token or Admin Token"
+          },
+          "response": []
+        },
+        {
+          "name": "POST Create Course (Admin Only)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response contains message and course\", function () {",
+                  "    var jsonData = pm.response.json();",
+                  "    pm.expect(jsonData).to.have.property('message');",
+                  "    pm.expect(jsonData).to.have.property('course');",
+                  "    pm.expect(jsonData.course).to.have.property('id');",
+                  "    pm.environment.set(\"courseId\", jsonData.course.id);",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{adminToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Python Fundamentals\",\n  \"about\": \"A beginner-friendly Python course.\",\n  \"description\": \"Covers variables, loops, functions, and more.\",\n  \"lessons\": {{lessonId}},\n  \"course_type\": \"general\",\n  \"course_level\": \"beginner\",\n  \"is_active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/courses/",
+              "host": ["{{baseUrl}}"],
+              "path": ["courses"]
+            },
+            "description": "## POST /courses/\n\nCreate a new course.\n\n### Permission: Admin Only\n### Token Type: Admin Token\n\n### Request Body Fields:\n| Field | Type | Required | Description |\n|-------|------|----------|-------------|\n| title | string | ✅ Yes | Course title (max 255 chars) |\n| lessons | integer | ✅ Yes | ID of the parent LearningLesson |\n| about | string | ❌ No | Short summary of the course |\n| description | string | ❌ No | Full course description |\n| course_type | string | ❌ No | Defaults to \"general\" |\n| course_level | string | ❌ No | Defaults to \"beginner\" |\n| is_active | boolean | ❌ No | Defaults to true |"
+          },
+          "response": []
+        },
+        {
+          "name":
