@@ -98,19 +98,13 @@ def mistakes_analytics_view(request):
     all_user_trades = Trade.objects.filter(user=user, deleted_at__isnull=True)
     total_trades_count = all_user_trades.count()
 
-    # total mistake tags applied (sum of all TradeMistake records, not distinct trades)
-    total_mistake_tags = user_trade_mistakes.count()
-
-    # count unique trades directly from TradeMistake — avoids deleted_at filter mismatch
-    impacted_unique_count = user_trade_mistakes.values('trade_id').distinct().count()
-
-    # trade IDs for PnL and success rate calculations
-    impacted_trade_ids = list(user_trade_mistakes.values_list('trade_id', flat=True).distinct())
+    impacted_trade_ids = user_trade_mistakes.values_list('trade_id', flat=True).distinct()
     impacted_trades = all_user_trades.filter(id__in=impacted_trade_ids)
+    impacted_count = impacted_trades.count()
     loss_from_mistake_trades = impacted_trades.aggregate(total=Sum('total_pnl'))['total'] or 0
 
     clean_trades = all_user_trades.exclude(id__in=impacted_trade_ids)
-    clean_trades_count = total_trades_count - total_mistake_tags
+    clean_trades_count = clean_trades.count()
 
     if clean_trades_count > 0:
         clean_winning = clean_trades.filter(total_pnl__gt=0).count()
@@ -119,13 +113,12 @@ def mistakes_analytics_view(request):
         clean_success_rate = 0
 
     impacted_percentage = (
-        round((impacted_unique_count / total_trades_count) * 100, 1)
+        round((impacted_count / total_trades_count) * 100, 1)
         if total_trades_count > 0 else 0
     )
 
     impact = {
-        'trades_with_mistakes': total_mistake_tags,          # total tags applied
-        'unique_trades_with_mistakes': impacted_unique_count, # distinct trades affected
+        'trades_with_mistakes': impacted_count,
         'trades_with_mistakes_percentage': impacted_percentage,
         'loss_from_mistake_trades': round(float(loss_from_mistake_trades), 2),
         'clean_trades_count': clean_trades_count,
