@@ -101,10 +101,12 @@ def mistakes_analytics_view(request):
     # total mistake tags applied (sum of all TradeMistake records, not distinct trades)
     total_mistake_tags = user_trade_mistakes.count()
 
-    # still need distinct trade IDs for PnL, clean trades, and percentage
+    # count unique trades directly from TradeMistake — avoids deleted_at filter mismatch
+    impacted_unique_count = user_trade_mistakes.values('trade_id').distinct().count()
+
+    # trade IDs for PnL and success rate calculations
     impacted_trade_ids = list(user_trade_mistakes.values_list('trade_id', flat=True).distinct())
     impacted_trades = all_user_trades.filter(id__in=impacted_trade_ids)
-    impacted_unique_count = impacted_trades.count()
     loss_from_mistake_trades = impacted_trades.aggregate(total=Sum('total_pnl'))['total'] or 0
 
     clean_trades = all_user_trades.exclude(id__in=impacted_trade_ids)
