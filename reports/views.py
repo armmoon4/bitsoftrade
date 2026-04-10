@@ -65,7 +65,8 @@ def _get_filtered_trades(user, request):
     """
     from tradelog.models import Trade
 
-    qs = Trade.objects.filter(user=user, deleted_at__isnull=True)
+    # Only closed trades (total_pnl set) are meaningful for all reports
+    qs = Trade.objects.filter(user=user, deleted_at__isnull=True, total_pnl__isnull=False)
 
     p = request.query_params  # shorthand
 

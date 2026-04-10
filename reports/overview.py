@@ -25,26 +25,25 @@ def get_overview_report_data(user, qs, filters) -> dict:
 
     this_period_qs, prev_period_qs, vs_label = _resolve_comparison_periods(user, filters, today)
 
-    closed_qs = qs.filter(total_pnl__isnull=False)
-    this_pnl = closed_qs.aggregate(total=Sum("total_pnl"))["total"] or Decimal("0")
+    this_pnl = qs.aggregate(total=Sum("total_pnl"))["total"] or Decimal("0")
 
     pnl_card = _pnl_card(this_pnl, this_period_qs, prev_period_qs, vs_label)
-    wr_card = _win_rate_card(closed_qs, this_period_qs, prev_period_qs)
+    wr_card = _win_rate_card(qs, this_period_qs, prev_period_qs)
 
     # Core metrics
-    total_trades = closed_qs.count()
-    wins = closed_qs.filter(total_pnl__gt=0).count()
+    total_trades = qs.count()
+    wins = qs.filter(total_pnl__gt=0).count()
     wr = round(wins / total_trades * 100, 1) if total_trades else 0.0
 
-    gross_profit = closed_qs.aggregate(gp=Sum("total_pnl", filter=Q(total_pnl__gt=0)))["gp"] or Decimal("0")
-    gross_loss = abs(closed_qs.aggregate(gl=Sum("total_pnl", filter=Q(total_pnl__lt=0)))["gl"] or Decimal("0"))
+    gross_profit = qs.aggregate(gp=Sum("total_pnl", filter=Q(total_pnl__gt=0)))["gp"] or Decimal("0")
+    gross_loss = abs(qs.aggregate(gl=Sum("total_pnl", filter=Q(total_pnl__lt=0)))["gl"] or Decimal("0"))
     pf = round(float(gross_profit / gross_loss), 1) if gross_loss else 0.0
 
-    avg_win = closed_qs.aggregate(avg=Avg("total_pnl", filter=Q(total_pnl__gt=0)))["avg"] or Decimal("0")
-    avg_loss = abs(closed_qs.aggregate(avg=Avg("total_pnl", filter=Q(total_pnl__lt=0)))["avg"] or Decimal("0"))
+    avg_win = qs.aggregate(avg=Avg("total_pnl", filter=Q(total_pnl__gt=0)))["avg"] or Decimal("0")
+    avg_loss = abs(qs.aggregate(avg=Avg("total_pnl", filter=Q(total_pnl__lt=0)))["avg"] or Decimal("0"))
 
     # Chart data
-    daily_rows = build_daily_rows(closed_qs)
+    daily_rows = build_daily_rows(qs)
     cumulative, daily_series = build_cumulative_and_daily_series(daily_rows)
     winning_days = sum(1 for d in daily_rows if d["daily_pnl"] > 0)
     total_days = len(daily_rows)
@@ -138,9 +137,9 @@ def _pnl_card(this_pnl, this_period_qs, prev_period_qs, vs_label: str) -> dict:
     return {"value": float(this_pnl), "percentChange": pct_change, "vsText": vs_label}
 
 
-def _win_rate_card(closed_qs, this_period_qs, prev_period_qs) -> dict:
-    # Value: win rate over the full filtered period (matches performance report)
-    current_wr = win_rate(closed_qs)
+def _win_rate_card(qs, this_period_qs, prev_period_qs) -> dict:
+    # Value: win rate over the full filtered qs (matches performance report exactly)
+    current_wr = win_rate(qs)
     # Change: current month vs previous month (for trend arrow)
     this_wr = win_rate(this_period_qs)
     prev_wr = win_rate(prev_period_qs)
