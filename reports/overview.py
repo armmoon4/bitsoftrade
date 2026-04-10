@@ -29,7 +29,7 @@ def get_overview_report_data(user, qs, filters) -> dict:
     this_pnl = closed_qs.aggregate(total=Sum("total_pnl"))["total"] or Decimal("0")
 
     pnl_card = _pnl_card(this_pnl, this_period_qs, prev_period_qs, vs_label)
-    wr_card = _win_rate_card(this_period_qs, prev_period_qs)
+    wr_card = _win_rate_card(closed_qs, this_period_qs, prev_period_qs)
 
     # Core metrics
     total_trades = closed_qs.count()
@@ -138,12 +138,15 @@ def _pnl_card(this_pnl, this_period_qs, prev_period_qs, vs_label: str) -> dict:
     return {"value": float(this_pnl), "percentChange": pct_change, "vsText": vs_label}
 
 
-def _win_rate_card(this_period_qs, prev_period_qs) -> dict:
+def _win_rate_card(closed_qs, this_period_qs, prev_period_qs) -> dict:
+    # Value: win rate over the full filtered period (matches performance report)
+    current_wr = win_rate(closed_qs)
+    # Change: current month vs previous month (for trend arrow)
     this_wr = win_rate(this_period_qs)
     prev_wr = win_rate(prev_period_qs)
     change = round(this_wr - prev_wr, 1)
     return {
-        "value": this_wr,
+        "value": current_wr,
         "percentChange": change,
         "vsText": "improvement" if change >= 0 else "decline",
     }
