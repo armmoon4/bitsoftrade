@@ -98,7 +98,7 @@ def mistakes_analytics_view(request):
     all_user_trades = Trade.objects.filter(user=user, deleted_at__isnull=True)
     total_trades_count = all_user_trades.count()
 
-    impacted_trade_ids = user_trade_mistakes.values_list('trade_id', flat=True).distinct()
+    impacted_trade_ids = list(user_trade_mistakes.values_list('trade_id', flat=True).distinct())
     impacted_trades = all_user_trades.filter(id__in=impacted_trade_ids)
     impacted_count = impacted_trades.count()
     loss_from_mistake_trades = impacted_trades.aggregate(total=Sum('total_pnl'))['total'] or 0
