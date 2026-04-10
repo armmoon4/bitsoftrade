@@ -4,8 +4,8 @@ from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q
-from .models import Rule
-from .serializers import RuleSerializer, RuleTitleSerializer, SystemRuleUpdateSerializer
+from .models import Rule , TradeRule
+from .serializers import RuleSerializer, RuleTitleSerializer, SystemRuleUpdateSerializer, TradeRuleSerializer
 
 
 class RuleListCreateView(generics.ListCreateAPIView):
@@ -180,3 +180,20 @@ class SystemRuleUpdateView(APIView):
             {'error': 'System rules cannot be deleted.'},
             status=status.HTTP_405_METHOD_NOT_ALLOWED,
         )
+    
+class TradeRuleListCreateView(generics.ListCreateAPIView):
+    serializer_class = TradeRuleSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return TradeRule.objects.filter(trade__user=self.request.user)
+
+    def perform_create(self, serializer):
+        rule = serializer.validated_data['rule']
+
+        # Block system rules from being tagged
+        if rule.is_system_rule:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("System rules cannot be tagged to trades.")
+
+        serializer.save()

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Rule
+from .models import Rule, TradeRule
 
 
 class RuleSerializer(serializers.ModelSerializer):
@@ -96,3 +96,13 @@ class SystemRuleUpdateSerializer(serializers.ModelSerializer):
             )
 
         return {key: threshold}
+    
+
+class TradeRuleSerializer(serializers.ModelSerializer):
+    rule_name = serializers.CharField(source='rule.rule_name', read_only=True)
+    category = serializers.CharField(source='rule.category', read_only=True)
+    rule_type = serializers.CharField(source='rule.rule_type', read_only=True)
+
+    class Meta:
+        model = TradeRule
+        fields = '__all__'

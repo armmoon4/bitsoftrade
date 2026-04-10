@@ -67,3 +67,18 @@ class Rule(models.Model):
 
     def __str__(self):
         return f"{self.rule_name} [{self.rule_type.upper()}]"
+    
+class TradeRule(models.Model):
+    """Junction: links a rule (user-custom or admin-defined) to a trade."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    trade = models.ForeignKey('tradelog.Trade', on_delete=models.CASCADE, related_name='trade_rules')
+    rule = models.ForeignKey(Rule, on_delete=models.CASCADE, related_name='tagged_trades')
+    tagged_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'trade_rules'
+        unique_together = ('trade', 'rule')
+
+    def __str__(self):
+        return f"{self.rule.rule_name} → Trade {self.trade_id}"

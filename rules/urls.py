@@ -5,6 +5,7 @@ from .views import (
     RuleTitleListView,
     SystemRuleListView,
     SystemRuleUpdateView,
+    TradeRuleListCreateView,
 )
 
 urlpatterns = [
@@ -16,4 +17,6 @@ urlpatterns = [
     # ── System rules ──────────────────────────────────────────────────────────
     path('system/', SystemRuleListView.as_view(), name='system-rule-list'),
     path('system/<uuid:pk>/', SystemRuleUpdateView.as_view(), name='system-rule-detail'),
+
+    path('trade-links/', TradeRuleListCreateView.as_view(), name='trade-rule-list'),
 ]
