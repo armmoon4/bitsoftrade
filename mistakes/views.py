@@ -110,7 +110,7 @@ def mistakes_analytics_view(request):
     loss_from_mistake_trades = impacted_trades.aggregate(total=Sum('total_pnl'))['total'] or 0
 
     clean_trades = all_user_trades.exclude(id__in=impacted_trade_ids)
-    clean_trades_count = total_trades_count - impacted_unique_count
+    clean_trades_count = total_trades_count - total_mistake_tags
 
     if clean_trades_count > 0:
         clean_winning = clean_trades.filter(total_pnl__gt=0).count()
