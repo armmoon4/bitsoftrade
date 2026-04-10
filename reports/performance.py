@@ -210,7 +210,7 @@ def _strategy_effectiveness(qs) -> list[dict]:
     return [
         {
             "strategy": row["strategy__strategy_name"] or "Unknown",
-            "win_rate": round(row["wins"] / row["total_trades"] * 100, 2) if row["total_trades"] else 0,
+            "win_rate": round(row["wins"] / row["total_trades"] * 100, 1) if row["total_trades"] else 0,
         }
         for row in rows
     ]
@@ -266,7 +266,7 @@ def _symbol_frequency(qs) -> dict:
         return {}
 
     for s in sym_qs:
-        s["win_rate"] = float(s["wins"] / s["count"] * 100) if s["count"] else 0
+        s["win_rate"] = round(float(s["wins"] / s["count"] * 100), 1) if s["count"] else 0
         s["pnl"] = s["pnl"] or Decimal("0")
 
     return {
@@ -316,7 +316,7 @@ def _hold_time_vs_win_rate(qs) -> list[dict]:
             continue  # omit empty buckets
         result.append({
             "duration_range": label,
-            "win_rate": round(d["wins"] / d["total"] * 100, 2),
+            "win_rate": round(d["wins"] / d["total"] * 100, 1),
             "trades": d["total"],
         })
 
