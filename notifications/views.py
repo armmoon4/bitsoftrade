@@ -1,11 +1,10 @@
 from rest_framework import generics, status
-from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from notifications.models import Notification
-from notifications.serializers import NotificationSerializer
+from notifications.models import Notification, NotificationSettings
+from notifications.serializers import NotificationSerializer, NotificationSettingsSerializer
 
 
 class NotificationListView(generics.ListAPIView):
@@ -14,7 +13,7 @@ class NotificationListView(generics.ListAPIView):
     Returns all notifications for the authenticated user (paginated, newest first).
 
     Optional query params:
-      ?unread=true   → only unread notifications
+      ?unread=true          → only unread notifications
       ?type=rule_violated   → filter by notification_type
       ?severity=error       → filter by severity
     """
@@ -93,7 +92,7 @@ class MarkAllReadView(APIView):
 
 class DeleteNotificationView(APIView):
     """
-    DELETE /api/notifications/{id}/
+    DELETE /api/notifications/{id}/delete/
     Deletes a specific notification for the authenticated user.
     """
     permission_classes = [IsAuthenticated]
@@ -108,3 +107,38 @@ class DeleteNotificationView(APIView):
             )
         notification.delete()
         return Response({'detail': 'Notification deleted.'}, status=status.HTTP_204_NO_CONTENT)
+
+
+class NotificationSettingsView(APIView):
+    """
+    GET  /api/notifications/settings/ → get current settings
+    PATCH /api/notifications/settings/ → update settings
+
+    Settings row is auto-created with defaults on first GET.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        settings_obj, _ = NotificationSettings.objects.get_or_create(user=request.user)
+        return Response(NotificationSettingsSerializer(settings_obj).data)
+
+    def patch(self, request):
+        settings_obj, _ = NotificationSettings.objects.get_or_create(user=request.user)
+        serializer = NotificationSettingsSerializer(
+            settings_obj, data=request.data, partial=True
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
+class ClearAllNotificationsView(APIView):
+    """
+    DELETE /api/notifications/clear-all/
+    Permanently deletes ALL notifications for the authenticated user.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        deleted_count, _ = Notification.objects.filter(user=request.user).delete()
+        return Response({'deleted': deleted_count}, status=status.HTTP_200_OK)

@@ -5,6 +5,8 @@ from notifications.views import (
     MarkNotificationReadView,
     MarkAllReadView,
     DeleteNotificationView,
+    NotificationSettingsView,
+    ClearAllNotificationsView,
 )
 
 urlpatterns = [
@@ -16,6 +18,12 @@ urlpatterns = [
 
     # Mark all notifications as read
     path('read-all/', MarkAllReadView.as_view(), name='notification-read-all'),
+
+    # Get or update notification settings
+    path('settings/', NotificationSettingsView.as_view(), name='notification-settings'),
+
+    # Delete all notifications
+    path('clear-all/', ClearAllNotificationsView.as_view(), name='notification-clear-all'),
 
     # Mark a single notification as read
     path('<uuid:pk>/read/', MarkNotificationReadView.as_view(), name='notification-read'),

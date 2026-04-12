@@ -41,3 +41,20 @@ class NotificationSerializer(serializers.ModelSerializer):
 
     def get_session_date(self, obj):
         return str(obj.session.session_date) if obj.session else None
+
+
+
+from notifications.models import Notification, NotificationSettings
+
+class NotificationSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = NotificationSettings
+        fields = [
+            'notify_rule_triggered',
+            'notify_rule_violated',
+            'notify_session_locked',
+            'notify_session_unlocked',
+            'auto_delete_after_days',
+            'updated_at',
+        ]
+        read_only_fields = ['updated_at']

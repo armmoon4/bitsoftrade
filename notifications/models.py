@@ -80,3 +80,32 @@ class Notification(models.Model):
 
     def __str__(self):
         return f"[{self.severity.upper()}] {self.title} → {self.user.username}"
+
+
+
+class NotificationSettings(models.Model):
+    """One row per user — created on first access via get_or_create."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notification_settings',
+    )
+
+    # Per-type toggles
+    notify_rule_triggered = models.BooleanField(default=True)
+    notify_rule_violated = models.BooleanField(default=True)
+    notify_session_locked = models.BooleanField(default=True)
+    notify_session_unlocked = models.BooleanField(default=True)
+
+    # Auto-delete old notifications (0 = never)
+    auto_delete_after_days = models.PositiveIntegerField(default=30)
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'notification_settings'
+
+    def __str__(self):
+        return f"NotificationSettings → {self.user.username}"

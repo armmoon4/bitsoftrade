@@ -27,9 +27,16 @@ def create_rule_notification(user, rule, session, trade=None, violation_type='so
     - Soft rule → type='rule_triggered', severity='warning'
     """
     try:
-        from notifications.models import Notification
+        from notifications.models import Notification, NotificationSettings
 
         is_hard = violation_type == 'hard'
+
+        # Check user settings — skip if user has disabled this type
+        settings_obj, _ = NotificationSettings.objects.get_or_create(user=user)
+        type_field = 'notify_rule_violated' if is_hard else 'notify_rule_triggered'
+        if not getattr(settings_obj, type_field):
+            logger.info(f"[Notifications] Skipped — user has disabled {type_field}")
+            return
 
         notification_type = 'rule_violated' if is_hard else 'rule_triggered'
         severity = 'error' if is_hard else 'warning'
@@ -65,7 +72,14 @@ def create_session_notification(user, session, event='locked'):
     event: 'locked' | 'unlocked'
     """
     try:
-        from notifications.models import Notification
+        from notifications.models import Notification, NotificationSettings
+
+        # Check user settings — skip if user has disabled this type
+        settings_obj, _ = NotificationSettings.objects.get_or_create(user=user)
+        type_field = 'notify_session_locked' if event == 'locked' else 'notify_session_unlocked'
+        if not getattr(settings_obj, type_field):
+            logger.info(f"[Notifications] Skipped — user has disabled {type_field}")
+            return
 
         if event == 'locked':
             state = session.session_state.upper()
