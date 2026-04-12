@@ -36,7 +36,7 @@ def _get_filtered_trades(user, request):
 
     Instrument / account
         broker          broker_name (case-insensitive), e.g. zerodha
-        market_type     indian_stocks | forex | crypto | options
+        market_type     indian_market | forex | crypto | options
         instrument_type alias for market_type (same DB field)
         market          legacy alias for market_type
         direction       long | short

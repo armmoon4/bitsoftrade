@@ -451,7 +451,7 @@ Returns per-strategy performance breakdown for all strategies used in the filter
     {
       "strategy_id": "uuid-string",
       "strategy_name": "Momentum Breakout",
-      "market_types": ["indian_stocks"],
+      "market_types": ["indian_market"],
       "trade_type": "intraday",
       "maturity_status": "active",
       "total_trades": 30,

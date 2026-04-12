@@ -464,7 +464,7 @@ def _create_trade_from_row(row, user, broker_name):
         entry_time=entry_time,
         exit_time=exit_time,
         symbol=symbol or 'UNKNOWN',
-        market_type=row.get('market_type', 'indian_stocks'),
+        market_type=row.get('market_type', 'indian_market'),
         direction='long' if direction in ('long', 'buy', 'b') else 'short',
         quantity=quantity,
         entry_price=entry_price,

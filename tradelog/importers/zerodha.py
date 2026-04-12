@@ -12,10 +12,10 @@ import os
 
 MARKET_TYPE_MAP = {
     'FO':  'options',
-    'EQ':  'indian_stocks',
+    'EQ':  'indian_market',
     'CDS': 'forex',
-    'COM': 'indian_stocks',
-    'MF':  'indian_stocks',
+    'COM': 'indian_market',
+    'MF':  'indian_market',
 }
 
 EXEC_TIME_FORMATS = (
@@ -248,7 +248,7 @@ def _build_normalized(groups):
             'entry_price': str(entry_price),
             'exit_price':  str(exit_price) if exit_price is not None else '',
             'fees':        '0',
-            'market_type': MARKET_TYPE_MAP.get(segment, 'indian_stocks'),
+            'market_type': MARKET_TYPE_MAP.get(segment, 'indian_market'),
             'exchange':    exchange,
             'segment':     segment,
         })

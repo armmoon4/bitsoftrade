@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
                 ('trade_date', models.DateField()),
                 ('trade_time', models.TimeField(blank=True, null=True)),
                 ('symbol', models.CharField(max_length=100)),
-                ('market_type', models.CharField(choices=[('indian_stocks', 'Indian Stocks'), ('forex', 'Forex'), ('crypto', 'Crypto'), ('options', 'Options')], max_length=20)),
+                ('market_type', models.CharField(choices=[('indian_market', 'Indian Market'), ('forex', 'Forex'), ('crypto', 'Crypto'), ('options', 'Options')], max_length=20)),
                 ('direction', models.CharField(choices=[('long', 'Long'), ('short', 'Short')], max_length=10)),
                 ('quantity', models.DecimalField(decimal_places=4, max_digits=15)),
                 ('entry_price', models.DecimalField(decimal_places=4, max_digits=15)),

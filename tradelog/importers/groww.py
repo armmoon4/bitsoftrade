@@ -129,7 +129,7 @@ def normalize_groww(raw_rows):
             'entry_price': str(entry_price),
             'exit_price':  str(exit_price) if exit_price is not None else '',
             'fees':        '0',
-            'market_type': 'indian_stocks',
+            'market_type': 'indian_market',
             'exchange':    exchange,
             'segment':     'EQ',
         })

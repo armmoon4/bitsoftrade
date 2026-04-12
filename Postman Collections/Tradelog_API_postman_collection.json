@@ -22,13 +22,13 @@
                         { "key": "page_size", "value": "5" },
                         { "key": "filter",          "value": "",    "disabled": true, "description": "wins | losses | disciplined | violations" },
                         { "key": "broker",          "value": "",    "disabled": true, "description": "e.g. zerodha | upstox | groww (case-insensitive)" },
-                        { "key": "market_type",     "value": "",    "disabled": true, "description": "indian_stocks | forex | crypto | options" },
+                        { "key": "market_type",     "value": "",    "disabled": true, "description": "indian_market | forex | crypto | options" },
                         { "key": "date_range",      "value": "",    "disabled": true, "description": "today | this_week | this_month | custom" },
                         { "key": "date_from",       "value": "",    "disabled": true, "description": "YYYY-MM-DD — used when date_range=custom" },
                         { "key": "date_to",         "value": "",    "disabled": true, "description": "YYYY-MM-DD — used when date_range=custom" },
                         { "key": "direction",       "value": "",    "disabled": true, "description": "long | short" },
                         { "key": "outcome",         "value": "",    "disabled": true, "description": "win | loss | open" },
-                        { "key": "instrument_type", "value": "",    "disabled": true, "description": "indian_stocks | forex | crypto | options (alias for market_type)" },
+                        { "key": "instrument_type", "value": "",    "disabled": true, "description": "indian_market | forex | crypto | options (alias for market_type)" },
                         { "key": "strategy",        "value": "",    "disabled": true, "description": "Strategy UUID" },
                         { "key": "emotional_state", "value": "",    "disabled": true, "description": "calm | anxious | confident | fearful | fomo | angry | overconfident | uncertain" },
                         { "key": "discipline_status","value": "",   "disabled": true, "description": "disciplined | violations" },
@@ -142,11 +142,11 @@
                 },
                 "method": "GET",
                 "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/?market_type=indian_stocks",
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?market_type=indian_market",
                     "host": ["{{baseUrl}}"],
                     "path": ["api", "tradelog", "trades", ""],
                     "query": [
-                        { "key": "market_type", "value": "indian_stocks", "description": "indian_stocks | forex | crypto | options" }
+                        { "key": "market_type", "value": "indian_market", "description": "indian_market | forex | crypto | options" }
                     ]
                 }
             }
@@ -397,11 +397,11 @@
                 },
                 "method": "GET",
                 "url": {
-                    "raw": "{{baseUrl}}/api/tradelog/trades/?market_type=indian_stocks&date_range=this_month&outcome=win&emotional_state=calm",
+                    "raw": "{{baseUrl}}/api/tradelog/trades/?market_type=indian_market&date_range=this_month&outcome=win&emotional_state=calm",
                     "host": ["{{baseUrl}}"],
                     "path": ["api", "tradelog", "trades", ""],
                     "query": [
-                        { "key": "market_type",     "value": "indian_stocks" },
+                        { "key": "market_type",     "value": "indian_market" },
                         { "key": "date_range",      "value": "this_month" },
                         { "key": "outcome",         "value": "win" },
                         { "key": "emotional_state", "value": "calm" }
@@ -460,7 +460,7 @@
                 "header": [ { "key": "Content-Type", "value": "application/json" } ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"trade_date\": \"2025-01-15\",\n  \"trade_time\": \"10:30:00\",\n  \"symbol\": \"RELIANCE\",\n  \"market_type\": \"indian_stocks\",\n  \"direction\": \"long\",\n  \"quantity\": \"10\",\n  \"entry_price\": \"2450.00\",\n  \"exit_price\": \"2510.00\",\n  \"fees\": \"25.00\",\n  \"stop_loss\": \"2400.00\",\n  \"target\": \"2550.00\",\n  \"leverage\": \"1\",\n  \"strategy\": null,\n  \"entry_confidence\": 7,\n  \"satisfaction_rating\": 8,\n  \"emotional_state\": \"calm\",\n  \"violation_modes\": [],\n  \"lessons_learned\": \"Waited for confirmation before entry.\",\n  \"rules_followed\": [\"Respected stop loss\"],\n  \"screenshot_urls\": [],\n  \"broker_name\": \"Zerodha\",\n  \"import_source\": \"manual\"\n}"
+                    "raw": "{\n  \"trade_date\": \"2025-01-15\",\n  \"trade_time\": \"10:30:00\",\n  \"symbol\": \"RELIANCE\",\n  \"market_type\": \"indian_market\",\n  \"direction\": \"long\",\n  \"quantity\": \"10\",\n  \"entry_price\": \"2450.00\",\n  \"exit_price\": \"2510.00\",\n  \"fees\": \"25.00\",\n  \"stop_loss\": \"2400.00\",\n  \"target\": \"2550.00\",\n  \"leverage\": \"1\",\n  \"strategy\": null,\n  \"entry_confidence\": 7,\n  \"satisfaction_rating\": 8,\n  \"emotional_state\": \"calm\",\n  \"violation_modes\": [],\n  \"lessons_learned\": \"Waited for confirmation before entry.\",\n  \"rules_followed\": [\"Respected stop loss\"],\n  \"screenshot_urls\": [],\n  \"broker_name\": \"Zerodha\",\n  \"import_source\": \"manual\"\n}"
                 },
                 "url": {
                     "raw": "{{baseUrl}}/api/tradelog/trades/",
@@ -496,7 +496,7 @@
                 "header": [ { "key": "Content-Type", "value": "application/json" } ],
                 "body": {
                     "mode": "raw",
-                    "raw": "{\n  \"trade_date\": \"2025-01-15\",\n  \"trade_time\": \"10:30:00\",\n  \"symbol\": \"RELIANCE\",\n  \"market_type\": \"indian_stocks\",\n  \"direction\": \"long\",\n  \"quantity\": \"10\",\n  \"entry_price\": \"2450.00\",\n  \"exit_price\": \"2520.00\",\n  \"fees\": \"25.00\",\n  \"stop_loss\": \"2400.00\",\n  \"target\": \"2550.00\",\n  \"leverage\": \"1\",\n  \"strategy\": null,\n  \"entry_confidence\": 7,\n  \"satisfaction_rating\": 9,\n  \"emotional_state\": \"calm\",\n  \"violation_modes\": [],\n  \"lessons_learned\": \"Updated lesson.\",\n  \"rules_followed\": [\"Respected stop loss\", \"No revenge trades\"],\n  \"screenshot_urls\": [],\n  \"broker_name\": \"Zerodha\",\n  \"import_source\": \"manual\"\n}"
+                    "raw": "{\n  \"trade_date\": \"2025-01-15\",\n  \"trade_time\": \"10:30:00\",\n  \"symbol\": \"RELIANCE\",\n  \"market_type\": \"indian_market\",\n  \"direction\": \"long\",\n  \"quantity\": \"10\",\n  \"entry_price\": \"2450.00\",\n  \"exit_price\": \"2520.00\",\n  \"fees\": \"25.00\",\n  \"stop_loss\": \"2400.00\",\n  \"target\": \"2550.00\",\n  \"leverage\": \"1\",\n  \"strategy\": null,\n  \"entry_confidence\": 7,\n  \"satisfaction_rating\": 9,\n  \"emotional_state\": \"calm\",\n  \"violation_modes\": [],\n  \"lessons_learned\": \"Updated lesson.\",\n  \"rules_followed\": [\"Respected stop loss\", \"No revenge trades\"],\n  \"screenshot_urls\": [],\n  \"broker_name\": \"Zerodha\",\n  \"import_source\": \"manual\"\n}"
                 },
                 "url": {
                     "raw": "{{baseUrl}}/api/tradelog/trades/:id/",

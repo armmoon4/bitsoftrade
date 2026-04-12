@@ -120,11 +120,11 @@ def normalize_fyers(raw_rows):
 
         market_type_map = {
             'FO':  'options',
-            'EQ':  'indian_stocks',
+            'EQ':  'indian_market',
             'CDS': 'forex',
-            'COM': 'indian_stocks',
+            'COM': 'indian_market',
         }
-        market_type = market_type_map.get(segment, 'indian_stocks')
+        market_type = market_type_map.get(segment, 'indian_market')
 
         normalized.append({
             'symbol':      symbol,
