@@ -37,6 +37,9 @@ urlpatterns = [
     # ── Learning Hub
     path('api/learninghub/', include('learninghub.urls')),
 
+    # ── Notification
+    path('api/notifications/', include('notifications.urls')),
+
     # ── Admin Panel 
     path('api/admin/', include('admin_panel.urls')),
     

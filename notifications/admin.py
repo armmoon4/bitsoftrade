@@ -1,0 +1,1 @@
+# No admin registration for this app

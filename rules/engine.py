@@ -132,6 +132,19 @@ def evaluate_rules_for_user(user, session, trade=None):
                     newly_logged_count += 1
                     print(f"[RuleEngine]   ViolationsLog CREATED → state={new_state_for_log}")
 
+                    # ── Create rule violation notification ────────────────────
+                    try:
+                        from notifications.utils import create_rule_notification
+                        create_rule_notification(
+                            user=user,
+                            rule=rule,
+                            session=session,
+                            trade=trade,
+                            violation_type=violation_type,
+                        )
+                    except Exception as notif_err:
+                        logger.error(f"[RuleEngine] Failed to create rule notification: {notif_err}")
+
                     # Track on session
                     if str(rule.id) not in (session.rules_violated or []):
                         session.rules_violated = (session.rules_violated or []) + [str(rule.id)]
@@ -180,6 +193,14 @@ def evaluate_rules_for_user(user, session, trade=None):
                 'hard_violations',
                 'soft_violations',
             ])
+
+            # ── Create session lock notification ──────────────────────────────
+            try:
+                from notifications.utils import create_session_notification
+                if new_state in ('yellow', 'red'):
+                    create_session_notification(user=user, session=session, event='locked')
+            except Exception as notif_err:
+                logger.error(f"[RuleEngine] Failed to create session notification: {notif_err}")
 
         elif newly_logged_count > 0:
             print(f"[RuleEngine] saving session counters only (no state change)")

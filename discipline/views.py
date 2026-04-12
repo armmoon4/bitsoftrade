@@ -162,6 +162,13 @@ def unlock_session_view(request):
         # Only the cycle-control and UI-state fields are reset.
         session.journal_completed = False
         session.trade_review_completed = False
+        try:
+            from notifications.utils import create_session_notification
+            create_session_notification(user=request.user, session=session, event='unlocked')
+        except Exception as notif_err:
+            import logging
+            logging.getLogger(__name__).error(f"[Discipline] Failed to create unlock notification: {notif_err}")
+
 
     session.save()
     return Response({

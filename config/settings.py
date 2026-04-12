@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'tradelog',
     'journal',
     'learninghub',
+    'notifications.apps.NotificationsConfig',
     'discipline',
     'strategies',
     'rules',
