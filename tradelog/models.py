@@ -31,6 +31,13 @@ class Trade(models.Model):
         ('csv_import', 'CSV Import'),
     ]
 
+    OUTCOME_SUMMARY = [
+        ('target_hit' , 'Target Hit'),
+        ('stop_loss_hit' , 'Stop Loss Hit'),
+        ('breakeven' , 'Breakeven'),
+        ('partial_exit' , 'Partial Exit'),
+    ]
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='trades')
     session = models.ForeignKey(
@@ -54,6 +61,11 @@ class Trade(models.Model):
     symbol = models.CharField(max_length=100)
     market_type = models.CharField(max_length=20, choices=MARKET_CHOICES)   ########################  have confusion whenever thecsv upload what it will be
     direction = models.CharField(max_length=10, choices=DIRECTION_CHOICES)
+    outcome_summary = models.CharField(max_length=20, choices=OUTCOME_SUMMARY, null=True, blank=True)
+    trade_analysis = models.TextField(
+        blank=True, 
+        help_text='Why did you take this trade? What was your analysis?'
+    )
     quantity = models.DecimalField(max_digits=15, decimal_places=4)
     entry_price = models.DecimalField(max_digits=15, decimal_places=4)
     exit_price = models.DecimalField(max_digits=15, decimal_places=4, null=True, blank=True)
