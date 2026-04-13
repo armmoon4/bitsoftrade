@@ -75,3 +75,57 @@ class AdminAdminAction(models.Model):
     class Meta:
         db_table = 'admin_admin_actions'
         ordering = ['-performed_at']
+
+
+# ─── CMS: User Reviews ────────────────────────────────────────────────────────
+
+class Review(models.Model):
+    """CMS-managed testimonial/review shown on the landing page."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    reviewer_name = models.CharField(max_length=200)
+    rating = models.PositiveSmallIntegerField(default=5, help_text='1–5 stars')
+    review_text = models.TextField()
+    is_visible = models.BooleanField(default=True)
+    display_order = models.PositiveIntegerField(default=0, help_text='Lower = shown first')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cms_reviews'
+        ordering = ['display_order', '-created_at']
+
+    def __str__(self):
+        return f"{self.reviewer_name} ({'Shown' if self.is_visible else 'Hidden'})"
+
+
+# ─── CMS: Pricing Plans ───────────────────────────────────────────────────────
+
+class PricingPlan(models.Model):
+    """CMS-managed subscription pricing plans."""
+
+    BILLING_CYCLE_CHOICES = [
+        ('forever', 'Forever (Free)'),
+        ('monthly', 'Monthly'),
+        ('quarterly', 'Quarterly'),
+        ('biannual', '6 Months'),
+        ('annual', 'Annual'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=100)                          # e.g. "Free", "Pro", "Elite"
+    price = models.DecimalField(max_digits=10, decimal_places=2)     # 0, 499, 2999 …
+    billing_cycle = models.CharField(max_length=20, choices=BILLING_CYCLE_CHOICES, default='monthly')
+    is_popular = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
+    features = models.JSONField(default=list, help_text='List of feature strings')
+    display_order = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cms_pricing_plans'
+        ordering = ['display_order', 'price']
+
+    def __str__(self):
+        return f"{self.name} (₹{self.price}/{self.billing_cycle})"

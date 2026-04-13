@@ -2,7 +2,7 @@ from django.urls import path, include #type: ignore
 from django.conf import settings #type: ignore
 from django.conf.urls.static import static #type: ignore
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView #type: ignore
-
+from admin_panel.urls import public_cms_urlpatterns
 urlpatterns = [
     # path('admin/', admin.site.urls),
 
@@ -42,7 +42,7 @@ urlpatterns = [
 
     # ── Admin Panel 
     path('api/admin/', include('admin_panel.urls')),
-    
+    path('api/cms/',   include((public_cms_urlpatterns, 'cms'))),
     
     # API schema and documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
