@@ -825,3 +825,117 @@ def admin_pricing_toggle_active_view(request, pk):
     plan.is_active = not plan.is_active
     plan.save(update_fields=['is_active', 'updated_at'])
     return Response({'id': str(plan.id), 'is_active': plan.is_active})
+
+
+# ─── Admin Broadcast Notifications ────────────────────────────────────────────
+
+def _broadcast_to_dict(b):
+    return {
+        'id':              str(b.id),
+        'title':           b.title,
+        'message':         b.message,
+        'recipients':      b.recipients,
+        'delivered_count': b.delivered_count,
+        'sent_by':         b.sent_by_admin.full_name if b.sent_by_admin else None,
+        'created_at':      b.created_at,
+    }
+
+
+@api_view(['GET', 'POST'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_broadcast_list_create_view(request):
+    """
+    GET  /api/admin/notifications/broadcasts/
+         Returns the history of all broadcasts (most recent first).
+
+    POST /api/admin/notifications/broadcasts/
+         Sends a new broadcast to the selected recipient tier.
+
+    POST body:
+      title       (required)
+      message     (required)
+      recipients  (required) — one of: all | pro | elite | pro_elite
+    """
+    from notifications.models import AdminBroadcast, Notification
+
+    if request.method == 'GET':
+        broadcasts = AdminBroadcast.objects.select_related('sent_by_admin').all()
+        return Response([_broadcast_to_dict(b) for b in broadcasts])
+
+    # ── POST: validate ────────────────────────────────────────────────────────
+    title      = request.data.get('title', '').strip()
+    message    = request.data.get('message', '').strip()
+    recipients = request.data.get('recipients', '').strip()
+
+    if not title:
+        return Response({'error': 'title is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if not message:
+        return Response({'error': 'message is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    valid_recipients = [r[0] for r in AdminBroadcast.RECIPIENT_CHOICES]
+    if recipients not in valid_recipients:
+        return Response(
+            {'error': f'recipients must be one of: {", ".join(valid_recipients)}.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    # ── Resolve target users ──────────────────────────────────────────────────
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    active_users = User.objects.filter(is_active=True, deleted_at__isnull=True)
+
+    if recipients == 'all':
+        target_users = active_users
+    elif recipients == 'pro':
+        target_users = active_users.filter(subscription_type='pro')
+    elif recipients == 'elite':
+        target_users = active_users.filter(subscription_type='elite')
+    elif recipients == 'pro_elite':
+        target_users = active_users.filter(subscription_type__in=['pro', 'elite'])
+
+    # ── Fan-out: create one Notification per target user ──────────────────────
+    # Bulk-create for efficiency; skip users who have admin_broadcast disabled
+    # (NotificationSettings doesn't have a toggle for admin_broadcast yet —
+    #  we intentionally always deliver these since they're platform messages)
+    notifications = [
+        Notification(
+            user=user,
+            notification_type='admin_broadcast',
+            severity='info',
+            title=title,
+            message=message,
+        )
+        for user in target_users
+    ]
+    Notification.objects.bulk_create(notifications, batch_size=500)
+    delivered_count = len(notifications)
+
+    # ── Save broadcast audit record ───────────────────────────────────────────
+    broadcast = AdminBroadcast.objects.create(
+        sent_by_admin=request.admin,
+        title=title,
+        message=message,
+        recipients=recipients,
+        delivered_count=delivered_count,
+    )
+
+    return Response(_broadcast_to_dict(broadcast), status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_broadcast_delete_view(request, pk):
+    """
+    DELETE /api/admin/notifications/broadcasts/<id>/
+    Deletes the broadcast audit record (does NOT recall the already-delivered
+    individual notifications — that would require a separate sweep).
+    """
+    from notifications.models import AdminBroadcast
+    broadcast = AdminBroadcast.objects.filter(pk=pk).first()
+    if not broadcast:
+        return Response({'error': 'Broadcast not found.'}, status=status.HTTP_404_NOT_FOUND)
+    broadcast.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)

@@ -12,6 +12,8 @@ from .views import (
     # CMS — admin (protected)
     admin_review_list_create_view, admin_review_detail_view, admin_review_toggle_visibility_view,
     admin_pricing_list_create_view, admin_pricing_detail_view, admin_pricing_toggle_active_view,
+    # Broadcast notifications
+    admin_broadcast_list_create_view, admin_broadcast_delete_view,
 )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -65,4 +67,8 @@ urlpatterns = [
     path('cms/pricing/', admin_pricing_list_create_view, name='admin-pricing-list'),
     path('cms/pricing/<uuid:pk>/', admin_pricing_detail_view, name='admin-pricing-detail'),
     path('cms/pricing/<uuid:pk>/toggle-active/', admin_pricing_toggle_active_view, name='admin-pricing-toggle'),
+
+    # ── Broadcast Notifications ───────────────────────────────────────────────
+    path('notifications/broadcasts/', admin_broadcast_list_create_view, name='admin-broadcast-list'),
+    path('notifications/broadcasts/<uuid:pk>/delete/', admin_broadcast_delete_view, name='admin-broadcast-delete'),
 ]

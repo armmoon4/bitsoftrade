@@ -15,6 +15,7 @@ class Notification(models.Model):
         ('rule_violated', 'Rule Violated'),
         ('session_locked', 'Session Locked'),
         ('session_unlocked', 'Session Unlocked'),
+        ('admin_broadcast', 'Admin Broadcast'),   # manually sent by admin
     ]
 
     SEVERITY_CHOICES = [
@@ -109,3 +110,50 @@ class NotificationSettings(models.Model):
 
     def __str__(self):
         return f"NotificationSettings → {self.user.username}"
+
+# ─── Admin Broadcast ──────────────────────────────────────────────────────────
+
+class AdminBroadcast(models.Model):
+    """
+    Records every admin-initiated broadcast.
+    When saved, individual Notification rows are fanned out to the
+    target users by the admin view — this record is the audit trail.
+    """
+
+    RECIPIENT_CHOICES = [
+        ('all', 'All Users'),
+        ('pro', 'Pro'),
+        ('elite', 'Elite'),
+        ('pro_elite', 'Pro & Elite'),
+    ]
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+
+    # FK to admin_panel.Admin (string ref to avoid circular imports)
+    sent_by_admin = models.ForeignKey(
+        'admin_panel.Admin',
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='broadcasts',
+    )
+
+    title = models.CharField(max_length=255)
+    message = models.TextField()
+    recipients = models.CharField(
+        max_length=20,
+        choices=RECIPIENT_CHOICES,
+        default='all',
+        help_text='Which subscription tier(s) receive this broadcast',
+    )
+
+    # How many individual Notification rows were created
+    delivered_count = models.PositiveIntegerField(default=0)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'admin_broadcasts'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"[Broadcast] {self.title} → {self.recipients} ({self.delivered_count} delivered)"
