@@ -1,6 +1,7 @@
 from django.urls import path
 from .views import (
     admin_login_view,
+    admin_me_view,
     admin_dashboard_stats_view,
     admin_user_list_view, admin_user_toggle_view, admin_user_delete_view,
     admin_list_view, admin_create_view, admin_manage_view,
@@ -37,6 +38,9 @@ public_cms_urlpatterns = [
 urlpatterns = [
     # ── Auth ────────────────────────────────────────────────────────────────
     path('auth/login/', admin_login_view, name='admin-login'),
+
+    # ── Profile ───────────────────────────────────────────────────────────────────
+    path('me/', admin_me_view, name='admin-me'),
 
     # ── Dashboard ────────────────────────────────────────────────────────────
     path('dashboard/stats/', admin_dashboard_stats_view, name='admin-dashboard-stats'),

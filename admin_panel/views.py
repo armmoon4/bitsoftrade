@@ -44,6 +44,46 @@ def admin_login_view(request):
     })
 
 
+@api_view(['GET', 'PUT', 'PATCH'])
+@permission_classes([IsAdminAuthenticated])
+@authentication_classes([])
+def admin_me_view(request):
+    admin = request.admin  
+
+    if request.method == 'GET':
+        return Response({
+            'id':                  str(admin.id),
+            'full_name':           admin.full_name,
+            'email':               admin.email,
+            'phone_number':        admin.phone_number,
+            'access_level':        admin.access_level,
+            'profile_picture_url': admin.profile_picture_url,
+            'created_at':          admin.created_at,
+        })
+
+    # PUT / PATCH — update profile
+    allowed_fields = {'full_name', 'phone_number', 'profile_picture_url'}
+    data = {k: v for k, v in request.data.items() if k in allowed_fields}
+
+    # handle password change separately
+    new_password = request.data.get('password')
+    if new_password:
+        admin.set_password(new_password)
+
+    for attr, value in data.items():
+        setattr(admin, attr, value)
+
+    admin.save()
+    return Response({
+        'id':                  str(admin.id),
+        'full_name':           admin.full_name,
+        'email':               admin.email,
+        'phone_number':        admin.phone_number,
+        'access_level':        admin.access_level,
+        'profile_picture_url': admin.profile_picture_url,
+        'updated_at':          admin.updated_at,
+    })
+
 # ─── Dashboard ─────────────────────────────────────────────────────────────────
 
 @api_view(['GET'])
@@ -238,6 +278,7 @@ def admin_strategy_list_create_view(request):
 
 # ── Mistakes (admin-defined) ──────────────────────────────────────────────────
 @api_view(['GET', 'POST'])
+@authentication_classes([])
 @permission_classes([IsAdminAuthenticated])
 def admin_mistake_list_create_view(request):
     if request.method == 'GET':
