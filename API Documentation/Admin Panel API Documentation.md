@@ -21,7 +21,7 @@ Before using the admin panel, you must create the first super admin account usin
 ### Using Docker
 
 ```bash
-python manage.py create_super_admin --email superadmin@example.com --name superadmin --password superadmin
+docker exec -it bitsoftrade-web-1 python manage.py create_super_admin --email superadmin@example.com --name superadmin --password superadmin
 ```
 
 ### Without Docker (Local)
