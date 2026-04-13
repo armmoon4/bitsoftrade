@@ -13,6 +13,8 @@ from rest_framework.decorators import api_view, permission_classes, authenticati
 from rest_framework import permissions, status
 from rest_framework.response import Response
 
+from mistakes.models import Mistake
+from mistakes.serializers import MistakeSerializer
 from .auth import IsAdminAuthenticated, get_tokens_for_admin
 from .serializers import review_to_dict, plan_to_dict, broadcast_to_dict
 from . import services
@@ -232,6 +234,51 @@ def admin_strategy_list_create_view(request):
         sample_size_threshold=request.data.get('sample_size_threshold', 30),
     )
     return Response(StrategySerializer(strategy).data, status=status.HTTP_201_CREATED)
+
+
+# ── Mistakes (admin-defined) ──────────────────────────────────────────────────
+@api_view(['GET', 'POST'])
+@permission_classes([IsAdminAuthenticated])
+def admin_mistake_list_create_view(request):
+    if request.method == 'GET':
+        mistakes = Mistake.objects.filter(is_admin_defined=True, deleted_at__isnull=True)
+        data = MistakeSerializer(mistakes, many=True).data
+        return Response(data)
+
+    serializer = MistakeSerializer(data=request.data)
+    if serializer.is_valid():
+        serializer.save(
+            is_admin_defined=True,
+            is_custom=False,
+            created_by_admin=request.admin,
+            user=None,
+        )
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@permission_classes([IsAdminAuthenticated])
+def admin_mistake_detail_view(request, pk):
+    try:
+        mistake = Mistake.objects.get(pk=pk, is_admin_defined=True, deleted_at__isnull=True)
+    except Mistake.DoesNotExist:
+        return Response({'error': 'Not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(MistakeSerializer(mistake).data)
+
+    if request.method in ('PUT', 'PATCH'):
+        serializer = MistakeSerializer(mistake, data=request.data, partial=request.method == 'PATCH')
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        mistake.deleted_at = timezone.now()
+        mistake.save()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 @api_view(['GET', 'PUT', 'DELETE'])

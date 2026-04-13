@@ -6,6 +6,7 @@ from .views import (
     admin_list_view, admin_create_view, admin_manage_view,
     admin_rule_list_create_view, admin_rule_detail_view,
     admin_strategy_list_create_view, admin_strategy_detail_view,
+    admin_mistake_list_create_view, admin_mistake_detail_view,
     # CMS — public (no auth)
     public_review_list_view,
     public_pricing_list_view,
@@ -57,6 +58,10 @@ urlpatterns = [
     # ── Strategies ───────────────────────────────────────────────────────────
     path('strategies/', admin_strategy_list_create_view, name='admin-strategy-list'),
     path('strategies/<uuid:pk>/', admin_strategy_detail_view, name='admin-strategy-detail'),
+
+    # ── Mistakes ──────────────────────────────────────────────────────────────────
+    path('mistakes/', admin_mistake_list_create_view, name='admin-mistake-list'),
+    path('mistakes/<uuid:pk>/', admin_mistake_detail_view, name='admin-mistake-detail'),
 
     # ── CMS: Reviews (admin — all reviews incl. hidden) ───────────────────────
     path('cms/reviews/', admin_review_list_create_view, name='admin-review-list'),
