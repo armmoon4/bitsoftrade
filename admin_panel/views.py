@@ -12,6 +12,7 @@ No business logic, no ORM queries, no _to_dict helpers live here.
 from rest_framework.decorators import api_view, permission_classes, authentication_classes
 from rest_framework import permissions, status
 from rest_framework.response import Response
+from django.utils import timezone
 
 from mistakes.models import Mistake
 from mistakes.serializers import MistakeSerializer
@@ -302,6 +303,8 @@ def admin_mistake_list_create_view(request):
 @authentication_classes([])
 @permission_classes([IsAdminAuthenticated])
 def admin_mistake_detail_view(request, pk):
+    from django.utils import timezone
+    
     try:
         mistake = Mistake.objects.get(pk=pk, is_admin_defined=True, deleted_at__isnull=True)
     except Mistake.DoesNotExist:
@@ -313,7 +316,11 @@ def admin_mistake_detail_view(request, pk):
     if request.method in ('PUT', 'PATCH'):
         serializer = MistakeSerializer(mistake, data=request.data, partial=request.method == 'PATCH')
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(
+                is_admin_defined=True,
+                created_by_admin=request.admin,
+                user=None,
+            )
             return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
