@@ -198,8 +198,8 @@ def list_users(subscription_type=None, search=None):
     if subscription_type:
         qs = qs.filter(subscription_type=subscription_type)
     if search:
-        qs = qs.filter(Q(username__icontains=search) | Q(email__icontains=search))
-    data = list(qs.values('id', 'username', 'email', 'subscription_type',
+        qs = qs.filter(Q(first_name__icontains=search) | Q(last_name__icontains=search) | Q(email__icontains=search))
+    data = list(qs.values('id', 'first_name', 'last_name', 'email', 'subscription_type',
                            'subscription_status', 'is_active', 'date_joined'))
     return {'count': len(data), 'results': data}
 
