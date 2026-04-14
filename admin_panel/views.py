@@ -299,6 +299,7 @@ def admin_mistake_list_create_view(request):
 
 
 @api_view(['GET', 'PUT', 'PATCH', 'DELETE'])
+@authentication_classes([])
 @permission_classes([IsAdminAuthenticated])
 def admin_mistake_detail_view(request, pk):
     try:
