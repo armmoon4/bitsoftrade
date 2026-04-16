@@ -6,7 +6,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from django.db.models import Avg, Count, Max, Min, Q, Sum
-from django.db.models.functions import ExtractHour
+from django.db.models.functions import ExtractHour, ExtractWeekDay
 
 from .utils import (
     build_cumulative_and_daily_series,
@@ -32,6 +32,8 @@ def get_performance_report_data(qs) -> dict:
         gross_loss=Sum("total_pnl", filter=Q(total_pnl__lt=0)),
         avg_win=Avg("total_pnl", filter=Q(total_pnl__gt=0)),
         avg_loss=Avg("total_pnl", filter=Q(total_pnl__lt=0)),
+        total_positive_trades=Count("id", filter=Q(total_pnl__gt=0)),
+        total_negative_trades=Count("id", filter=Q(total_pnl__lt=0)),
     )
 
     wr = win_rate(qs)
@@ -81,6 +83,9 @@ def get_performance_report_data(qs) -> dict:
     # ------------------------------------------------- hold time vs win rate
     hold_time_vs_win_rate = _hold_time_vs_win_rate(qs)
 
+    # ------------------------------------------------- weekday win rate
+    weekday_win_rate = _weekday_win_rate(qs)
+
     return {
         "performance": {
             "total_pnl": agg["net_pnl"],
@@ -89,6 +94,8 @@ def get_performance_report_data(qs) -> dict:
             "trade_expectancy": expectancy,
             "avg_trade_pnl": agg["avg_trade_pnl"],
             "total_trades": total,
+            "total_positive_trades": agg["total_positive_trades"],
+            "total_negative_trades": agg["total_negative_trades"],
         },
         "net_pnl_cumulative": net_pnl_cumulative,
         "net_daily_pnl": net_daily_pnl,
@@ -132,6 +139,7 @@ def get_performance_report_data(qs) -> dict:
         "symbol_frequency": symbol_frequency,
         "capital_usage": capital_usage,
         "quantity_analysis": quantity_analysis,
+        "weekday_win_rate": weekday_win_rate,
     }
 
 
@@ -155,6 +163,15 @@ _HOLD_BUCKETS = [
     ("4–5 Hours", 240, 300),
     ("5+ Hours",  300, float("inf")),
 ]
+
+# Django's ExtractWeekDay returns 1=Sunday … 7=Saturday (ISO-like but Sunday-first)
+_WEEKDAY_MAP = {
+    2: "Monday",
+    3: "Tuesday",
+    4: "Wednesday",
+    5: "Thursday",
+    6: "Friday",
+}
 
 
 def _best_trading_hour(qs) -> str:
@@ -319,5 +336,48 @@ def _hold_time_vs_win_rate(qs) -> list[dict]:
             "win_rate": round(d["wins"] / d["total"] * 100, 1),
             "trades": d["total"],
         })
+
+    return result
+
+
+def _weekday_win_rate(qs) -> list[dict]:
+    """
+    Returns win rate per weekday (Monday–Friday) as a list ordered Mon→Fri.
+    Each entry: {"day": "Monday", "win_rate": 62.5, "trades": 8}
+    Uses the trade_date field; falls back to trade_time if trade_date is absent.
+    """
+    # Try trade_date first; fall back to trade_time date component
+    date_field = "trade_date"
+    has_date_field = qs.filter(**{f"{date_field}__isnull": False}).exists()
+    lookup_field = date_field if has_date_field else "trade_time"
+
+    rows = (
+        qs.filter(**{f"{lookup_field}__isnull": False})
+        .annotate(weekday=ExtractWeekDay(lookup_field))
+        .values("weekday")
+        .annotate(
+            total=Count("id"),
+            wins=Count("id", filter=Q(total_pnl__gt=0)),
+        )
+    )
+
+    # Build a dict keyed by Django weekday integer
+    data = {row["weekday"]: row for row in rows}
+
+    result = []
+    for dow_int, day_name in _WEEKDAY_MAP.items():
+        row = data.get(dow_int)
+        if row and row["total"] > 0:
+            result.append({
+                "day": day_name,
+                "win_rate": round(row["wins"] / row["total"] * 100, 1),
+                "trades": row["total"],
+            })
+        else:
+            result.append({
+                "day": day_name,
+                "win_rate": 0.0,
+                "trades": 0,
+            })
 
     return result
