@@ -25,7 +25,7 @@ class RuleSerializer(serializers.ModelSerializer):
 class RuleTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Rule
-        fields = ['id', 'rule_name']
+        fields = ['id', 'rule_name' , 'is_system_rule']
 
 
 class SystemRuleUpdateSerializer(serializers.ModelSerializer):
