@@ -91,9 +91,15 @@ def _get_filtered_trades(user, request):
         date_from = p.get("date_from") or p.get("from")
         date_to   = p.get("date_to")   or p.get("to")
         if date_from:
-            qs = qs.filter(trade_date__gte=date_from)
+            try:
+                qs = qs.filter(trade_date__gte=date_from)
+            except (ValueError, TypeError):
+                pass  # ignore malformed date strings
         if date_to:
-            qs = qs.filter(trade_date__lte=date_to)
+            try:
+                qs = qs.filter(trade_date__lte=date_to)
+            except (ValueError, TypeError):
+                pass  # ignore malformed date strings
 
     # ------------------------------------------------------------------
     # 2. Instrument / account
@@ -104,26 +110,48 @@ def _get_filtered_trades(user, request):
 
     # market_type / instrument_type / market — same DB field
     market_type = p.get("market_type") or p.get("instrument_type") or p.get("market")
-    if market_type and market_type != "all":
-        qs = qs.filter(market_type=market_type)
+    if market_type and market_type.lower() != "all":
+        # Use iexact so 'Indian_Market' or 'FOREX' from frontend still match
+        qs = qs.filter(market_type__iexact=market_type)
 
     direction = p.get("direction")
+    if direction:
+        direction = direction.lower()
     if direction in ("long", "short"):
         qs = qs.filter(direction=direction)
 
     strategy = p.get("strategy")
     if strategy:
-        qs = qs.filter(strategy_id=strategy)
+        import uuid as _uuid
+        from django.core.exceptions import ValidationError as DjangoValidationError
+        try:
+            # Try treating it as a UUID directly
+            strategy_uuid = _uuid.UUID(strategy)
+            qs = qs.filter(strategy_id=strategy_uuid)
+        except (ValueError, AttributeError, DjangoValidationError):
+            # Fall back: look up strategy by name (case-insensitive)
+            from strategies.models import Strategy as StrategyModel
+            matched_ids = StrategyModel.objects.filter(
+                strategy_name__iexact=strategy,
+                deleted_at__isnull=True,
+            ).values_list("id", flat=True)
+            qs = qs.filter(strategy_id__in=list(matched_ids))
 
     # ------------------------------------------------------------------
     # 3. Outcome
     # ------------------------------------------------------------------
     outcome = p.get("outcome")
+    if outcome:
+        outcome = outcome.lower()
     if outcome == "win":
         qs = qs.filter(total_pnl__gt=0)
     elif outcome == "loss":
         qs = qs.filter(total_pnl__lt=0)
     elif outcome == "open":
+        # NOTE: base queryset already requires total_pnl__isnull=False (closed trades).
+        # open trades have no total_pnl so they are already excluded.
+        # Re-filter on exit_price to be explicit, but result will naturally be empty
+        # for a pure reports endpoint; harmless guard kept for forward-compatibility.
         qs = qs.filter(exit_price__isnull=True)
 
     # Quick-filter tab (wins / losses / disciplined / violations)
@@ -159,12 +187,16 @@ def _get_filtered_trades(user, request):
         qs = qs.filter(emotional_state__iexact=emotional_state)
 
     discipline_status = p.get("discipline_status")
+    if discipline_status:
+        discipline_status = discipline_status.lower()
     if discipline_status == "disciplined":
         qs = qs.filter(is_disciplined=True)
-    elif discipline_status == "violations":
+    elif discipline_status in ("violations", "violation"):  # accept both singular & plural
         qs = qs.filter(is_disciplined=False)
 
     review_status = p.get("review_status")
+    if review_status:
+        review_status = review_status.lower()
     if review_status == "tagged":
         qs = qs.filter(is_tagged_complete=True)
     elif review_status == "untagged":

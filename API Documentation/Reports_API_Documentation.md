@@ -52,12 +52,12 @@ All report endpoints share the same filter layer applied to the underlying `Trad
 
 | Parameter       | Type   | Values / Example                                      | Description |
 |-----------------|--------|-------------------------------------------------------|-------------|
-| `broker`        | string | `zerodha`, `upstox`, `groww` …                        | Matches `broker_name` (case-insensitive). Use `all` or omit to include all. |
-| `market_type`   | enum   | `indian_market` \| `forex` \| `crypto` \| `options`  | Filter by instrument/market type. |
-| `instrument_type` | enum | `indian_market` \| `forex` \| `crypto` \| `options`  | Alias for `market_type` — same DB field. |
+| `broker`        | string | `all` \| `zerodha` \| `upstox` \| `groww` \| `angelone` \| `fyers` \| `dhan` | Matches `broker_name` (case-insensitive). Use `all` or omit to include all. |
+| `market_type`   | enum   | `all` \| `indian_market` \| `forex` \| `crypto` \| `options` | Filter by instrument/market type. Use `all` or omit to include all. |
+| `instrument_type` | enum | `all` \| `indian_market` \| `forex` \| `crypto` \| `options` | Alias for `market_type` — same DB field. |
 | `market`        | string | same values as `market_type`                          | Legacy alias for `market_type` — still supported. |
 | `direction`     | enum   | `long` \| `short`                                     | Trade direction. |
-| `strategy`      | UUID   | `<strategy-uuid>`                                     | Filter by linked strategy. |
+| `strategy`      | string | `<strategy-uuid>` or strategy name e.g. `Breakout`   | Filter by linked strategy. Accepts a UUID directly or falls back to a case-insensitive name lookup against `Strategy.strategy_name`. |
 
 ### Outcome & P&L
 
@@ -124,7 +124,9 @@ Returns a comprehensive performance breakdown covering trade metrics, daily stat
     "profit_factor": 2.1,
     "trade_expectancy": 85.00,
     "avg_trade_pnl": 85.00,
-    "total_trades": 50
+    "total_trades": 50,
+    "total_positive_trades": 31,
+    "total_negative_trades": 19
   },
   "net_pnl_cumulative": [
     { "date": "Jan 2", "pnl": 120.00 },
@@ -203,7 +205,14 @@ Returns a comprehensive performance breakdown covering trade metrics, daily stat
     "average_quantity":  185.50,
     "pnl_at_max_quantity": 850.00,
     "pnl_at_min_quantity": -50.00
-  }
+  },
+  "weekday_win_rate": [
+    { "day": "Monday",    "win_rate": 65.0, "trades": 12 },
+    { "day": "Tuesday",   "win_rate": 58.3, "trades": 12 },
+    { "day": "Wednesday", "win_rate": 70.0, "trades": 10 },
+    { "day": "Thursday",  "win_rate": 55.0, "trades": 8  },
+    { "day": "Friday",    "win_rate": 62.5, "trades": 8  }
+  ]
 }
 ```
 
@@ -229,6 +238,16 @@ Returns a comprehensive performance breakdown covering trade metrics, daily stat
 | `3–4 Hours`  | 180 – 239 min |
 | `4–5 Hours`  | 240 – 299 min |
 | `5+ Hours`   | 300 min +     |
+
+#### Weekday Win Rate
+
+`weekday_win_rate` returns one entry per weekday (Monday–Friday), always in Mon→Fri order. Days with no trades have `win_rate: 0.0` and `trades: 0` — they are never omitted. Uses `trade_date` field; falls back to `trade_time` date component if `trade_date` is absent.
+
+| Field      | Description |
+|------------|-------------|
+| `day`      | Day name: `"Monday"` … `"Friday"`. |
+| `win_rate` | Win rate % for that weekday. |
+| `trades`   | Total trade count for that weekday. |
 
 ---
 
