@@ -1,15 +1,280 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Discipline Profile Report</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background-color: #F0EDE8;
+      font-family: 'DM Sans', sans-serif;
+      color: #1A1A1A;
+      padding: 40px 16px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── Header Bar ── */
+    .header {
+      background-color: #1A1A1A;
+      border-radius: 16px 16px 0 0;
+      padding: 36px 40px 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::before {
+      content: '';
+      position: absolute;
+      top: -60px;
+      right: -60px;
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .header-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #888;
+      margin-bottom: 14px;
+    }
+
+    .header-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 28px;
+      color: #FFFFFF;
+      line-height: 1.25;
+    }
+
+    .header-title em {
+      font-style: italic;
+      color: #C9B99A;
+    }
+
+    /* ── Risk Badge ── */
+    .risk-row {
+      background: #FFFFFF;
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 1px solid #EDEBE8;
+    }
+
+    .risk-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #999;
+    }
+
+    .risk-badge {
+      display: inline-block;
+      padding: 4px 14px;
+      border-radius: 100px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .risk-badge.low    { background: #E6F4EC; color: #2A7A47; }
+    .risk-badge.medium { background: #FFF4E0; color: #9A6000; }
+    .risk-badge.high   { background: #FDECEA; color: #C0392B; }
+
+    /* ── Main Card ── */
+    .card {
+      background: #FFFFFF;
+      padding: 36px 40px;
+    }
+
+    /* Summary */
+    .summary-block {
+      border-left: 3px solid #1A1A1A;
+      padding-left: 18px;
+      margin-bottom: 36px;
+    }
+
+    .summary-block .eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #AAA;
+      margin-bottom: 8px;
+    }
+
+    .summary-block p {
+      font-family: 'DM Serif Display', serif;
+      font-size: 18px;
+      color: #1A1A1A;
+      line-height: 1.5;
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: #EDEBE8;
+      margin: 0 0 32px;
+    }
+
+    /* Key Points */
+    .section-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #AAA;
+      margin-bottom: 20px;
+    }
+
+    .points-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      margin-bottom: 36px;
+    }
+
+    .points-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      font-size: 14px;
+      color: #333;
+      line-height: 1.6;
+    }
+
+    .point-icon {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #1A1A1A;
+      color: #FFF;
+      font-size: 10px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 2px;
+    }
+
+    /* Advice Box */
+    .advice-box {
+      background: #F7F5F2;
+      border-radius: 12px;
+      padding: 24px 26px;
+    }
+
+    .advice-box .eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #AAA;
+      margin-bottom: 10px;
+    }
+
+    .advice-box p {
+      font-size: 14px;
+      color: #444;
+      line-height: 1.7;
+    }
+
+    /* ── Footer ── */
+    .footer {
+      background: #1A1A1A;
+      border-radius: 0 0 16px 16px;
+      padding: 24px 40px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-brand {
+      font-family: 'DM Serif Display', serif;
+      font-size: 15px;
+      color: #FFFFFF;
+      letter-spacing: 0.01em;
+    }
+
+    .footer-note {
+      font-size: 11px;
+      color: #666;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 480px) {
+      .header, .risk-row, .card { padding-left: 24px; padding-right: 24px; }
+      .footer { flex-direction: column; gap: 10px; text-align: center; }
+      .header-title { font-size: 22px; }
+    }
+  </style>
+</head>
 <body>
-  <h2>Your Discipline Profile Report</h2>
-  <p><strong>Risk Level:</strong> {{ risk_level|title }}</p>
-  <p><strong>Summary:</strong> {{ title }}</p>
-  <h3>Key Points:</h3>
-  <ul>
-    {% for point in points %}
-      <li>{{ point }}</li>
-    {% endfor %}
-  </ul>
-  <p>{{ advice }}</p>
+<div class="wrapper">
+
+  <!-- Header -->
+  <div class="header">
+    <div class="header-label">Discipline Profile Report</div>
+    <div class="header-title">Your personal <em>discipline</em><br>assessment is ready.</div>
+  </div>
+
+  <!-- Risk Level Row -->
+  <div class="risk-row">
+    <span class="risk-label">Risk Level</span>
+    <span class="risk-badge {{ risk_level }}">{{ risk_level|title }}</span>
+  </div>
+
+  <!-- Main Content -->
+  <div class="card">
+
+    <!-- Summary -->
+    <div class="summary-block">
+      <div class="eyebrow">Summary</div>
+      <p>{{ title }}</p>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Key Points -->
+    <div class="section-label">Key Points</div>
+    <ul class="points-list">
+      {% for point in points %}
+      <li>
+        <span class="point-icon">{{ forloop.counter }}</span>
+        <span>{{ point }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+
+    <!-- Advice -->
+    <div class="advice-box">
+      <div class="eyebrow">Recommendation</div>
+      <p>{{ advice }}</p>
+    </div>
+
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <span class="footer-brand">BitsOfTrade&nbsp;</span>
+    <span class="footer-note">© {% now "Y" %} · All rights reserved</span>
+  </div>
+
+</div>
 </body>
 </html>
