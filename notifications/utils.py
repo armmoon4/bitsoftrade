@@ -149,3 +149,45 @@ def _build_message(rule, session, trade, is_hard):
         parts.append(f'Associated trade: {trade_label}')
 
     return ' '.join(parts)
+
+
+#### discipline test email 
+
+def send_discipline_report_email(email, risk_level):
+    from django.core.mail import send_mail
+    from django.template.loader import render_to_string
+    from django.conf import settings
+
+    report_data = {
+        "low": {
+            "title": "Your discipline patterns are currently stable.",
+            "points": ["Respect limits", "Pause after losses", "Avoid emotional escalation"],
+            "advice": "This already puts you ahead of most retail traders.",
+        },
+        "moderate": {
+            "title": "Your discipline holds — until pressure increases.",
+            "points": ["Rules exist, but aren't always enforced", "Trade behavior changes after wins or losses", "Limits are sometimes flexible"],
+            "advice": "This is where overtrading usually begins.",
+        },
+        "high": {
+            "title": "Your trading behavior is likely harming your results.",
+            "points": ["Rules are often overridden", "Trading continues after emotional triggers", "Loss recovery attempts increase activity"],
+            "advice": "This is a behavior pattern — not a strategy problem.",
+        },
+    }
+
+    data = report_data.get(risk_level, report_data["moderate"])
+
+    html_message = render_to_string("notifications/discipline_report_email.html", {
+        "risk_level": risk_level,
+        **data,
+    })
+
+    send_mail(
+        subject="Your Discipline Profile Report",
+        message=data["title"],  # plain text fallback
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[email],
+        html_message=html_message,
+        fail_silently=False,
+    )

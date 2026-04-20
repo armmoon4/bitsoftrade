@@ -142,3 +142,31 @@ class ClearAllNotificationsView(APIView):
     def delete(self, request):
         deleted_count, _ = Notification.objects.filter(user=request.user).delete()
         return Response({'deleted': deleted_count}, status=status.HTTP_200_OK)
+    
+
+
+##discpline-test views 
+
+from notifications.utils import send_discipline_report_email
+
+class SendDisciplineReportView(APIView):
+    permission_classes = []  # public — no login needed for this flow
+
+    def post(self, request):
+        email = request.data.get("email")
+        risk_level = request.data.get("risk_level")  # "low" | "moderate" | "high"
+
+        if not email or risk_level not in ("low", "moderate", "high"):
+            return Response(
+                {"detail": "Valid email and risk_level required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            send_discipline_report_email(email, risk_level)
+            return Response({"detail": "Report sent successfully."})
+        except Exception as e:
+            return Response(
+                {"detail": "Failed to send email.", "error": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

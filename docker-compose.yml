@@ -10,6 +10,12 @@ services:
     ports:
       - "5635:5432"
 
+  smtp4dev:
+    image: rnwood/smtp4dev
+    ports:
+      - "5010:80"
+      - "2526:25"
+
   web:
     build: .
     command: python manage.py runserver 0.0.0.0:13025
@@ -25,8 +31,11 @@ services:
       - DATABASE_PORT=${DATABASE_PORT}
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG}
+      - EMAIL_HOST=smtp4dev
+      - EMAIL_PORT=25
     depends_on:
       - db
+      - smtp4dev
 
 volumes:
   postgres_data:

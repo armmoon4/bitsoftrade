@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html>
+<body>
+  <h2>Your Discipline Profile Report</h2>
+  <p><strong>Risk Level:</strong> {{ risk_level|title }}</p>
+  <p><strong>Summary:</strong> {{ title }}</p>
+  <h3>Key Points:</h3>
+  <ul>
+    {% for point in points %}
+      <li>{{ point }}</li>
+    {% endfor %}
+  </ul>
+  <p>{{ advice }}</p>
+</body>
+</html>

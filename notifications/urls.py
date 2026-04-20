@@ -7,6 +7,7 @@ from notifications.views import (
     DeleteNotificationView,
     NotificationSettingsView,
     ClearAllNotificationsView,
+    SendDisciplineReportView,
 )
 
 urlpatterns = [
@@ -30,4 +31,7 @@ urlpatterns = [
 
     # Delete a single notification
     path('<uuid:pk>/delete/', DeleteNotificationView.as_view(), name='notification-delete'),
+
+    #send discipline test-report email
+    path('discipline-report/send/', SendDisciplineReportView.as_view(), name='discipline-report-send'),
 ]
