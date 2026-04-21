@@ -6,6 +6,7 @@ from .upstox import normalize_upstox
 from .dhan import normalize_dhan
 from .angelone import normalize_angelone
 from .fyers import normalize_fyers
+from .default import normalize_default
 
 # EXACT cell values that identify a real header row.
 # Using exact match (cell == keyword) instead of substring (kw in cell)
@@ -176,6 +177,13 @@ def detect_and_normalize(raw_rows, broker_hint=''):
     )
     if is_fyers:
         return 'fyers', normalize_fyers(raw_rows)
+    
+    is_default = (
+    broker_hint == 'default' or
+    {'symbol', 'entry_price', 'exit_price', 'quantity', 'segment', 'trade_date', 'side'}.issubset(headers)
+)
+    if is_default:
+        return 'default', normalize_default(raw_rows)
 
     # ── Fallback
     raise ValueError(
