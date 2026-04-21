@@ -187,5 +187,5 @@ def detect_and_normalize(raw_rows, broker_hint=''):
 
     # ── Fallback
     raise ValueError(
-        "Unrecognized broker format. Only Zerodha, Groww, Upstox, Dhan, Angel One, and Fyers CSVs are supported."
+        "Unrecognized broker format. Only Zerodha, Groww, Upstox, Dhan, Angel One, Fyers and Provided Format CSVs are supported."
     )
