@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from datetime import datetime, time as dtime, date as ddate
+from datetime import datetime, time as dtime, date as ddate, timedelta
 from .models import DisciplineSession, ViolationsLog
 from .serializers import DisciplineSessionSerializer, ViolationsLogSerializer
 
@@ -14,19 +14,22 @@ def _get_active_session(user):
     Shared helper — returns the most relevant session for the given user.
 
     Priority:
-      1. Most recent RED session (fully locked until actions completed).
-      2. Most recent YELLOW session (cooldown or awaiting journal).
+      1. Most recent RED session within the last 30 days.
+      2. Most recent YELLOW session within the last 30 days.
       3. Today's session (green fallback — created if it doesn't exist yet).
 
-    Both current_session_view and unlock_session_view use this so they
-    always operate on the exact same session — no date param needed.
+    The 30-day cutoff prevents a very old unresolved session from permanently
+    blocking the user and showing stale data in the Discipline Guard.
     """
     from django.utils.timezone import localdate
 
-    # 1. Most recent RED
+    today = localdate()
+    cutoff = today - timedelta(days=30)
+
+    # 1. Most recent RED (within last 30 days)
     session = (
         DisciplineSession.objects
-        .filter(user=user, session_state='red')
+        .filter(user=user, session_state='red', session_date__gte=cutoff)
         .order_by('-session_date')
         .first()
     )
@@ -34,10 +37,10 @@ def _get_active_session(user):
         session.refresh_from_db()
         return session
 
-    # 2. Most recent YELLOW
+    # 2. Most recent YELLOW (within last 30 days)
     session = (
         DisciplineSession.objects
-        .filter(user=user, session_state='yellow')
+        .filter(user=user, session_state='yellow', session_date__gte=cutoff)
         .order_by('-session_date')
         .first()
     )
@@ -46,7 +49,6 @@ def _get_active_session(user):
         return session
 
     # 3. Today's green session (create if missing)
-    today = localdate()
     session, created = DisciplineSession.objects.get_or_create(
         user=user,
         session_date=today,
@@ -68,8 +70,8 @@ def current_session_view(request):
     GET /api/discipline/current-session/
 
     Returns the most relevant session for the Discipline Guard UI:
-      1. Most recent RED session (past or today).
-      2. Most recent YELLOW session (past or today).
+      1. Most recent RED session (within last 30 days).
+      2. Most recent YELLOW session (within last 30 days).
       3. Today's green session as fallback.
     """
     session = _get_active_session(request.user)
@@ -95,13 +97,22 @@ def unlock_session_view(request):
 
     Unlocks the same session that current_session_view returns — no date
     param needed. The active session is always the most recent RED/YELLOW
-    one, which is exactly what the Discipline Guard card is showing.
+    one (within 30 days), which is exactly what the Discipline Guard card shows.
+
+    Checklist for RED session (all 4 required):
+      1. complete_journal       — user reviewed their journal
+      2. complete_trade_review  — user reviewed their trades
+      3. complete_all           — confirms both + starts cooldown timer (120 min)
+      4. Cooldown elapsed       — passive timer, shown in UI as countdown
+
+    Checklist for YELLOW session (2 required):
+      1. complete_journal       — user reviewed their journal
+      2. complete_all           — confirms + starts cooldown timer (45 min)
+      3. Cooldown elapsed       — passive timer
     """
-    # Resolve which session is currently active — same logic as current_session_view.
-    # select_for_update() requires a transaction (provided by @transaction.atomic).
     active = _get_active_session(request.user)
 
-    # Re-fetch with row lock now that we know the PK.
+    # Re-fetch with row lock inside the transaction.
     session = (
         DisciplineSession.objects
         .select_for_update()
@@ -112,16 +123,16 @@ def unlock_session_view(request):
 
     if action == 'complete_journal':
         session.journal_completed = True
+
     elif action == 'complete_trade_review':
         session.trade_review_completed = True
+
     elif action == 'complete_all':
         session.journal_completed = True
         session.trade_review_completed = True
-        # Cooldown starts ONLY when user hits complete_all — not before.
-        # This means the timer begins the moment the user confirms both
-        # checklist items, not when the session first locked.
+        # Cooldown timer starts ONLY when user explicitly hits complete_all.
+        # This is the 4th checklist item — it becomes a passive countdown in the UI.
         if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
-            from datetime import timedelta
             _COOLDOWN_YELLOW_MINUTES = 45
             _COOLDOWN_RED_MINUTES = 120
             if session.session_state == 'yellow':
@@ -130,14 +141,16 @@ def unlock_session_view(request):
                 session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
             session.save(update_fields=['cooldown_ends_at'])
 
-    # Determine whether unlock conditions are satisfied
+    # ── Determine if unlock conditions are fully satisfied ────────────────────
     can_unlock = False
     if session.session_state == 'yellow':
+        # YELLOW: only journal required
         can_unlock = session.journal_completed
     elif session.session_state == 'red':
+        # RED: both journal AND trade review required
         can_unlock = session.journal_completed and session.trade_review_completed
 
-    # Cooldown guard — honour DB-fresh cooldown_ends_at
+    # ── Cooldown guard — honour DB-fresh cooldown_ends_at ────────────────────
     if can_unlock and session.cooldown_ends_at:
         now = timezone.now()
         if now < session.cooldown_ends_at:
@@ -157,9 +170,7 @@ def unlock_session_view(request):
         session.lock_cycle_started_at = timezone.now()
         session.cooldown_ends_at = None
         # NOTE: rules_violated, violations_count, hard_violations, soft_violations
-        # are intentionally NOT reset here — they are permanent historical record
-        # for this session date and power the behavior metrics.
-        # Only the cycle-control and UI-state fields are reset.
+        # are intentionally NOT reset — they are permanent historical record.
         session.journal_completed = False
         session.trade_review_completed = False
         try:
@@ -169,7 +180,6 @@ def unlock_session_view(request):
             import logging
             logging.getLogger(__name__).error(f"[Discipline] Failed to create unlock notification: {notif_err}")
 
-
     session.save()
     return Response({
         'message': 'Session unlocked.' if can_unlock else 'Action recorded. Complete required steps to unlock.',
@@ -177,30 +187,7 @@ def unlock_session_view(request):
     })
 
 
-# @api_view(['GET'])
-# @permission_classes([permissions.IsAuthenticated])
-# def violations_timeline_view(request):
-#     """
-#     GET /api/discipline/violations-timeline/?from=YYYY-MM-DD&to=YYYY-MM-DD
-#     Returns per-day session states in the range.
-#     """
-#     from_date = request.query_params.get('from')
-#     to_date = request.query_params.get('to')
-
-#     qs = DisciplineSession.objects.filter(user=request.user)
-#     if from_date:
-#         qs = qs.filter(session_date__gte=from_date)
-#     if to_date:
-#         qs = qs.filter(session_date__lte=to_date)
-
-#     timeline = qs.values(
-#         'session_date', 'session_state', 'violations_count',
-#         'hard_violations', 'soft_violations'
-#     ).order_by('session_date')
-#     return Response(list(timeline))
-
-
-from datetime import date, timedelta
+from datetime import date
 from django.utils.dateparse import parse_date
 
 @api_view(['GET'])
@@ -217,7 +204,6 @@ def violations_timeline_view(request):
     from_date = parse_date(from_date_str) if from_date_str else today - timedelta(days=6)
     to_date = parse_date(to_date_str) if to_date_str else today
 
-    # Fetch existing sessions in range, keyed by date
     qs = DisciplineSession.objects.filter(
         user=request.user,
         session_date__gte=from_date,
@@ -229,7 +215,6 @@ def violations_timeline_view(request):
 
     sessions_by_date = {entry['session_date']: entry for entry in qs}
 
-    # Build full day-by-day timeline, filling gaps with empty entries
     timeline = []
     current = from_date
     while current <= to_date:
@@ -247,9 +232,9 @@ def violations_timeline_view(request):
 
         timeline.append({
             **entry,
-            'session_date': current.isoformat(),       
-            'day_label': current.strftime('%a'),       
-            'day_full': current.strftime('%A'),        
+            'session_date': current.isoformat(),
+            'day_label': current.strftime('%a'),
+            'day_full': current.strftime('%A'),
         })
         current += timedelta(days=1)
 

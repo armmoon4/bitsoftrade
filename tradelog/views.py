@@ -162,8 +162,6 @@ def _apply_filters(qs, params):
             pass
 
     # ── 14. Mistakes  (comma-separated — maps to violation_modes JSON field)
-    #   Accepted values: fomo_entry | revenge_trading | oversized_position |
-    #                    premature_exit | ignored_stop_loss | overtrading
     mistakes = params.get('mistakes', '').strip()
     if mistakes:
         mistake_list = [m.strip() for m in mistakes.split(',') if m.strip()]
@@ -199,8 +197,11 @@ def _apply_filters(qs, params):
 class TradeImportView(generics.GenericAPIView):
     """
     POST /api/tradelog/trades/import/
-    Accepts CSV or Excel file. Parses and imports trades.
-    Supports: Generic CSV, Zerodha, Upstox, Groww formats.
+    Accepts CSV or Excel file. Parses and imports ALL trades from the file
+    regardless of rule violations. Rule violations are evaluated AFTER each
+    trade is saved (via the post_save signal). The session state may turn
+    yellow/red after import, but that only blocks the NEXT import — never
+    the current file.
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -210,6 +211,23 @@ class TradeImportView(generics.GenericAPIView):
         file = request.FILES.get('file')
         if not file:
             return Response({'error': 'No file uploaded.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Check if session is currently locked BEFORE starting import ──────
+        # This only blocks starting a NEW import when the previous session
+        # is still locked (red/yellow). It does NOT stop mid-file.
+        from discipline.models import DisciplineSession
+        from rules.engine import is_session_locked
+        from django.utils.timezone import localdate
+
+        locked, lock_message = is_session_locked(request.user)
+        if locked:
+            return Response(
+                {
+                    'error': 'Trading session is locked.',
+                    'detail': lock_message,
+                },
+                status=status.HTTP_423_LOCKED,
+            )
 
         broker_name = request.data.get('broker_name', '').strip().lower()
         filename = file.name.lower()
@@ -232,11 +250,6 @@ class TradeImportView(generics.GenericAPIView):
         except Exception as e:
             return Response({'error': f'Format normalization failed: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
 
-        created_trades = []
-        errors = []
-        skipped_trades = []
-        blocked_dates = set()
-
         def _parse_date_for_sort(row):
             from datetime import datetime, date as ddate
             date_raw = row.get('date') or row.get('trade_date', '')
@@ -251,66 +264,36 @@ class TradeImportView(generics.GenericAPIView):
 
         rows = sorted(rows, key=_parse_date_for_sort)
 
-        import_stopped_at = None
+        # ── Import ALL trades — no lock checks inside this loop ───────────────
+        # The post_save signal on Trade fires after each save and evaluates
+        # rules. The session may go yellow/red during this loop, but that is
+        # intentional — the discipline guard reflects violations AFTER import.
+        # Blocking mid-import would prevent users from importing historical data.
+        created_trades = []
+        errors = []
+        skipped_trades = []
 
         for i, row in enumerate(rows, start=1):
-            row_date = _parse_date_for_sort(row)
-
-            if import_stopped_at is not None:
-                errors.append({
-                    'row': i,
-                    'error': f'Import stopped — session locked for {import_stopped_at}. Unlock that session first then re-import.',
-                    'data': row,
-                })
-                continue
-
-            from rules.engine import is_session_locked
-            locked, lock_msg = is_session_locked(request.user, date=row_date)
-            if locked:
-                import_stopped_at = row_date
-                errors.append({
-                    'row': i,
-                    'error': f'Import stopped — session locked for {row_date}: {lock_msg}',
-                    'data': row,
-                })
-                continue
-
             try:
                 trade = _create_trade_from_row(row, request.user, detected_broker or broker_name)
                 created_trades.append(trade)
-
-                locked, lock_msg = is_session_locked(request.user, date=row_date)
-                if locked:
-                    import_stopped_at = row_date
-
             except ValueError as e:
                 err_str = str(e)
                 if err_str.startswith('DUPLICATE'):
                     skipped_trades.append(row)
                 else:
-                    import_stopped_at = row_date
                     errors.append({'row': i, 'error': err_str, 'data': row})
             except Exception as e:
                 errors.append({'row': i, 'error': str(e), 'data': row})
 
-        response_data = {
+        return Response({
             'imported': len(created_trades),
             'failed': len(errors),
+            'skipped': len(skipped_trades),
             'errors': errors[:10],
             'detected_broker': detected_broker,
-            'skipped': len(skipped_trades),
             'message': f'{len(created_trades)} trades imported successfully.',
-        }
-        if import_stopped_at is not None:
-            response_data['import_stopped'] = True
-            response_data['stopped_at_date'] = str(import_stopped_at)
-            response_data['message'] = (
-                f'{len(created_trades)} trades imported. '
-                f'Import stopped at {import_stopped_at} due to a rule violation. '
-                f'Unlock that session to import remaining trades.'
-            )
-
-        return Response(response_data, status=status.HTTP_201_CREATED)
+        }, status=status.HTTP_201_CREATED)
 
 
 class TradeListCreateView(generics.ListCreateAPIView):
@@ -329,9 +312,23 @@ class TradeListCreateView(generics.ListCreateAPIView):
         return _apply_filters(qs, self.request.query_params)
 
     def create(self, request, *args, **kwargs):
-        lock_response = _get_session_lock_response(request.user)
-        if lock_response:
-            return lock_response
+        # For manual Add Trade, check the active session lock (red/yellow)
+        # not just today — so an old unresolved red session also blocks entry.
+        from discipline.models import DisciplineSession
+        active_session = (
+            DisciplineSession.objects
+            .filter(user=request.user, session_state__in=['red', 'yellow'])
+            .order_by('-session_date')
+            .first()
+        )
+        if active_session:
+            from rules.engine import is_session_locked
+            locked, message = is_session_locked(request.user, date=active_session.session_date)
+            if locked:
+                return Response(
+                    {'error': 'Trading session is locked.', 'detail': message},
+                    status=status.HTTP_423_LOCKED,
+                )
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
@@ -403,10 +400,12 @@ def _parse_time_field(raw):
 def _create_trade_from_row(row, user, broker_name):
     """
     Create and save a Trade instance from a normalized row dict.
+    No session lock check here — locking is evaluated AFTER save via
+    the post_save signal in discipline/signals.py. This ensures ALL
+    trades in a file are imported before any blocking occurs.
     """
     from datetime import datetime, date as ddate
     from discipline.models import DisciplineSession
-    from rules.engine import is_session_locked
 
     symbol = row.get('symbol') or row.get('scrip', '')
     direction = (row.get('direction') or row.get('trade_type', 'long')).lower()
@@ -436,6 +435,7 @@ def _create_trade_from_row(row, user, broker_name):
     # ── exit_time: earliest time of exit legs (sell for long, buy for short)
     exit_time = _parse_time_field(row.get('exit_time', ''))
 
+    # ── Duplicate check ───────────────────────────────────────────────────────
     already_exists = Trade.objects.filter(
         user=user,
         trade_date=trade_date,
@@ -448,10 +448,7 @@ def _create_trade_from_row(row, user, broker_name):
     if already_exists:
         raise ValueError(f"DUPLICATE — trade already imported for {trade_date} {symbol} skipped.")
 
-    locked, lock_msg = is_session_locked(user, date=trade_date)
-    if locked:
-        raise ValueError(f"Trade blocked — session locked for {trade_date}: {lock_msg}")
-
+    # ── Get or create session for this trade's date ───────────────────────────
     session, _ = DisciplineSession.objects.get_or_create(
         user=user, session_date=trade_date, defaults={'session_state': 'green'}
     )
@@ -494,7 +491,7 @@ class TradeSymbolListView(generics.ListAPIView):
     """
     serializer_class = TradeSymbolSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None  # Optional: Set to None if you want all of them in one flat list for a dropdown
+    pagination_class = None
 
     def get_queryset(self):
         return Trade.objects.filter(
@@ -511,8 +508,6 @@ class ImageUploadView(generics.GenericAPIView):
     """
     POST /api/tradelog/upload-screenshot/
     Accepts multiple images, saves them locally, and returns a list of URLs.
-    The caller is responsible for attaching these URLs to a trade via the
-    TradeDetailView PATCH endpoint (screenshot_urls field).
     """
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
@@ -612,7 +607,6 @@ class TradeScreenshotView(APIView):
         urls_to_remove = request.data.get('urls', [])
 
         if not urls_to_remove:
-            # Clear all screenshots
             removed_count = len(trade.screenshot_urls)
             trade.screenshot_urls = []
             trade.save(update_fields=['screenshot_urls'])
@@ -656,7 +650,6 @@ class TradeBulkDeleteView(APIView):
         base_qs = Trade.objects.filter(user=request.user, deleted_at__isnull=True)
 
         if delete_all:
-            # Apply optional filters when deleting all
             qs = _apply_filters(base_qs, data)
             count = qs.count()
             qs.update(deleted_at=timezone.now())
@@ -665,7 +658,6 @@ class TradeBulkDeleteView(APIView):
                 "message": f"{count} trade(s) deleted successfully.",
             }, status=status.HTTP_200_OK)
 
-        # Specific IDs provided
         ids = data.get('ids', [])
         if not ids:
             return Response(
@@ -679,7 +671,6 @@ class TradeBulkDeleteView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate UUIDs
         valid_ids = []
         invalid_ids = []
         for raw_id in ids:
