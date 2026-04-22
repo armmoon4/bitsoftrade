@@ -114,8 +114,8 @@ def unlock_session_view(request):
         # Cooldown starts ONLY when user explicitly clicks complete_all.
         # This is the 4th checklist item — rendered as a countdown timer in UI.
         if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
-            _COOLDOWN_YELLOW_MINUTES = 45
-            _COOLDOWN_RED_MINUTES = 120
+            _COOLDOWN_YELLOW_MINUTES = 5
+            _COOLDOWN_RED_MINUTES = 1
             if session.session_state == 'yellow':
                 session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
             elif session.session_state == 'red':
