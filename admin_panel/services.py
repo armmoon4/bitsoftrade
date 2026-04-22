@@ -108,31 +108,36 @@ def get_dashboard_stats():
     # ── platform engagement ────────────────────────────────────────────────────
     try:
         from tradelog.models import Trade
-        trades_today    = Trade.objects.filter(deleted_at__isnull=True, trade_date=today).count()
-        trades_per_user = round(trades_today / total_users, 1) if total_users else 0
 
-        # ── avg session duration: mean of (exit_time - entry_time) for today's trades
+        # trades_per_day: 7-day rolling average (total trades in last 7 days / 7)
+        trades_last_7d  = Trade.objects.filter(
+            deleted_at__isnull=True,
+            trade_date__gte=week_start,
+        ).count()
+        trades_per_day  = round(trades_last_7d / 7, 1)
+        trades_per_user = round(trades_per_day / total_users, 1) if total_users else 0
+
+        # avg session duration: mean of (exit_time - entry_time) over last 7 days
         avg_session_seconds = None
         timed_trades = Trade.objects.filter(
             deleted_at__isnull=True,
-            trade_date=today,
+            trade_date__gte=week_start,
             entry_time__isnull=False,
             exit_time__isnull=False,
         ).values_list('entry_time', 'exit_time')
         if timed_trades.exists():
             durations = []
             for entry_t, exit_t in timed_trades:
-                # Convert time → total seconds for arithmetic
                 entry_secs = entry_t.hour * 3600 + entry_t.minute * 60 + entry_t.second
                 exit_secs  = exit_t.hour  * 3600 + exit_t.minute  * 60 + exit_t.second
                 diff = exit_secs - entry_secs
-                if diff > 0:           # ignore negative (overnight edge-case)
+                if diff > 0:
                     durations.append(diff)
             if durations:
                 avg_session_seconds = round(sum(durations) / len(durations))
     except Exception as e:
         logger.error("[admin stats] trades block failed: %s", e, exc_info=True)
-        trades_today = trades_per_user = 0
+        trades_per_day = trades_per_user = 0
         avg_session_seconds = None
 
     try:
@@ -170,7 +175,7 @@ def get_dashboard_stats():
         },
         'avg_session_seconds': avg_session_seconds,
         'trades_per_day': {
-            'value':        trades_today,
+            'value':        trades_per_day,
             'per_user_avg': trades_per_user,
         },
         'journal_entries_this_week': {
