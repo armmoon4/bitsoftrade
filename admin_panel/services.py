@@ -5,7 +5,10 @@ Pure business-logic functions.
 """
 
 import calendar
-from datetime import timedelta
+import logging
+from datetime import timedelta, datetime
+
+logger = logging.getLogger(__name__)
 
 from django.db.models import Q
 from django.utils import timezone
@@ -105,10 +108,32 @@ def get_dashboard_stats():
     # ── platform engagement ────────────────────────────────────────────────────
     try:
         from tradelog.models import Trade
-        trades_today  = Trade.objects.filter(deleted_at__isnull=True, trade_date=today).count()
+        trades_today    = Trade.objects.filter(deleted_at__isnull=True, trade_date=today).count()
         trades_per_user = round(trades_today / total_users, 1) if total_users else 0
-    except Exception:
+
+        # ── avg session duration: mean of (exit_time - entry_time) for today's trades
+        avg_session_seconds = None
+        timed_trades = Trade.objects.filter(
+            deleted_at__isnull=True,
+            trade_date=today,
+            entry_time__isnull=False,
+            exit_time__isnull=False,
+        ).values_list('entry_time', 'exit_time')
+        if timed_trades.exists():
+            durations = []
+            for entry_t, exit_t in timed_trades:
+                # Convert time → total seconds for arithmetic
+                entry_secs = entry_t.hour * 3600 + entry_t.minute * 60 + entry_t.second
+                exit_secs  = exit_t.hour  * 3600 + exit_t.minute  * 60 + exit_t.second
+                diff = exit_secs - entry_secs
+                if diff > 0:           # ignore negative (overnight edge-case)
+                    durations.append(diff)
+            if durations:
+                avg_session_seconds = round(sum(durations) / len(durations))
+    except Exception as e:
+        logger.error("[admin stats] trades block failed: %s", e, exc_info=True)
         trades_today = trades_per_user = 0
+        avg_session_seconds = None
 
     try:
         from journal.models import DailyJournal
@@ -143,7 +168,7 @@ def get_dashboard_stats():
             'value':        dau,
             'pct_of_total': round((dau / total_users * 100), 1) if total_users else 0,
         },
-        'avg_session_seconds': None,
+        'avg_session_seconds': avg_session_seconds,
         'trades_per_day': {
             'value':        trades_today,
             'per_user_avg': trades_per_user,
