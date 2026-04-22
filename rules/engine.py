@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 # ─── State Severity Ordering ──────────────────────────────────────────────────
 _STATE_SEVERITY = {'green': 0, 'yellow': 1, 'red': 2}
 
-_COOLDOWN_YELLOW_MINUTES = 2   # reference only — not used in engine
+_COOLDOWN_YELLOW_MINUTES = 1   # reference only — not used in engine
 _COOLDOWN_RED_MINUTES = 5      # reference only — not used in engine
 
 
