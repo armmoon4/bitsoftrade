@@ -105,20 +105,19 @@ def get_dashboard_stats():
     # ── platform engagement ────────────────────────────────────────────────────
     try:
         from tradelog.models import Trade
-        trades_today  = Trade.objects.filter(deleted_at__isnull=True, entry_date__date=today).count()
+        trades_today  = Trade.objects.filter(deleted_at__isnull=True, trade_date=today).count()
         trades_per_user = round(trades_today / total_users, 1) if total_users else 0
     except Exception:
         trades_today = trades_per_user = 0
 
     try:
-        from journal.models import JournalEntry
-        journal_this_week = JournalEntry.objects.filter(
-            deleted_at__isnull=True, created_at__date__gte=week_start
+        from journal.models import DailyJournal
+        journal_this_week = DailyJournal.objects.filter(
+            journal_date__gte=week_start
         ).count()
-        journal_prev_week = JournalEntry.objects.filter(
-            deleted_at__isnull=True,
-            created_at__date__gte=prev_week_start,
-            created_at__date__lte=prev_week_end,
+        journal_prev_week = DailyJournal.objects.filter(
+            journal_date__gte=prev_week_start,
+            journal_date__lte=prev_week_end,
         ).count()
         journal_change_pct = pct_change(journal_this_week, journal_prev_week)
     except Exception:
@@ -133,8 +132,8 @@ def get_dashboard_stats():
 
     try:
         dau = active_users.filter(
-            Q(trades__entry_date__date=today) |
-            Q(journal_entries__created_at__date=today)
+            Q(trades__trade_date=today) |
+            Q(daily_journals__journal_date=today)
         ).distinct().count()
     except Exception:
         dau = 0
