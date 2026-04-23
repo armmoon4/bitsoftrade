@@ -4,48 +4,34 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from django.db import transaction
-from datetime import datetime, time as dtime, date as ddate
+from datetime import datetime, time as dtime, date as ddate, timedelta, date
 from .models import DisciplineSession, ViolationsLog
 from .serializers import DisciplineSessionSerializer, ViolationsLogSerializer
 
 
 def _get_active_session(user):
     """
-    Shared helper — returns the most relevant session for the given user.
+    Returns the most relevant session for the Discipline Guard UI.
+
+    Uses the same get_active_locked_session() from rules.engine so that
+    the discipline guard, import block, and add-trade block all show and
+    act on the EXACT same session — there is no inconsistency.
 
     Priority:
-      1. Most recent RED session (fully locked until actions completed).
-      2. Most recent YELLOW session (cooldown or awaiting journal).
-      3. Today's session (green fallback — created if it doesn't exist yet).
-
-    Both current_session_view and unlock_session_view use this so they
-    always operate on the exact same session — no date param needed.
+      1. Most recent RED session within 30 days  → user must complete checklist
+      2. Most recent YELLOW session within 30 days → user must complete journal
+      3. Today's green session (created if missing) → everything is fine
     """
+    from rules.engine import get_active_locked_session
     from django.utils.timezone import localdate
 
-    # 1. Most recent RED
-    session = (
-        DisciplineSession.objects
-        .filter(user=user, session_state='red')
-        .order_by('-session_date')
-        .first()
-    )
-    if session:
-        session.refresh_from_db()
-        return session
+    # Use the shared engine helper — single source of truth
+    locked_session = get_active_locked_session(user)
+    if locked_session:
+        locked_session.refresh_from_db()
+        return locked_session
 
-    # 2. Most recent YELLOW
-    session = (
-        DisciplineSession.objects
-        .filter(user=user, session_state='yellow')
-        .order_by('-session_date')
-        .first()
-    )
-    if session:
-        session.refresh_from_db()
-        return session
-
-    # 3. Today's green session (create if missing)
+    # No locked session — return or create today's green session
     today = localdate()
     session, created = DisciplineSession.objects.get_or_create(
         user=user,
@@ -67,10 +53,10 @@ def current_session_view(request):
     """
     GET /api/discipline/current-session/
 
-    Returns the most relevant session for the Discipline Guard UI:
-      1. Most recent RED session (past or today).
-      2. Most recent YELLOW session (past or today).
-      3. Today's green session as fallback.
+    Returns the active session for the Discipline Guard card:
+      1. Most recent RED session (within 30 days) — must unlock
+      2. Most recent YELLOW session (within 30 days) — must complete journal
+      3. Today's green session — all clear
     """
     session = _get_active_session(request.user)
     return Response(DisciplineSessionSerializer(session).data)
@@ -81,8 +67,7 @@ def current_session_view(request):
 def session_history_view(request):
     """GET /api/discipline/sessions/ — Full session history."""
     sessions = DisciplineSession.objects.filter(user=request.user).order_by('-session_date')
-    serializer = DisciplineSessionSerializer(sessions, many=True)
-    return Response(serializer.data)
+    return Response(DisciplineSessionSerializer(sessions, many=True).data)
 
 
 @api_view(['POST'])
@@ -91,17 +76,24 @@ def session_history_view(request):
 def unlock_session_view(request):
     """
     POST /api/discipline/unlock/
-    Body: { action: 'complete_journal' | 'complete_trade_review' | 'complete_all' }
+    Body: { "action": "complete_journal" | "complete_trade_review" | "complete_all" }
 
-    Unlocks the same session that current_session_view returns — no date
-    param needed. The active session is always the most recent RED/YELLOW
-    one, which is exactly what the Discipline Guard card is showing.
+    Works on the same session that current_session_view shows — no date needed.
+
+    Checklist for RED session (all required before unlock):
+      1. complete_journal       — user reviewed journal entry
+      2. complete_trade_review  — user reviewed their trades
+      3. complete_all           — confirms both items + starts cooldown timer
+      4. Cooldown elapsed       — passive countdown shown in UI (120 min for RED)
+
+    Checklist for YELLOW session:
+      1. complete_journal       — user reviewed journal entry
+      2. complete_all           — confirms + starts cooldown timer (45 min for YELLOW)
+      3. Cooldown elapsed       — passive countdown shown in UI
     """
-    # Resolve which session is currently active — same logic as current_session_view.
-    # select_for_update() requires a transaction (provided by @transaction.atomic).
     active = _get_active_session(request.user)
 
-    # Re-fetch with row lock now that we know the PK.
+    # Re-fetch with row lock inside the transaction
     session = (
         DisciplineSession.objects
         .select_for_update()
@@ -112,32 +104,32 @@ def unlock_session_view(request):
 
     if action == 'complete_journal':
         session.journal_completed = True
+
     elif action == 'complete_trade_review':
         session.trade_review_completed = True
+
     elif action == 'complete_all':
         session.journal_completed = True
         session.trade_review_completed = True
-        # Cooldown starts ONLY when user hits complete_all — not before.
-        # This means the timer begins the moment the user confirms both
-        # checklist items, not when the session first locked.
+        # Cooldown starts ONLY when user explicitly clicks complete_all.
+        # This is the 4th checklist item — rendered as a countdown timer in UI.
         if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
-            from datetime import timedelta
-            _COOLDOWN_YELLOW_MINUTES = 45
-            _COOLDOWN_RED_MINUTES = 120
+            _COOLDOWN_YELLOW_MINUTES = 1
+            _COOLDOWN_RED_MINUTES = 5
             if session.session_state == 'yellow':
                 session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
             elif session.session_state == 'red':
                 session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
             session.save(update_fields=['cooldown_ends_at'])
 
-    # Determine whether unlock conditions are satisfied
+    # ── Check whether all unlock conditions are met ───────────────────────────
     can_unlock = False
     if session.session_state == 'yellow':
         can_unlock = session.journal_completed
     elif session.session_state == 'red':
         can_unlock = session.journal_completed and session.trade_review_completed
 
-    # Cooldown guard — honour DB-fresh cooldown_ends_at
+    # ── Cooldown guard ────────────────────────────────────────────────────────
     if can_unlock and session.cooldown_ends_at:
         now = timezone.now()
         if now < session.cooldown_ends_at:
@@ -150,18 +142,34 @@ def unlock_session_view(request):
             }, status=status.HTTP_202_ACCEPTED)
 
     if can_unlock:
+        now_ts = timezone.now()
         session.session_state = 'green'
         session.required_actions_completed = True
-        session.unlocked_at = timezone.now()
+        session.unlocked_at = now_ts
         session.lock_cycle = (session.lock_cycle or 0) + 1
-        session.lock_cycle_started_at = timezone.now()
+        session.lock_cycle_started_at = now_ts
         session.cooldown_ends_at = None
-        # NOTE: rules_violated, violations_count, hard_violations, soft_violations
-        # are intentionally NOT reset here — they are permanent historical record
-        # for this session date and power the behavior metrics.
-        # Only the cycle-control and UI-state fields are reset.
+        # Historical violation counts intentionally kept — never reset on unlock
         session.journal_completed = False
         session.trade_review_completed = False
+        session.save()
+
+        # ── Bulk-unlock ALL other locked sessions for this user ───────────────
+        # When a CSV import spans multiple dates, several sessions can all be
+        # RED/YELLOW from the same batch. One discipline review clears all of them —
+        # forcing the user to repeat the checklist per date would be wrong.
+        DisciplineSession.objects.filter(
+            user=request.user,
+            session_state__in=['red', 'yellow'],
+        ).exclude(pk=session.pk).update(
+            session_state='green',
+            required_actions_completed=True,
+            unlocked_at=now_ts,
+            cooldown_ends_at=None,
+            journal_completed=False,
+            trade_review_completed=False,
+        )
+
         try:
             from notifications.utils import create_session_notification
             create_session_notification(user=request.user, session=session, event='unlocked')
@@ -169,38 +177,19 @@ def unlock_session_view(request):
             import logging
             logging.getLogger(__name__).error(f"[Discipline] Failed to create unlock notification: {notif_err}")
 
+        return Response({
+            'message': 'Session unlocked.',
+            'session': DisciplineSessionSerializer(session).data,
+        })
 
+    # Checklist item recorded but not yet ready to unlock
     session.save()
     return Response({
-        'message': 'Session unlocked.' if can_unlock else 'Action recorded. Complete required steps to unlock.',
+        'message': 'Action recorded. Complete required steps to unlock.',
         'session': DisciplineSessionSerializer(session).data,
     })
 
 
-# @api_view(['GET'])
-# @permission_classes([permissions.IsAuthenticated])
-# def violations_timeline_view(request):
-#     """
-#     GET /api/discipline/violations-timeline/?from=YYYY-MM-DD&to=YYYY-MM-DD
-#     Returns per-day session states in the range.
-#     """
-#     from_date = request.query_params.get('from')
-#     to_date = request.query_params.get('to')
-
-#     qs = DisciplineSession.objects.filter(user=request.user)
-#     if from_date:
-#         qs = qs.filter(session_date__gte=from_date)
-#     if to_date:
-#         qs = qs.filter(session_date__lte=to_date)
-
-#     timeline = qs.values(
-#         'session_date', 'session_state', 'violations_count',
-#         'hard_violations', 'soft_violations'
-#     ).order_by('session_date')
-#     return Response(list(timeline))
-
-
-from datetime import date, timedelta
 from django.utils.dateparse import parse_date
 
 @api_view(['GET'])
@@ -217,7 +206,6 @@ def violations_timeline_view(request):
     from_date = parse_date(from_date_str) if from_date_str else today - timedelta(days=6)
     to_date = parse_date(to_date_str) if to_date_str else today
 
-    # Fetch existing sessions in range, keyed by date
     qs = DisciplineSession.objects.filter(
         user=request.user,
         session_date__gte=from_date,
@@ -229,7 +217,6 @@ def violations_timeline_view(request):
 
     sessions_by_date = {entry['session_date']: entry for entry in qs}
 
-    # Build full day-by-day timeline, filling gaps with empty entries
     timeline = []
     current = from_date
     while current <= to_date:
@@ -244,12 +231,11 @@ def violations_timeline_view(request):
                 'hard_violations': 0,
                 'soft_violations': 0,
             }
-
         timeline.append({
             **entry,
-            'session_date': current.isoformat(),       
-            'day_label': current.strftime('%a'),       
-            'day_full': current.strftime('%A'),        
+            'session_date': current.isoformat(),
+            'day_label': current.strftime('%a'),
+            'day_full': current.strftime('%A'),
         })
         current += timedelta(days=1)
 

@@ -6,6 +6,7 @@ from .views import (
     SystemRuleListView,
     SystemRuleUpdateView,
     TradeRuleListCreateView,
+    rule_evaluate_debug,
 )
 
 urlpatterns = [
@@ -19,4 +20,7 @@ urlpatterns = [
     path('system/<uuid:pk>/', SystemRuleUpdateView.as_view(), name='system-rule-detail'),
 
     path('trade-links/', TradeRuleListCreateView.as_view(), name='trade-rule-list'),
+
+    # ── Debug / diagnostic ────────────────────────────────────────────────────
+    path('evaluate-debug/', rule_evaluate_debug, name='rule-evaluate-debug'),
 ]
