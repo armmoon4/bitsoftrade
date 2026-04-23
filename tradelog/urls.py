@@ -7,7 +7,6 @@ from tradelog.views import (
     ImageUploadView,
     TradeScreenshotView,
     TradeBulkDeleteView,
-    TradeTagUpdateView,       # ← NEW
 )
 from tradelog.analytics_views import (
     TradeDistributionView,
@@ -28,7 +27,6 @@ urlpatterns = [
     # ── Dynamic paths AFTER — <uuid:pk> won't swallow static segments above
     path('trades/<uuid:pk>/', TradeDetailView.as_view(), name='trade-detail'),
     path('trades/<uuid:pk>/screenshots/', TradeScreenshotView.as_view(), name='trade-screenshots'),
-    path('trades/<uuid:pk>/retag/', TradeTagUpdateView.as_view(), name='trade-retag'),   # ← NEW
 
     # ── Standalone image upload
     path('upload-screenshot/', ImageUploadView.as_view(), name='upload-screenshot'),
