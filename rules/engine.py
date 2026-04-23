@@ -9,8 +9,9 @@ Session state can only escalate within a lock cycle, never auto-downgrade.
 On unlock, the lock_cycle increments so the same rule can re-fire.
 
 Cooldown:
-  Cooldown timer is set ONLY in discipline/views.py unlock_session_view
-  when the user clicks complete_all. The engine does NOT set cooldown_ends_at.
+  Cooldown timer is set HERE automatically when the session first escalates
+  into YELLOW or RED. The unlock view only checks/enforces it — it does NOT
+  start it.
 """
 import logging
 from datetime import timedelta
@@ -24,8 +25,8 @@ logger = logging.getLogger(__name__)
 # ─── State Severity Ordering ──────────────────────────────────────────────────
 _STATE_SEVERITY = {'green': 0, 'yellow': 1, 'red': 2}
 
-_COOLDOWN_YELLOW_MINUTES = 1   # reference only — not used in engine
-_COOLDOWN_RED_MINUTES = 5      # reference only — not used in engine
+_COOLDOWN_YELLOW_MINUTES = 1
+_COOLDOWN_RED_MINUTES = 5
 
 
 def evaluate_rules_for_user(user, session, trade=None):
@@ -177,11 +178,23 @@ def evaluate_rules_for_user(user, session, trade=None):
             if new_severity > peak_severity:
                 session.peak_state = new_state
 
-            # DO NOT set cooldown_ends_at here.
-            # Cooldown is started exclusively in discipline/views.py
-            # unlock_session_view when the user clicks complete_all.
-
             session.required_actions_completed = False
+
+            # ── Auto-start cooldown on first escalation into this state ──────
+            # Only set cooldown_ends_at if it hasn't been set yet for this
+            # lock cycle (i.e. the session is freshly locked, not re-evaluated
+            # while already locked).
+            if session.cooldown_ends_at is None:
+                if new_state == 'yellow':
+                    session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
+                elif new_state == 'red':
+                    session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
+                print(f"[RuleEngine] cooldown started → ends_at={session.cooldown_ends_at}")
+            # If escalating from YELLOW → RED while cooldown is already running,
+            # extend the cooldown to the RED duration from now.
+            elif new_state == 'red' and current_severity < _STATE_SEVERITY['red']:
+                session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
+                print(f"[RuleEngine] cooldown extended to RED → ends_at={session.cooldown_ends_at}")
 
             print(f"[RuleEngine] saving session → state={session.session_state}")
             session.save(update_fields=[
@@ -192,6 +205,7 @@ def evaluate_rules_for_user(user, session, trade=None):
                 'violations_count',
                 'hard_violations',
                 'soft_violations',
+                'cooldown_ends_at',  # ← now saved here
             ])
 
             try:

@@ -81,9 +81,6 @@ def unlock_session_view(request):
         .get(pk=active.pk)
     )
 
-    _COOLDOWN_YELLOW_MINUTES = 1
-    _COOLDOWN_RED_MINUTES = 5
-
     action = request.data.get('action', '')
 
     if action == 'complete_journal':
@@ -96,12 +93,19 @@ def unlock_session_view(request):
         session.journal_completed = True
         session.trade_review_completed = True
 
-    # ── Start cooldown on ANY action, immediately ─────────────────────────
-    if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
-        if session.session_state == 'yellow':
-            session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
-        elif session.session_state == 'red':
-            session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
+    # ── Cooldown guard ────────────────────────────────────────────────────
+    # Cooldown is started automatically by the rule engine when the session
+    # first escalates. Here we only CHECK whether it has elapsed.
+    if session.cooldown_ends_at:
+        now = timezone.now()
+        if now < session.cooldown_ends_at:
+            remaining_minutes = max(1, int((session.cooldown_ends_at - now).total_seconds() // 60))
+            session.save(update_fields=['journal_completed', 'trade_review_completed'])
+            return Response({
+                'message': f'Cooldown active. {remaining_minutes} minute(s) remaining.',
+                'cooldown_ends_at': session.cooldown_ends_at,
+                'session': DisciplineSessionSerializer(session).data,
+            }, status=status.HTTP_202_ACCEPTED)
 
     # ── Check whether all unlock conditions are met ───────────────────────
     can_unlock = False
@@ -109,18 +113,6 @@ def unlock_session_view(request):
         can_unlock = session.journal_completed
     elif session.session_state == 'red':
         can_unlock = session.journal_completed and session.trade_review_completed
-
-    # ── Cooldown guard ────────────────────────────────────────────────────
-    if session.cooldown_ends_at:
-        now = timezone.now()
-        if now < session.cooldown_ends_at:
-            remaining_minutes = max(1, int((session.cooldown_ends_at - now).total_seconds() // 60))
-            session.save(update_fields=['journal_completed', 'trade_review_completed', 'cooldown_ends_at'])
-            return Response({
-                'message': f'Cooldown active. {remaining_minutes} minute(s) remaining.',
-                'cooldown_ends_at': session.cooldown_ends_at,
-                'session': DisciplineSessionSerializer(session).data,
-            }, status=status.HTTP_202_ACCEPTED)
 
     if can_unlock:
         now_ts = timezone.now()
