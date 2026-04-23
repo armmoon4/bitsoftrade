@@ -74,31 +74,15 @@ def session_history_view(request):
 @permission_classes([permissions.IsAuthenticated])
 @transaction.atomic
 def unlock_session_view(request):
-    """
-    POST /api/discipline/unlock/
-    Body: { "action": "complete_journal" | "complete_trade_review" | "complete_all" }
-
-    Works on the same session that current_session_view shows — no date needed.
-
-    Checklist for RED session (all required before unlock):
-      1. complete_journal       — user reviewed journal entry
-      2. complete_trade_review  — user reviewed their trades
-      3. complete_all           — confirms both items + starts cooldown timer
-      4. Cooldown elapsed       — passive countdown shown in UI (120 min for RED)
-
-    Checklist for YELLOW session:
-      1. complete_journal       — user reviewed journal entry
-      2. complete_all           — confirms + starts cooldown timer (45 min for YELLOW)
-      3. Cooldown elapsed       — passive countdown shown in UI
-    """
     active = _get_active_session(request.user)
-
-    # Re-fetch with row lock inside the transaction
     session = (
         DisciplineSession.objects
         .select_for_update()
         .get(pk=active.pk)
     )
+
+    _COOLDOWN_YELLOW_MINUTES = 1
+    _COOLDOWN_RED_MINUTES = 5
 
     action = request.data.get('action', '')
 
@@ -111,30 +95,27 @@ def unlock_session_view(request):
     elif action == 'complete_all':
         session.journal_completed = True
         session.trade_review_completed = True
-        # Cooldown starts ONLY when user explicitly clicks complete_all.
-        # This is the 4th checklist item — rendered as a countdown timer in UI.
-        if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
-            _COOLDOWN_YELLOW_MINUTES = 1
-            _COOLDOWN_RED_MINUTES = 5
-            if session.session_state == 'yellow':
-                session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
-            elif session.session_state == 'red':
-                session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
-            session.save(update_fields=['cooldown_ends_at'])
 
-    # ── Check whether all unlock conditions are met ───────────────────────────
+    # ── Start cooldown on ANY action, immediately ─────────────────────────
+    if session.cooldown_ends_at is None and session.session_state in ('yellow', 'red'):
+        if session.session_state == 'yellow':
+            session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_YELLOW_MINUTES)
+        elif session.session_state == 'red':
+            session.cooldown_ends_at = timezone.now() + timedelta(minutes=_COOLDOWN_RED_MINUTES)
+
+    # ── Check whether all unlock conditions are met ───────────────────────
     can_unlock = False
     if session.session_state == 'yellow':
         can_unlock = session.journal_completed
     elif session.session_state == 'red':
         can_unlock = session.journal_completed and session.trade_review_completed
 
-    # ── Cooldown guard ────────────────────────────────────────────────────────
-    if can_unlock and session.cooldown_ends_at:
+    # ── Cooldown guard ────────────────────────────────────────────────────
+    if session.cooldown_ends_at:
         now = timezone.now()
         if now < session.cooldown_ends_at:
             remaining_minutes = max(1, int((session.cooldown_ends_at - now).total_seconds() // 60))
-            session.save(update_fields=['journal_completed', 'trade_review_completed'])
+            session.save(update_fields=['journal_completed', 'trade_review_completed', 'cooldown_ends_at'])
             return Response({
                 'message': f'Cooldown active. {remaining_minutes} minute(s) remaining.',
                 'cooldown_ends_at': session.cooldown_ends_at,
@@ -149,15 +130,10 @@ def unlock_session_view(request):
         session.lock_cycle = (session.lock_cycle or 0) + 1
         session.lock_cycle_started_at = now_ts
         session.cooldown_ends_at = None
-        # Historical violation counts intentionally kept — never reset on unlock
         session.journal_completed = False
         session.trade_review_completed = False
         session.save()
 
-        # ── Bulk-unlock ALL other locked sessions for this user ───────────────
-        # When a CSV import spans multiple dates, several sessions can all be
-        # RED/YELLOW from the same batch. One discipline review clears all of them —
-        # forcing the user to repeat the checklist per date would be wrong.
         DisciplineSession.objects.filter(
             user=request.user,
             session_state__in=['red', 'yellow'],
