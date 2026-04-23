@@ -238,6 +238,34 @@ class TradeImportView(generics.GenericAPIView):
             except Exception as e:
                 errors.append({'row': i, 'error': str(e), 'data': row})
 
+        # ── After all trades saved, reflect the current session state ─────────
+        # The post_save signal may have escalated one or more sessions to RED/YELLOW
+        # during this import. Collect the worst state across all imported trade dates
+        # so the frontend can immediately show the correct Discipline Guard status
+        # without needing a separate API call.
+        from rules.engine import get_active_locked_session
+        from discipline.models import DisciplineSession
+        from discipline.serializers import DisciplineSessionSerializer
+
+        active_locked = get_active_locked_session(request.user)
+        if active_locked:
+            active_locked.refresh_from_db()
+            session_info = DisciplineSessionSerializer(active_locked).data
+            final_state = active_locked.session_state
+            locked, lock_msg = is_session_locked(request.user)
+        else:
+            # No locked session — return today's session (green)
+            from django.utils.timezone import localdate
+            today_sess, _ = DisciplineSession.objects.get_or_create(
+                user=request.user,
+                session_date=localdate(),
+                defaults={'session_state': 'green'},
+            )
+            today_sess.refresh_from_db()
+            session_info = DisciplineSessionSerializer(today_sess).data
+            final_state = today_sess.session_state
+            locked, lock_msg = False, ''
+
         return Response({
             'imported': len(created_trades),
             'failed': len(errors),
@@ -245,6 +273,11 @@ class TradeImportView(generics.GenericAPIView):
             'errors': errors[:10],
             'detected_broker': detected_broker,
             'message': f'{len(created_trades)} trades imported successfully.',
+            # Session fields — let frontend update Discipline Guard without extra poll
+            'session_state': final_state,
+            'session_locked': locked,
+            'lock_message': lock_msg,
+            'session': session_info,
         }, status=status.HTTP_201_CREATED)
 
 

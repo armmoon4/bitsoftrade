@@ -142,15 +142,34 @@ def unlock_session_view(request):
             }, status=status.HTTP_202_ACCEPTED)
 
     if can_unlock:
+        now_ts = timezone.now()
         session.session_state = 'green'
         session.required_actions_completed = True
-        session.unlocked_at = timezone.now()
+        session.unlocked_at = now_ts
         session.lock_cycle = (session.lock_cycle or 0) + 1
-        session.lock_cycle_started_at = timezone.now()
+        session.lock_cycle_started_at = now_ts
         session.cooldown_ends_at = None
         # Historical violation counts intentionally kept — never reset on unlock
         session.journal_completed = False
         session.trade_review_completed = False
+        session.save()
+
+        # ── Bulk-unlock ALL other locked sessions for this user ───────────────
+        # When a CSV import spans multiple dates, several sessions can all be
+        # RED/YELLOW from the same batch. One discipline review clears all of them —
+        # forcing the user to repeat the checklist per date would be wrong.
+        DisciplineSession.objects.filter(
+            user=request.user,
+            session_state__in=['red', 'yellow'],
+        ).exclude(pk=session.pk).update(
+            session_state='green',
+            required_actions_completed=True,
+            unlocked_at=now_ts,
+            cooldown_ends_at=None,
+            journal_completed=False,
+            trade_review_completed=False,
+        )
+
         try:
             from notifications.utils import create_session_notification
             create_session_notification(user=request.user, session=session, event='unlocked')
@@ -158,9 +177,15 @@ def unlock_session_view(request):
             import logging
             logging.getLogger(__name__).error(f"[Discipline] Failed to create unlock notification: {notif_err}")
 
+        return Response({
+            'message': 'Session unlocked.',
+            'session': DisciplineSessionSerializer(session).data,
+        })
+
+    # Checklist item recorded but not yet ready to unlock
     session.save()
     return Response({
-        'message': 'Session unlocked.' if can_unlock else 'Action recorded. Complete required steps to unlock.',
+        'message': 'Action recorded. Complete required steps to unlock.',
         'session': DisciplineSessionSerializer(session).data,
     })
 

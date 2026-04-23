@@ -128,13 +128,35 @@ def evaluate_rules_for_user(user, session, trade=None):
                     except Exception as notif_err:
                         logger.error(f"[RuleEngine] Failed to create rule notification: {notif_err}")
 
+                    # Track per-cycle violation counters.
+                    # rules_violated is a historical list (never cleared) but we
+                    # use the ViolationsLog count for the CURRENT cycle instead
+                    # so that 2nd/3rd imports after an unlock cycle correctly
+                    # increment counters even if the rule fired in a prior cycle.
+                    cycle_violation_count = ViolationsLog.objects.filter(
+                        session=session,
+                        lock_cycle=current_cycle,
+                    ).count()
                     if str(rule.id) not in (session.rules_violated or []):
                         session.rules_violated = (session.rules_violated or []) + [str(rule.id)]
-                        session.violations_count = (session.violations_count or 0) + 1
-                        if violation_type == 'hard':
-                            session.hard_violations = (session.hard_violations or 0) + 1
-                        else:
-                            session.soft_violations = (session.soft_violations or 0) + 1
+                    # Always increment for new log entries in this cycle
+                    session.violations_count = cycle_violation_count + 1
+                    if violation_type == 'hard':
+                        cycle_hard = ViolationsLog.objects.filter(
+                            session=session, lock_cycle=current_cycle, violation_type='hard'
+                        ).count()
+                        session.hard_violations = cycle_hard + 1
+                        session.soft_violations = ViolationsLog.objects.filter(
+                            session=session, lock_cycle=current_cycle, violation_type='soft'
+                        ).count()
+                    else:
+                        cycle_soft = ViolationsLog.objects.filter(
+                            session=session, lock_cycle=current_cycle, violation_type='soft'
+                        ).count()
+                        session.soft_violations = cycle_soft + 1
+                        session.hard_violations = ViolationsLog.objects.filter(
+                            session=session, lock_cycle=current_cycle, violation_type='hard'
+                        ).count()
 
                 if violation_type == 'hard':
                     new_severity = max(new_severity, _STATE_SEVERITY['red'])
@@ -251,7 +273,10 @@ def _evaluate_single_rule(rule, user, today_trades, trade=None, session=None):
 
 
 def _check_daily_loss(user, today_trades, cond):
-    agg = today_trades.aggregate(daily_pnl=Sum('total_pnl'))
+    # Exclude NULL pnl (open/unexited trades) — they have no realized P&L
+    # and should NOT dilute the loss sum to zero.
+    closed_trades = today_trades.filter(total_pnl__isnull=False)
+    agg = closed_trades.aggregate(daily_pnl=Sum('total_pnl'))
     daily_pnl = agg.get('daily_pnl') or Decimal('0')
     if daily_pnl >= 0:
         return False
@@ -317,24 +342,24 @@ def _severity_to_state(severity: int) -> str:
 
 def get_active_locked_session(user):
     """
-    Returns the most recent RED or YELLOW DisciplineSession within 30 days,
+    Returns the most recent RED or YELLOW DisciplineSession (any date),
     or None if no locked session exists.
 
     This is the SINGLE source of truth for whether a user is currently blocked.
     Both is_session_locked() and the views use this to find the active session.
 
-    Why 30 days: prevents a very old forgotten session from blocking the user
-    forever, while still catching recent unresolved sessions.
+    No date cutoff: a violation from a historical import must still be resolved
+    before the user can continue importing or adding trades. Discipline has no
+    expiry date — the user must always complete the checklist to unlock.
+
+    RED takes priority over YELLOW.
     """
     from discipline.models import DisciplineSession
-    from datetime import date, timedelta
-
-    cutoff = date.today() - timedelta(days=30)
 
     # RED takes priority
     session = (
         DisciplineSession.objects
-        .filter(user=user, session_state='red', session_date__gte=cutoff)
+        .filter(user=user, session_state='red')
         .order_by('-session_date')
         .first()
     )
@@ -343,7 +368,7 @@ def get_active_locked_session(user):
 
     session = (
         DisciplineSession.objects
-        .filter(user=user, session_state='yellow', session_date__gte=cutoff)
+        .filter(user=user, session_state='yellow')
         .order_by('-session_date')
         .first()
     )
@@ -357,13 +382,12 @@ def is_session_locked(user, date=None):
     TWO modes depending on whether `date` is provided:
 
     1. date=None (Add Trade button, Import button — no specific date):
-       Finds the ACTIVE locked session (most recent red/yellow within 30 days).
-       A red session from 3 days ago WILL block today's trades — correct behavior.
+       Finds the ACTIVE locked session (most recent red/yellow, any date).
+       ANY unresolved red/yellow session blocks new imports or trades —
+       the user must complete the checklist regardless of when the session occurred.
 
-    2. date=specific_date (inside CSV import row loop — per-date check):
+    2. date=specific_date (per-date check):
        Checks only that specific date's session.
-       Used so that importing data for a date that already has a locked session
-       is detected correctly.
 
     Lock conditions:
       - RED  → always blocked until user completes all checklist items
