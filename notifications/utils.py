@@ -126,19 +126,26 @@ def _build_title(rule, is_hard):
 
 
 def _build_message(rule, session, trade, is_hard):
-    state = session.session_state.upper() if session else 'UNKNOWN'
+    """
+    Build a human-readable notification message.
 
+    NOTE: We intentionally do NOT read session.session_state here.
+    The session state is updated by the rule engine *after* this
+    notification is created, so reading it would give a stale/wrong
+    value (e.g. showing GREEN when the session is about to be locked RED).
+    Instead we derive the consequence purely from is_hard.
+    """
     parts = []
 
     if is_hard:
         parts.append(
-            f'A hard rule has been violated: "{rule.rule_name}". '
-            f'Your session is now {state}.'
+            f'The hard rule "{rule.rule_name}" has been violated '
+            f'and your session has been locked.'
         )
     else:
         parts.append(
-            f'A soft rule has been triggered: "{rule.rule_name}". '
-            f'Your session is now {state}.'
+            f'The soft rule "{rule.rule_name}" has been triggered. '
+            f'Review your trading activity to avoid further violations.'
         )
 
     if rule.description:
@@ -151,7 +158,7 @@ def _build_message(rule, session, trade, is_hard):
     return ' '.join(parts)
 
 
-#### discipline test email 
+# ─── Discipline test email ────────────────────────────────────────────────────
 
 def send_discipline_report_email(email, risk_level):
     from django.core.mail import send_mail

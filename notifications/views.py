@@ -1,4 +1,5 @@
 from rest_framework import generics, status
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -7,10 +8,20 @@ from notifications.models import Notification, NotificationSettings
 from notifications.serializers import NotificationSerializer, NotificationSettingsSerializer
 
 
+class NotificationPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'  # allow client to override, e.g. ?page_size=50
+    max_page_size = 100
+
+
 class NotificationListView(generics.ListAPIView):
     """
     GET /api/notifications/
     Returns all notifications for the authenticated user (paginated, newest first).
+
+    Pagination:
+      ?page=2               → page number (default page_size=20)
+      ?page_size=50         → override page size (max 100)
 
     Optional query params:
       ?unread=true          → only unread notifications
@@ -19,6 +30,7 @@ class NotificationListView(generics.ListAPIView):
     """
     serializer_class = NotificationSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = NotificationPagination
 
     def get_queryset(self):
         qs = Notification.objects.filter(user=self.request.user)
@@ -142,10 +154,9 @@ class ClearAllNotificationsView(APIView):
     def delete(self, request):
         deleted_count, _ = Notification.objects.filter(user=request.user).delete()
         return Response({'deleted': deleted_count}, status=status.HTTP_200_OK)
-    
 
 
-##discpline-test views 
+# ─── Discipline test views ────────────────────────────────────────────────────
 
 from notifications.utils import send_discipline_report_email
 
