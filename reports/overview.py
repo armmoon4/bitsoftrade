@@ -152,16 +152,15 @@ def _win_rate_card(qs, this_period_qs, prev_period_qs) -> dict:
 
 
 def _session_health(user, today, Trade, TradeMistake, DisciplineSession) -> dict:
-    active_session = (
-        DisciplineSession.objects.filter(user=user, session_state="red").order_by("-session_date").first()
-        or DisciplineSession.objects.filter(user=user, session_state="yellow").order_by("-session_date").first()
-    )
+    # Single source of truth: use get_active_locked_session so this matches
+    # exactly what the Discipline Guard card and import-block logic see.
+    from rules.engine import get_active_locked_session
+    from datetime import datetime as dt_, time as dtime_
+    from django.utils import timezone as tz
+
+    active_session = get_active_locked_session(user)
 
     if active_session is None:
-        from datetime import datetime as dt_, time as dtime_
-
-        from django.utils import timezone as tz
-
         active_session, _ = DisciplineSession.objects.get_or_create(
             user=user,
             session_date=today,
@@ -170,7 +169,8 @@ def _session_health(user, today, Trade, TradeMistake, DisciplineSession) -> dict
         if active_session.lock_cycle_started_at is None:
             active_session.lock_cycle_started_at = tz.make_aware(dt_.combine(today, dtime_.min))
             active_session.save(update_fields=["lock_cycle_started_at"])
-        active_session.refresh_from_db()
+
+    active_session.refresh_from_db()
 
     color = active_session.session_state
     label_map = {"green": "Normal", "yellow": "Warning", "red": "Locked"}

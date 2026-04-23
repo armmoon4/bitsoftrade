@@ -45,13 +45,13 @@ INSTALLED_APPS = [
     
     # Local apps
     'accounts',
-    'tradelog',
+    'tradelog.apps.TradelogConfig',
     'journal',
     'learninghub',
     'notifications.apps.NotificationsConfig',
-    'discipline',
+    'discipline.apps.DisciplineConfig',
     'strategies',
-    'rules',
+    'rules.apps.RulesConfig',
     'insights',
     'reports',
     'mistakes',
