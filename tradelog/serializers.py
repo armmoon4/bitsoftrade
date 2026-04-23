@@ -4,8 +4,11 @@ from tradelog.models import Trade
 
 class TradeManagementSerializer(serializers.ModelSerializer):
     strategy_name = serializers.CharField(source='strategy.strategy_name', read_only=True, default=None)
+
+    # Read-only: pulls names from the related TradeRule / TradeMistake models
+    # Tagged via the separate Rules/Mistakes API — not writable here
     rules_followed = serializers.SerializerMethodField()
-    mistakes = serializers.SerializerMethodField()
+    mistakes       = serializers.SerializerMethodField()
 
     class Meta:
         model = Trade

@@ -145,6 +145,33 @@ def _apply_filters(qs, params):
 
 
 # ─────────────────────────────────────────────
+# TAGGING HELPER  ← NEW
+# ─────────────────────────────────────────────
+
+def _is_trade_fully_tagged(trade):
+    """
+    A trade is considered fully tagged when ALL of the following are present:
+      - strategy assigned
+      - emotional_state filled
+      - entry_confidence filled
+      - at least one rule tagged via trade_rules related manager
+      - at least one mistake tagged via trade_mistakes related manager
+
+    Called from:
+      - TradeListCreateView.perform_create
+      - TradeDetailView.perform_update
+      - TradeTagUpdateView.patch  (called by Rules/Mistakes API after tagging)
+    """
+    has_strategy   = bool(trade.strategy_id)
+    has_emotion    = bool(trade.emotional_state)
+    has_confidence = trade.entry_confidence is not None
+    has_rules      = trade.trade_rules.exists()
+    has_mistakes   = trade.trade_mistakes.exists()
+
+    return has_strategy and has_emotion and has_confidence and has_rules and has_mistakes
+
+
+# ─────────────────────────────────────────────
 # API VIEWS
 # ─────────────────────────────────────────────
 
@@ -310,8 +337,7 @@ class TradeListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         trade = serializer.save(user=self.request.user)
         trade.calculate_pnl()
-        if trade.strategy and trade.emotional_state and trade.entry_confidence:
-            trade.is_tagged_complete = True
+        trade.is_tagged_complete = _is_trade_fully_tagged(trade)  # ← FIXED
         trade.save(update_fields=['total_pnl', 'is_tagged_complete'])
         if trade.strategy:
             total = Trade.objects.filter(strategy=trade.strategy, deleted_at__isnull=True).count()
@@ -329,8 +355,7 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
     def perform_update(self, serializer):
         trade = serializer.save()
         trade.calculate_pnl()
-        if trade.strategy and trade.emotional_state and trade.entry_confidence:
-            trade.is_tagged_complete = True
+        trade.is_tagged_complete = _is_trade_fully_tagged(trade)  # ← FIXED
         trade.save(update_fields=['total_pnl', 'is_tagged_complete'])
         if trade.strategy:
             total = Trade.objects.filter(strategy=trade.strategy, deleted_at__isnull=True).count()
@@ -341,6 +366,41 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
         trade.deleted_at = timezone.now()
         trade.save()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─────────────────────────────────────────────
+# TRADE TAG UPDATE VIEW  ← NEW
+# Called by your Rules/Mistakes tagging API after it saves TradeRule/TradeMistake.
+# PATCH /api/tradelog/trades/<uuid:pk>/retag/
+# ─────────────────────────────────────────────
+
+class TradeTagUpdateView(APIView):
+    """
+    PATCH /api/tradelog/trades/<uuid:pk>/retag/
+
+    Re-evaluates is_tagged_complete after rules or mistakes have been
+    tagged via the external Rules/Mistakes API.
+
+    Call this from the Rules tagging API (or directly from the frontend)
+    after any trade_rules / trade_mistakes record is created or deleted.
+
+    No body required — just the trade pk in the URL.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def patch(self, request, pk, *args, **kwargs):
+        try:
+            trade = Trade.objects.get(pk=pk, user=request.user, deleted_at__isnull=True)
+        except Trade.DoesNotExist:
+            return Response({'error': 'Trade not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        trade.is_tagged_complete = _is_trade_fully_tagged(trade)
+        trade.save(update_fields=['is_tagged_complete'])
+
+        return Response({
+            'id': str(trade.id),
+            'is_tagged_complete': trade.is_tagged_complete,
+        })
 
 
 # ─────────────────────────────────────────────
