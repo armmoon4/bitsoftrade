@@ -291,7 +291,11 @@ class TradeListCreateView(generics.ListCreateAPIView):
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
-        qs = Trade.objects.filter(user=self.request.user, deleted_at__isnull=True)
+        qs = (
+            Trade.objects
+            .filter(user=self.request.user, deleted_at__isnull=True)
+            .prefetch_related('violation_logs__rule')
+        )
         return _apply_filters(qs, self.request.query_params)
 
     def create(self, request, *args, **kwargs):
@@ -324,7 +328,11 @@ class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return Trade.objects.filter(user=self.request.user, deleted_at__isnull=True)
+        return (
+            Trade.objects
+            .filter(user=self.request.user, deleted_at__isnull=True)
+            .prefetch_related('violation_logs__rule')
+        )
 
     def perform_update(self, serializer):
         trade = serializer.save()

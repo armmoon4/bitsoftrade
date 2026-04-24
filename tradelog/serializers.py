@@ -6,6 +6,7 @@ class TradeManagementSerializer(serializers.ModelSerializer):
     strategy_name = serializers.CharField(source='strategy.strategy_name', read_only=True, default=None)
     rules_followed = serializers.SerializerMethodField()
     mistakes = serializers.SerializerMethodField()
+    rules_violation = serializers.SerializerMethodField()
 
     class Meta:
         model = Trade
@@ -17,6 +18,18 @@ class TradeManagementSerializer(serializers.ModelSerializer):
 
     def get_mistakes(self, obj):
         return list(obj.trade_mistakes.select_related('mistake').values_list('mistake__mistake_name', flat=True))
+
+    def get_rules_violation(self, obj):
+        """
+        Return a list of violated rule names for this trade.
+        Sourced from ViolationsLog entries linked to this trade
+        via the 'violation_logs' reverse relation.
+        """
+        return list(
+            obj.violation_logs
+            .select_related('rule')
+            .values_list('rule__rule_name', flat=True)
+        )
 
 
 class TradeSymbolSerializer(serializers.ModelSerializer):
