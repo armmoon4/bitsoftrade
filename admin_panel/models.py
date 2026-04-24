@@ -129,3 +129,53 @@ class PricingPlan(models.Model):
 
     def __str__(self):
         return f"{self.name} (₹{self.price}/{self.billing_cycle})"
+    
+
+
+# ─── CMS: Learning Hub
+
+class LearningModule(models.Model):
+    """
+    CMS-managed top-level module shown on the Learning Hub page.
+    e.g. 'MODULE 1: CORE INTRODUCTION', 'Market Basics & Foundations'
+    """
+
+    id            = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    title         = models.CharField(max_length=300)
+    subtitle      = models.CharField(max_length=300, blank=True, default='',
+                                     help_text='Optional short description shown under the title')
+    display_order = models.PositiveIntegerField(default=0, help_text='Lower = shown first')
+    is_visible    = models.BooleanField(default=True)
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cms_learning_modules'
+        ordering = ['display_order', 'created_at']
+
+    def __str__(self):
+        return f"{self.title} ({'Shown' if self.is_visible else 'Hidden'})"
+
+
+class LearningTopic(models.Model):
+    """
+    CMS-managed individual topic/bullet point inside a LearningModule.
+    e.g. 'Understanding the Stock Market', 'Why Focus on Price Action'
+    """
+
+    id            = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    module        = models.ForeignKey(
+        LearningModule, on_delete=models.CASCADE, related_name='topics'
+    )
+    title         = models.CharField(max_length=300)
+    display_order = models.PositiveIntegerField(default=0, help_text='Order within the module')
+    is_visible    = models.BooleanField(default=True)
+    created_at    = models.DateTimeField(auto_now_add=True)
+    updated_at    = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'cms_learning_topics'
+        ordering = ['display_order', 'created_at']
+
+    def __str__(self):
+        return f"{self.module.title} → {self.title}"

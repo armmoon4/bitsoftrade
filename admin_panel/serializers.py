@@ -44,3 +44,34 @@ def broadcast_to_dict(b):
         'sent_by':         b.sent_by_admin.full_name if b.sent_by_admin else None,
         'created_at':      b.created_at,
     }
+
+
+
+# ─── CMS: Learning Hub
+
+def topic_to_dict(t):
+    return {
+        'id':            str(t.id),
+        'module_id':     str(t.module_id),
+        'title':         t.title,
+        'display_order': t.display_order,
+        'is_visible':    t.is_visible,
+        'created_at':    t.created_at,
+        'updated_at':    t.updated_at,
+    }
+
+
+def module_to_dict(m, include_topics=True):
+    d = {
+        'id':            str(m.id),
+        'title':         m.title,
+        'subtitle':      m.subtitle,
+        'display_order': m.display_order,
+        'is_visible':    m.is_visible,
+        'created_at':    m.created_at,
+        'updated_at':    m.updated_at,
+    }
+    if include_topics:
+        # topics are prefetched by the service layer — no extra query here
+        d['topics'] = [topic_to_dict(t) for t in m.topics.all() if t.is_visible or include_topics]
+    return d

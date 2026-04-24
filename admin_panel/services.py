@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 from django.db.models import Q
 from django.utils import timezone
 
-from .models import Admin, AdminUserAction, AdminAdminAction, Review, PricingPlan
+from .models import Admin, AdminUserAction, AdminAdminAction, Review, PricingPlan , LearningModule, LearningTopic
 
 
 # ─── Auth ──────────────────────────────────────────────────────────────────────
@@ -481,3 +481,115 @@ def send_broadcast(title, message, recipients, acting_admin):
         delivered_count=len(notifications),
     )
     return broadcast, None
+
+
+
+# ─── CMS: Learning Hub 
+
+def list_learning_modules(visible_only=False):
+    """Return all modules with their topics prefetched (1 extra query, not N)."""
+    from .models import LearningModule
+    qs = LearningModule.objects.prefetch_related('topics')
+    if visible_only:
+        qs = qs.filter(is_visible=True)
+    return list(qs)
+
+
+def create_learning_module(data):
+    """Returns (LearningModule, None) or (None, error_str)."""
+    from .models import LearningModule
+    if not data.get('title', '').strip():
+        return None, 'title is required.'
+    module = LearningModule.objects.create(
+        title=data['title'].strip(),
+        subtitle=data.get('subtitle', '').strip(),
+        display_order=int(data.get('display_order', 0)),
+        is_visible=data.get('is_visible', True),
+    )
+    return module, None
+
+
+def update_learning_module(module, data):
+    """Returns (LearningModule, None) or (None, error_str)."""
+    if 'title' in data:
+        if not data['title'].strip():
+            return None, 'title cannot be blank.'
+        module.title = data['title'].strip()
+    for field in ['subtitle', 'display_order', 'is_visible']:
+        if field in data:
+            setattr(module, field, data[field])
+    module.save()
+    return module, None
+
+
+def toggle_module_visibility(module):
+    module.is_visible = not module.is_visible
+    module.save(update_fields=['is_visible', 'updated_at'])
+    return module
+
+
+# ── Topics ────────────────────────────────────────────────────────────────────
+
+def list_topics_for_module(module, visible_only=False):
+    """Return topics for a given module."""
+    qs = module.topics.all()
+    if visible_only:
+        qs = qs.filter(is_visible=True)
+    return list(qs)
+
+
+def create_learning_topic(module, data):
+    """Returns (LearningTopic, None) or (None, error_str)."""
+    from .models import LearningTopic
+    if not data.get('title', '').strip():
+        return None, 'title is required.'
+    topic = LearningTopic.objects.create(
+        module=module,
+        title=data['title'].strip(),
+        display_order=int(data.get('display_order', 0)),
+        is_visible=data.get('is_visible', True),
+    )
+    return topic, None
+
+
+def update_learning_topic(topic, data):
+    """Returns (LearningTopic, None) or (None, error_str)."""
+    if 'title' in data:
+        if not data['title'].strip():
+            return None, 'title cannot be blank.'
+        topic.title = data['title'].strip()
+    for field in ['display_order', 'is_visible']:
+        if field in data:
+            setattr(topic, field, data[field])
+    topic.save()
+    return topic, None
+
+
+def toggle_topic_visibility(topic):
+    topic.is_visible = not topic.is_visible
+    topic.save(update_fields=['is_visible', 'updated_at'])
+    return topic
+
+
+def bulk_create_topics(module, topics_data):
+    """
+    Bulk-insert a list of topic dicts under a module.
+    Returns (list[LearningTopic], None) or (None, error_str).
+    Used when seeding an entire module's curriculum at once.
+    """
+    from .models import LearningTopic
+    if not isinstance(topics_data, list) or not topics_data:
+        return None, 'topics must be a non-empty list.'
+    objs = []
+    for i, item in enumerate(topics_data):
+        title = (item.get('title') or '').strip()
+        if not title:
+            return None, f'topics[{i}].title is required.'
+        objs.append(LearningTopic(
+            module=module,
+            title=title,
+            display_order=int(item.get('display_order', i)),
+            is_visible=item.get('is_visible', True),
+        ))
+    created = LearningTopic.objects.bulk_create(objs)
+    return created, None

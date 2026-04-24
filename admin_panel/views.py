@@ -17,7 +17,7 @@ from django.utils import timezone
 from mistakes.models import Mistake
 from mistakes.serializers import MistakeSerializer
 from .auth import IsAdminAuthenticated, get_tokens_for_admin
-from .serializers import review_to_dict, plan_to_dict, broadcast_to_dict
+from .serializers import review_to_dict, plan_to_dict, broadcast_to_dict , module_to_dict, topic_to_dict
 from . import services
 
 
@@ -535,3 +535,190 @@ def admin_broadcast_delete_view(request, pk):
         return Response({'error': 'Broadcast not found.'}, status=status.HTTP_404_NOT_FOUND)
     broadcast.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+# ─── CMS: Learning Hub — Public ───────────────────────────────────────────────
+# Add these to admin_panel/views.py
+# Also add module_to_dict, topic_to_dict to the serializers import line.
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([permissions.AllowAny])
+def public_learning_hub_view(request):
+    """
+    GET /api/cms/learning-hub/
+    Returns all visible modules with their visible topics nested inside.
+    No auth required — consumed directly by the frontend landing page.
+    """
+    from .models import LearningModule
+    modules = (
+        LearningModule.objects
+        .filter(is_visible=True)
+        .prefetch_related('topics')
+    )
+    result = []
+    for m in modules:
+        d = module_to_dict(m, include_topics=False)
+        d['topics'] = [
+            topic_to_dict(t)
+            for t in m.topics.all()
+            if t.is_visible
+        ]
+        result.append(d)
+    return Response(result)
+
+
+# ─── CMS: Learning Hub — Admin: Modules
+
+@api_view(['GET', 'POST'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_module_list_create_view(request):
+    """
+    GET  /api/admin/cms/learning-hub/modules/      → all modules (incl. hidden)
+    POST /api/admin/cms/learning-hub/modules/      → create a new module
+    """
+    from .models import LearningModule
+
+    if request.method == 'GET':
+        modules = LearningModule.objects.prefetch_related('topics').all()
+        return Response([module_to_dict(m) for m in modules])
+
+    module, error = services.create_learning_module(request.data)
+    if error:
+        return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(module_to_dict(module), status=status.HTTP_201_CREATED)
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_module_detail_view(request, pk):
+    """
+    GET    /api/admin/cms/learning-hub/modules/<id>/
+    PUT    /api/admin/cms/learning-hub/modules/<id>/
+    DELETE /api/admin/cms/learning-hub/modules/<id>/   (hard delete — cascades topics)
+    """
+    from .models import LearningModule
+
+    module = LearningModule.objects.prefetch_related('topics').filter(pk=pk).first()
+    if not module:
+        return Response({'error': 'Module not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(module_to_dict(module))
+
+    if request.method == 'PUT':
+        module, error = services.update_learning_module(module, request.data)
+        if error:
+            return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(module_to_dict(module))
+
+    module.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['PATCH'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_module_toggle_visibility_view(request, pk):
+    """PATCH /api/admin/cms/learning-hub/modules/<id>/toggle-visibility/"""
+    from .models import LearningModule
+
+    module = LearningModule.objects.filter(pk=pk).first()
+    if not module:
+        return Response({'error': 'Module not found.'}, status=status.HTTP_404_NOT_FOUND)
+    module = services.toggle_module_visibility(module)
+    return Response({'id': str(module.id), 'is_visible': module.is_visible})
+
+
+# ─── CMS: Learning Hub — Admin: Topics ────────────────────────────────────────
+
+@api_view(['GET', 'POST'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_topic_list_create_view(request, module_pk):
+    """
+    GET  /api/admin/cms/learning-hub/modules/<module_id>/topics/
+    POST /api/admin/cms/learning-hub/modules/<module_id>/topics/
+    """
+    from .models import LearningModule
+
+    module = LearningModule.objects.filter(pk=module_pk).first()
+    if not module:
+        return Response({'error': 'Module not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response([topic_to_dict(t) for t in module.topics.all()])
+
+    topic, error = services.create_learning_topic(module, request.data)
+    if error:
+        return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(topic_to_dict(topic), status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_topic_bulk_create_view(request, module_pk):
+    """
+    POST /api/admin/cms/learning-hub/modules/<module_id>/topics/bulk/
+    Body: { "topics": [ {"title": "...", "display_order": 0}, ... ] }
+    Useful for seeding an entire module's curriculum in one shot.
+    """
+    from .models import LearningModule
+
+    module = LearningModule.objects.filter(pk=module_pk).first()
+    if not module:
+        return Response({'error': 'Module not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    created, error = services.bulk_create_topics(module, request.data.get('topics', []))
+    if error:
+        return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+    return Response(
+        [topic_to_dict(t) for t in created],
+        status=status.HTTP_201_CREATED,
+    )
+
+
+@api_view(['GET', 'PUT', 'DELETE'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_topic_detail_view(request, module_pk, pk):
+    """
+    GET    /api/admin/cms/learning-hub/modules/<module_id>/topics/<id>/
+    PUT    /api/admin/cms/learning-hub/modules/<module_id>/topics/<id>/
+    DELETE /api/admin/cms/learning-hub/modules/<module_id>/topics/<id>/
+    """
+    from .models import LearningTopic
+
+    topic = LearningTopic.objects.filter(pk=pk, module_id=module_pk).first()
+    if not topic:
+        return Response({'error': 'Topic not found.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        return Response(topic_to_dict(topic))
+
+    if request.method == 'PUT':
+        topic, error = services.update_learning_topic(topic, request.data)
+        if error:
+            return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(topic_to_dict(topic))
+
+    topic.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+@api_view(['PATCH'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_learning_topic_toggle_visibility_view(request, module_pk, pk):
+    """PATCH /api/admin/cms/learning-hub/modules/<module_id>/topics/<id>/toggle-visibility/"""
+    from .models import LearningTopic
+
+    topic = LearningTopic.objects.filter(pk=pk, module_id=module_pk).first()
+    if not topic:
+        return Response({'error': 'Topic not found.'}, status=status.HTTP_404_NOT_FOUND)
+    topic = services.toggle_topic_visibility(topic)
+    return Response({'id': str(topic.id), 'is_visible': topic.is_visible})
