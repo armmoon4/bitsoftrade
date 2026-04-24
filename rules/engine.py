@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 # ─── State Severity Ordering ──────────────────────────────────────────────────
 _STATE_SEVERITY = {'green': 0, 'yellow': 1, 'red': 2}
 
-_COOLDOWN_YELLOW_MINUTES = 1
-_COOLDOWN_RED_MINUTES = 45
+_COOLDOWN_YELLOW_MINUTES = 0
+_COOLDOWN_RED_MINUTES = 5
 
 
 def evaluate_rules_for_user(user, session, trade=None):
