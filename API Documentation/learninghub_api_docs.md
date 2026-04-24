@@ -30,10 +30,8 @@ Two types of tokens are supported:
 
 | Token Type | Payload Fields | Access Level |
 |---|---|---|
-| **User Token** | `user_id` | Read-only (GET) on most endpoints |
-| **Admin Token** | `is_admin: true`, `admin_id` | Full access (GET, POST, PUT, PATCH, DELETE) |
-
-> **Note:** The `UserCourseProgress` endpoints use Django's `IsAuthenticated` permission and expect a standard user session/token.
+| **User Token** | `user_id` | Read-only (GET) on lessons/courses/videos. Full access on own progress records. |
+| **Admin Token** | `is_admin: true`, `admin_id` | Full access (GET, POST, PUT, PATCH, DELETE) on all endpoints |
 
 ---
 
@@ -712,20 +710,22 @@ Authorization: Bearer <admin_token>
 
 ## User Course Progress
 
-Tracks a user's progress through a course, including which videos they've watched and their overall completion percentage.
+Tracks a user's progress through a course — which videos they've watched, overall completion percentage, and when the course was completed.
 
 ### Endpoints
 
 | Method | URL | Permission | Description |
 |---|---|---|---|
-| `GET` | `/course-progress/` | Authenticated User | List all course progress records |
-| `POST` | `/course-progress/create/` | Authenticated User | Start tracking progress for a course |
+| `GET` | `/course-progress/` | User or Admin | List progress records (users see only their own) |
+| `POST` | `/course-progress/create/` | User or Admin | Start tracking progress for a course |
+| `POST` | `/course-progress/{progress_id}/watch/{video_id}/` | User or Admin | Mark a video as watched ✅ |
+| `DELETE` | `/course-progress/{progress_id}/unwatch/{video_id}/` | User or Admin | Unmark a video as watched |
 
 ---
 
 ### GET `/course-progress/`
 
-Returns all user course progress records with detailed progress stats.
+Returns course progress records. Regular users only see their own records. Admins see all records.
 
 **Request**
 ```http
@@ -763,9 +763,7 @@ Authorization: Bearer <user_token>
     "completion_percentage": 50.0,
     "total_videos": 4,
     "completed_videos": 2,
-    "is_completed": false,
-    "total_UserCourseStart": 120,
-    "total_completed_UserCourseStart": 34
+    "is_completed": false
   }
 ]
 ```
@@ -779,19 +777,17 @@ Authorization: Bearer <user_token>
 | `course` | object | Course's `id`, `title`, `course_type`, `course_level` |
 | `videos_watched` | array | List of watched videos with `id` and `title` |
 | `started_at` | datetime | When the user started the course |
-| `completed_at` | datetime or null | When the course was completed (null if not yet) |
+| `completed_at` | datetime or null | Auto-set when all videos are watched. `null` if not yet complete |
 | `completion_percentage` | float | Percentage of videos watched (0.0 – 100.0) |
 | `total_videos` | integer | Total number of videos in the course |
 | `completed_videos` | integer | Number of videos the user has watched |
-| `is_completed` | boolean | Whether the user has watched all videos |
-| `total_UserCourseStart` | integer | Total number of course progress records across all users |
-| `total_completed_UserCourseStart` | integer | Total number of fully completed courses across all users |
+| `is_completed` | boolean | `true` when all videos have been watched |
 
 ---
 
 ### POST `/course-progress/create/`
 
-Start tracking a user's progress for a specific course. Creates a new progress record.
+Start tracking a user's progress for a specific course. Creates a new progress record with 0% completion.
 
 > **Note:** Each user can only have one progress record per course (`unique_together` constraint on `user` + `course`). Attempting to create a duplicate will return a `400` error.
 
@@ -825,6 +821,146 @@ Content-Type: application/json
   }
 }
 ```
+
+---
+
+### POST `/course-progress/{progress_id}/watch/{video_id}/`
+
+Mark a video as watched. Updates `completion_percentage` automatically. When the last video is marked watched, `completed_at` is set automatically and `is_completed` becomes `true`.
+
+> **Note:** Users can only update their own progress record. Admins can update any record.
+
+**Request**
+```http
+POST /api/learninghub/course-progress/1/watch/3/
+Authorization: Bearer <user_token>
+```
+
+No request body needed.
+
+**Response `200 OK`**
+```json
+{
+  "message": "Video marked as watched.",
+  "course_progress": {
+    "id": 1,
+    "user": {
+      "id": 42,
+      "email": "user@example.com"
+    },
+    "course": {
+      "id": 1,
+      "title": "Python Fundamentals",
+      "course_type": "general",
+      "course_level": "beginner"
+    },
+    "videos_watched": [
+      { "id": 1, "title": "Setting Up Python" },
+      { "id": 2, "title": "Variables and Data Types" },
+      { "id": 3, "title": "Functions" }
+    ],
+    "started_at": "2024-01-18T09:00:00Z",
+    "completed_at": null,
+    "completion_percentage": 75.0,
+    "total_videos": 4,
+    "completed_videos": 3,
+    "is_completed": false
+  }
+}
+```
+
+**Example — when the last video is watched, course auto-completes:**
+```json
+{
+  "message": "Video marked as watched.",
+  "course_progress": {
+    ...
+    "completed_at": "2024-01-25T14:30:00Z",
+    "completion_percentage": 100.0,
+    "total_videos": 4,
+    "completed_videos": 4,
+    "is_completed": true
+  }
+}
+```
+
+**Error — video does not belong to this course:**
+```json
+{
+  "detail": "Not found."
+}
+```
+
+**Error — trying to update another user's progress:**
+```json
+{
+  "error": "You do not have permission to update this record."
+}
+```
+
+---
+
+### DELETE `/course-progress/{progress_id}/unwatch/{video_id}/`
+
+Remove a video from the watched list. If the course was previously marked complete, `completed_at` is cleared automatically.
+
+> **Note:** Users can only update their own progress record. Admins can update any record.
+
+**Request**
+```http
+DELETE /api/learninghub/course-progress/1/unwatch/3/
+Authorization: Bearer <user_token>
+```
+
+No request body needed.
+
+**Response `200 OK`**
+```json
+{
+  "message": "Video removed from watched list.",
+  "course_progress": {
+    "id": 1,
+    "user": {
+      "id": 42,
+      "email": "user@example.com"
+    },
+    "course": {
+      "id": 1,
+      "title": "Python Fundamentals",
+      "course_type": "general",
+      "course_level": "beginner"
+    },
+    "videos_watched": [
+      { "id": 1, "title": "Setting Up Python" },
+      { "id": 2, "title": "Variables and Data Types" }
+    ],
+    "started_at": "2024-01-18T09:00:00Z",
+    "completed_at": null,
+    "completion_percentage": 50.0,
+    "total_videos": 4,
+    "completed_videos": 2,
+    "is_completed": false
+  }
+}
+```
+
+---
+
+### Testing Flow (Step by Step)
+
+Use this order to test all progress endpoints end-to-end:
+
+| Step | Method | URL | What to check |
+|---|---|---|---|
+| 1 | `POST` | `/course-progress/create/` | Record created, `completion_percentage` = 0 |
+| 2 | `GET` | `/course-progress/` | See the new record with 0% |
+| 3 | `POST` | `/course-progress/1/watch/1/` | `completed_videos` increases, percentage goes up |
+| 4 | `POST` | `/course-progress/1/watch/2/` | Percentage increases again |
+| 5 | `GET` | `/course-progress/` | Verify updated percentage |
+| 6 | `POST` | `/course-progress/1/watch/<last_video_id>/` | `is_completed: true`, `completed_at` is now set |
+| 7 | `DELETE` | `/course-progress/1/unwatch/1/` | Percentage drops, `completed_at` clears to `null` |
+
+> Replace `1` in the URL with your actual `progress_id` and use your real `video_id` values from the database.
 
 ---
 
@@ -880,10 +1016,10 @@ Content-Type: application/json
 | `id` | integer | Auto-generated primary key |
 | `user` | FK → User | The enrolled user |
 | `course` | FK → Course | The course being tracked |
-| `videos_watched` | M2M → Video | Videos the user has watched |
+| `videos_watched` | M2M → Video | Videos the user has watched (updated via `/watch/` endpoint) |
 | `started_at` | datetime | Auto-set when record is created |
-| `completed_at` | datetime or null | Set when all videos are watched |
-| `completion_percentage` | computed | `(watched / total) * 100` |
+| `completed_at` | datetime or null | Auto-set when all videos are watched. Cleared if a video is unwatched |
+| `completion_percentage` | computed | `(watched / total) * 100`, rounded to 2 decimal places |
 
 > `unique_together` constraint: `(user, course)` — one record per user per course.
 
@@ -928,7 +1064,7 @@ Returned when no token is provided or the token is invalid/expired.
 
 ### `403 Forbidden`
 
-Returned when a user token attempts an admin-only operation (POST, PUT, PATCH, DELETE on courses, lessons, or videos).
+Returned when a user token attempts an admin-only operation, or when a user tries to modify another user's progress record.
 
 ```json
 {
@@ -936,11 +1072,17 @@ Returned when a user token attempts an admin-only operation (POST, PUT, PATCH, D
 }
 ```
 
+```json
+{
+  "error": "You do not have permission to update this record."
+}
+```
+
 ---
 
 ### `404 Not Found`
 
-Returned when the requested resource does not exist.
+Returned when the requested resource does not exist, or when the video does not belong to the course in the progress record.
 
 ```json
 {
@@ -967,7 +1109,9 @@ Content-Type: multipart/form-data       ← for video uploads only
 | `/learning-lessons/` | ✅ | ❌ | ✅ | ✅ |
 | `/courses/` | ✅ | ❌ | ✅ | ✅ |
 | `/videos/` | ✅ | ❌ | ✅ | ✅ |
-| `/course-progress/` | ✅ | ✅ | ✅ | ✅ |
+| `/course-progress/` | ✅ own only | ✅ own only | ✅ all | ✅ all |
+| `/course-progress/{id}/watch/{id}/` | ✅ own only | ✅ own only | ✅ | ✅ |
+| `/course-progress/{id}/unwatch/{id}/` | ✅ own only | ✅ own only | ✅ | ✅ |
 
 ### Cascade Deletion Reference
 
