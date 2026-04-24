@@ -700,15 +700,15 @@ Returns all pricing plans including inactive ones.
 
 **Request Body:**
 
-| Field           | Type    | Required | Default    | Description                                                              |
-|-----------------|---------|----------|------------|--------------------------------------------------------------------------|
-| `name`          | string  | ✅        | —          | Plan name e.g. `"Pro"`                                                   |
-| `price`         | decimal | ✅        | —          | Price in ₹ e.g. `499`                                                    |
-| `billing_cycle` | enum    | ✅        | `"monthly"`| `forever` / `monthly` / `quarterly` / `biannual` / `annual`             |
-| `features`      | array   | ❌        | `[]`       | List of feature strings                                                  |
-| `is_popular`    | boolean | ❌        | `false`    | Highlights the plan as popular                                           |
-| `is_active`     | boolean | ❌        | `true`     | Whether shown to users                                                   |
-| `display_order` | integer | ❌        | `0`        | Lower = shown first                                                      |
+| Field           | Type    | Required | Default     | Description                                                              |
+|-----------------|---------|----------|-------------|--------------------------------------------------------------------------|
+| `name`          | string  | ✅        | —           | Plan name e.g. `"Pro"`                                                   |
+| `price`         | decimal | ✅        | —           | Price in ₹ e.g. `499`                                                    |
+| `billing_cycle` | enum    | ✅        | `"monthly"` | `forever` / `monthly` / `quarterly` / `biannual` / `annual`             |
+| `features`      | array   | ❌        | `[]`        | List of feature strings                                                  |
+| `is_popular`    | boolean | ❌        | `false`     | Highlights the plan as popular                                           |
+| `is_active`     | boolean | ❌        | `true`      | Whether shown to users                                                   |
+| `display_order` | integer | ❌        | `0`         | Lower = shown first                                                      |
 
 **Success Response — `201 Created`:** full plan object
 
@@ -774,9 +774,285 @@ Returns only active plans. No authentication required.
 
 ---
 
+### CMS — Learning Hub
+
+The Learning Hub CMS manages the course curriculum displayed on the landing page. Content is structured as **Modules** (top-level sections) containing **Topics** (individual bullet points). Both levels support visibility toggling independently.
+
+#### 41. Public Learning Hub
+
+**`GET /api/cms/learning-hub/`**
+
+Returns all visible modules with their visible topics nested inside. No authentication required — consumed directly by the frontend landing page.
+
+**Permissions:** Public
+
+**Success Response — `200 OK`:**
+
+```json
+[
+  {
+    "id": "uuid",
+    "title": "Market Basics & Foundations",
+    "subtitle": "",
+    "display_order": 0,
+    "is_visible": true,
+    "created_at": "2025-01-01T00:00:00Z",
+    "updated_at": "2025-01-01T00:00:00Z",
+    "topics": [
+      {
+        "id": "uuid",
+        "module_id": "uuid",
+        "title": "Understanding the Stock Market",
+        "display_order": 0,
+        "is_visible": true,
+        "created_at": "2025-01-01T00:00:00Z",
+        "updated_at": "2025-01-01T00:00:00Z"
+      }
+    ]
+  }
+]
+```
+
+---
+
+#### 42. List All Modules (Admin)
+
+**`GET /api/admin/cms/learning-hub/modules/`**
+
+Returns all modules including hidden ones, each with their full topic list.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:** array of module objects (with nested topics)
+
+---
+
+#### 43. Create Module
+
+**`POST /api/admin/cms/learning-hub/modules/`**
+
+Creates a new learning module.
+
+**Permissions:** Admin
+
+**Request Body:**
+
+| Field           | Type    | Required | Default | Description                              |
+|-----------------|---------|----------|---------|------------------------------------------|
+| `title`         | string  | ✅        | —       | Module title e.g. `"MODULE 1: CORE INTRODUCTION"` |
+| `subtitle`      | string  | ❌        | `""`    | Optional short description shown under the title |
+| `display_order` | integer | ❌        | `0`     | Lower = shown first                      |
+| `is_visible`    | boolean | ❌        | `true`  | Show on landing page                     |
+
+**Success Response — `201 Created`:**
+
+```json
+{
+  "id": "uuid",
+  "title": "MODULE 1: CORE INTRODUCTION",
+  "subtitle": "",
+  "display_order": 1,
+  "is_visible": true,
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z",
+  "topics": []
+}
+```
+
+---
+
+#### 44. Get Module
+
+**`GET /api/admin/cms/learning-hub/modules/<uuid:id>/`**
+
+Returns a single module with all its topics.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:** full module object with nested topics
+
+---
+
+#### 45. Update Module
+
+**`PUT /api/admin/cms/learning-hub/modules/<uuid:id>/`**
+
+Updates an existing module. Any subset of fields can be provided.
+
+**Permissions:** Admin
+
+**Editable fields:** `title`, `subtitle`, `display_order`, `is_visible`
+
+**Success Response — `200 OK`:** updated module object with nested topics
+
+---
+
+#### 46. Delete Module
+
+**`DELETE /api/admin/cms/learning-hub/modules/<uuid:id>/`**
+
+Hard-deletes the module. **All topics belonging to this module are also deleted (cascade).**
+
+**Permissions:** Admin
+
+**Success Response — `204 No Content`**
+
+---
+
+#### 47. Toggle Module Visibility
+
+**`PATCH /api/admin/cms/learning-hub/modules/<uuid:id>/toggle-visibility/`**
+
+Flips `is_visible` between `true` and `false`. Hiding a module hides all its topics from the public endpoint as well.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:**
+
+```json
+{ "id": "uuid", "is_visible": false }
+```
+
+---
+
+#### 48. List Topics for a Module
+
+**`GET /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/`**
+
+Returns all topics (including hidden) for the given module.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:** array of topic objects
+
+---
+
+#### 49. Create Topic
+
+**`POST /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/`**
+
+Adds a single topic to a module.
+
+**Permissions:** Admin
+
+**Request Body:**
+
+| Field           | Type    | Required | Default | Description                         |
+|-----------------|---------|----------|---------|-------------------------------------|
+| `title`         | string  | ✅        | —       | Topic title e.g. `"Why Focus on Price Action"` |
+| `display_order` | integer | ❌        | `0`     | Order within the module             |
+| `is_visible`    | boolean | ❌        | `true`  | Show on landing page                |
+
+**Success Response — `201 Created`:**
+
+```json
+{
+  "id": "uuid",
+  "module_id": "uuid",
+  "title": "Why Focus on Price Action",
+  "display_order": 0,
+  "is_visible": true,
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z"
+}
+```
+
+---
+
+#### 50. Bulk Create Topics
+
+**`POST /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/bulk/`**
+
+Inserts multiple topics under a module in a single request. Useful for seeding an entire module's curriculum at once.
+
+**Permissions:** Admin
+
+**Request Body:**
+
+```json
+{
+  "topics": [
+    { "title": "Understanding the Stock Market", "display_order": 0 },
+    { "title": "Structure of Primary and Secondary Markets", "display_order": 1 },
+    { "title": "Indian Exchanges: NSE & BSE", "display_order": 2 }
+  ]
+}
+```
+
+| Field                    | Type    | Required | Default | Description                   |
+|--------------------------|---------|----------|---------|-------------------------------|
+| `topics`                 | array   | ✅        | —       | Non-empty list of topic dicts |
+| `topics[].title`         | string  | ✅        | —       | Topic title                   |
+| `topics[].display_order` | integer | ❌        | index   | Falls back to array index     |
+| `topics[].is_visible`    | boolean | ❌        | `true`  | Show on landing page          |
+
+**Success Response — `201 Created`:** array of created topic objects
+
+**Error — `400 Bad Request`:**
+
+```json
+{ "error": "topics[1].title is required." }
+```
+
+---
+
+#### 51. Get Topic
+
+**`GET /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/<uuid:id>/`**
+
+Returns a single topic.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:** full topic object
+
+---
+
+#### 52. Update Topic
+
+**`PUT /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/<uuid:id>/`**
+
+Updates an existing topic.
+
+**Permissions:** Admin
+
+**Editable fields:** `title`, `display_order`, `is_visible`
+
+**Success Response — `200 OK`:** updated topic object
+
+---
+
+#### 53. Delete Topic
+
+**`DELETE /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/<uuid:id>/`**
+
+Hard-deletes the topic.
+
+**Permissions:** Admin
+
+**Success Response — `204 No Content`**
+
+---
+
+#### 54. Toggle Topic Visibility
+
+**`PATCH /api/admin/cms/learning-hub/modules/<uuid:module_id>/topics/<uuid:id>/toggle-visibility/`**
+
+Flips `is_visible` between `true` and `false` for a single topic.
+
+**Permissions:** Admin
+
+**Success Response — `200 OK`:**
+
+```json
+{ "id": "uuid", "is_visible": false }
+```
+
+---
+
 ### Broadcast Notifications
 
-#### 41. List Broadcasts
+#### 55. List Broadcasts
 
 **`GET /api/admin/notifications/broadcasts/`**
 
@@ -802,7 +1078,7 @@ Returns all broadcasts, most recent first.
 
 ---
 
-#### 42. Send Broadcast
+#### 56. Send Broadcast
 
 **`POST /api/admin/notifications/broadcasts/`**
 
@@ -822,7 +1098,7 @@ Sends a broadcast notification to users.
 
 ---
 
-#### 43. Delete Broadcast
+#### 57. Delete Broadcast
 
 **`DELETE /api/admin/notifications/broadcasts/<uuid:id>/delete/`**
 
@@ -850,57 +1126,70 @@ Each log entry stores: the acting admin, the target, action type, action detail 
 ## URL Configuration
 
 ```python
+# Protected admin routes — mount under /api/admin/
 urlpatterns = [
     # Auth
-    path('auth/login/',                                    admin_login_view,                      name='admin-login'),
+    path('auth/login/',                                                                          admin_login_view,                               name='admin-login'),
 
     # Profile
-    path('me/',                                            admin_me_view,                         name='admin-me'),
+    path('me/',                                                                                  admin_me_view,                                  name='admin-me'),
 
     # Dashboard
-    path('dashboard/stats/',                               admin_dashboard_stats_view,            name='admin-dashboard-stats'),
+    path('dashboard/stats/',                                                                     admin_dashboard_stats_view,                     name='admin-dashboard-stats'),
 
     # User Management
-    path('users/',                                         admin_user_list_view,                  name='admin-user-list'),
-    path('users/<int:user_id>/toggle/',                    admin_user_toggle_view,                name='admin-user-toggle'),
-    path('users/<int:user_id>/delete/',                    admin_user_delete_view,                name='admin-user-delete'),
+    path('users/',                                                                               admin_user_list_view,                           name='admin-user-list'),
+    path('users/<int:user_id>/toggle/',                                                          admin_user_toggle_view,                         name='admin-user-toggle'),
+    path('users/<int:user_id>/delete/',                                                          admin_user_delete_view,                         name='admin-user-delete'),
 
     # Admin Management
-    path('admins/',                                        admin_list_view,                       name='admin-admin-list'),
-    path('admins/create/',                                 admin_create_view,                     name='admin-admin-create'),
-    path('admins/<uuid:admin_id>/',                        admin_manage_view,                     name='admin-admin-manage'),
+    path('admins/',                                                                              admin_list_view,                                name='admin-admin-list'),
+    path('admins/create/',                                                                       admin_create_view,                              name='admin-admin-create'),
+    path('admins/<uuid:admin_id>/',                                                              admin_manage_view,                              name='admin-admin-manage'),
 
     # Rules
-    path('rules/',                                         admin_rule_list_create_view,           name='admin-rule-list'),
-    path('rules/<uuid:pk>/',                               admin_rule_detail_view,                name='admin-rule-detail'),
+    path('rules/',                                                                               admin_rule_list_create_view,                    name='admin-rule-list'),
+    path('rules/<uuid:pk>/',                                                                     admin_rule_detail_view,                         name='admin-rule-detail'),
 
     # Strategies
-    path('strategies/',                                    admin_strategy_list_create_view,       name='admin-strategy-list'),
-    path('strategies/<uuid:pk>/',                          admin_strategy_detail_view,            name='admin-strategy-detail'),
+    path('strategies/',                                                                          admin_strategy_list_create_view,                name='admin-strategy-list'),
+    path('strategies/<uuid:pk>/',                                                                admin_strategy_detail_view,                     name='admin-strategy-detail'),
 
     # Mistakes
-    path('mistakes/',                                      admin_mistake_list_create_view,        name='admin-mistake-list'),
-    path('mistakes/<uuid:pk>/',                            admin_mistake_detail_view,             name='admin-mistake-detail'),
+    path('mistakes/',                                                                            admin_mistake_list_create_view,                 name='admin-mistake-list'),
+    path('mistakes/<uuid:pk>/',                                                                  admin_mistake_detail_view,                      name='admin-mistake-detail'),
 
     # CMS: Reviews
-    path('cms/reviews/',                                   admin_review_list_create_view,         name='admin-review-list'),
-    path('cms/reviews/<uuid:pk>/',                         admin_review_detail_view,              name='admin-review-detail'),
-    path('cms/reviews/<uuid:pk>/toggle-visibility/',       admin_review_toggle_visibility_view,   name='admin-review-toggle'),
+    path('cms/reviews/',                                                                         admin_review_list_create_view,                  name='admin-review-list'),
+    path('cms/reviews/<uuid:pk>/',                                                               admin_review_detail_view,                       name='admin-review-detail'),
+    path('cms/reviews/<uuid:pk>/toggle-visibility/',                                             admin_review_toggle_visibility_view,            name='admin-review-toggle'),
 
     # CMS: Pricing
-    path('cms/pricing/',                                   admin_pricing_list_create_view,        name='admin-pricing-list'),
-    path('cms/pricing/<uuid:pk>/',                         admin_pricing_detail_view,             name='admin-pricing-detail'),
-    path('cms/pricing/<uuid:pk>/toggle-active/',           admin_pricing_toggle_active_view,      name='admin-pricing-toggle'),
+    path('cms/pricing/',                                                                         admin_pricing_list_create_view,                 name='admin-pricing-list'),
+    path('cms/pricing/<uuid:pk>/',                                                               admin_pricing_detail_view,                      name='admin-pricing-detail'),
+    path('cms/pricing/<uuid:pk>/toggle-active/',                                                 admin_pricing_toggle_active_view,               name='admin-pricing-toggle'),
+
+    # CMS: Learning Hub — Modules
+    path('cms/learning-hub/modules/',                                                            admin_learning_module_list_create_view,         name='admin-learning-module-list'),
+    path('cms/learning-hub/modules/<uuid:pk>/',                                                  admin_learning_module_detail_view,              name='admin-learning-module-detail'),
+    path('cms/learning-hub/modules/<uuid:pk>/toggle-visibility/',                                admin_learning_module_toggle_visibility_view,   name='admin-learning-module-toggle'),
+
+    # CMS: Learning Hub — Topics
+    path('cms/learning-hub/modules/<uuid:module_pk>/topics/',                                   admin_learning_topic_list_create_view,          name='admin-learning-topic-list'),
+    path('cms/learning-hub/modules/<uuid:module_pk>/topics/bulk/',                              admin_learning_topic_bulk_create_view,          name='admin-learning-topic-bulk-create'),
+    path('cms/learning-hub/modules/<uuid:module_pk>/topics/<uuid:pk>/',                         admin_learning_topic_detail_view,               name='admin-learning-topic-detail'),
+    path('cms/learning-hub/modules/<uuid:module_pk>/topics/<uuid:pk>/toggle-visibility/',       admin_learning_topic_toggle_visibility_view,    name='admin-learning-topic-toggle'),
 
     # Broadcasts
-    path('notifications/broadcasts/',                      admin_broadcast_list_create_view,      name='admin-broadcast-list'),
-    path('notifications/broadcasts/<uuid:pk>/delete/',     admin_broadcast_delete_view,           name='admin-broadcast-delete'),
+    path('notifications/broadcasts/',                                                            admin_broadcast_list_create_view,               name='admin-broadcast-list'),
+    path('notifications/broadcasts/<uuid:pk>/delete/',                                           admin_broadcast_delete_view,                    name='admin-broadcast-delete'),
 ]
 
-# Public CMS (mount under /api/cms/)
+# Public CMS — mount under /api/cms/
 public_cms_urlpatterns = [
-    path('reviews/',  public_review_list_view,  name='public-review-list'),
-    path('pricing/',  public_pricing_list_view, name='public-pricing-list'),
+    path('reviews/',       public_review_list_view,    name='public-review-list'),
+    path('pricing/',       public_pricing_list_view,   name='public-pricing-list'),
+    path('learning-hub/',  public_learning_hub_view,   name='public-learning-hub'),
 ]
 ```
 
