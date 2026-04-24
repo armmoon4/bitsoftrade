@@ -47,6 +47,41 @@ def _get_active_session(user):
     return session
 
 
+def _all_flagged_trades_tagged(session):
+    """
+    Gate check — returns True only when EVERY trade that has a ViolationsLog
+    entry for this session has at least one TradeMistake row linked to it.
+
+    A trade is considered "mistakes tagged" when the user has explicitly
+    selected at least one mistake from the Mistakes panel on that trade
+    (i.e. a TradeMistake junction row exists for it).
+
+    Vacuously True when the session has no flagged trades at all.
+    """
+    from mistakes.models import TradeMistake
+
+    flagged_ids = list(
+        session.violation_logs
+        .filter(trade__isnull=False)
+        .values_list('trade_id', flat=True)
+        .distinct()
+    )
+
+    if not flagged_ids:
+        return True  # No violations logged — gate passes automatically
+
+    # Trades that have at least one TradeMistake entry
+    trades_with_mistake = set(
+        TradeMistake.objects
+        .filter(trade_id__in=flagged_ids)
+        .values_list('trade_id', flat=True)
+        .distinct()
+    )
+
+    # Every flagged trade must have a mistake tagged
+    return set(flagged_ids) == trades_with_mistake
+
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def current_session_view(request):
@@ -96,6 +131,8 @@ def unlock_session_view(request):
     # ── Cooldown guard ────────────────────────────────────────────────────
     # Cooldown is started automatically by the rule engine when the session
     # first escalates. Here we only CHECK whether it has elapsed.
+    all_tagged = _all_flagged_trades_tagged(session)
+
     if session.cooldown_ends_at:
         now = timezone.now()
         if now < session.cooldown_ends_at:
@@ -104,15 +141,18 @@ def unlock_session_view(request):
             return Response({
                 'message': f'Cooldown active. {remaining_minutes} minute(s) remaining.',
                 'cooldown_ends_at': session.cooldown_ends_at,
+                'all_trades_tagged': all_tagged,
                 'session': DisciplineSessionSerializer(session).data,
             }, status=status.HTTP_202_ACCEPTED)
 
     # ── Check whether all unlock conditions are met ───────────────────────
+    # `all_tagged` is the gate: every trade flagged in ViolationsLog must
+    # have is_tagged_complete=True before we allow the session to go GREEN.
     can_unlock = False
     if session.session_state == 'yellow':
-        can_unlock = session.journal_completed
+        can_unlock = session.journal_completed and all_tagged
     elif session.session_state == 'red':
-        can_unlock = session.journal_completed and session.trade_review_completed
+        can_unlock = session.journal_completed and session.trade_review_completed and all_tagged
 
     if can_unlock:
         now_ts = timezone.now()
@@ -154,6 +194,7 @@ def unlock_session_view(request):
     session.save()
     return Response({
         'message': 'Action recorded. Complete required steps to unlock.',
+        'all_trades_tagged': all_tagged,
         'session': DisciplineSessionSerializer(session).data,
     })
 
