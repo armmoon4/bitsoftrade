@@ -583,3 +583,52 @@ def bulk_create_topics(module, topics_data):
         ))
     created = LearningTopic.objects.bulk_create(objs)
     return created, None
+
+
+# ─── Broadcast Notifications ───────────────────────────────────────────────────
+
+def send_broadcast(title, message, recipients, acting_admin):
+    """
+    Fan-out a broadcast notification to matching users.
+    Returns (AdminBroadcast, None) or (None, error_str).
+    """
+    from notifications.models import AdminBroadcast, Notification
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    valid_recipients = [r[0] for r in AdminBroadcast.RECIPIENT_CHOICES]
+    if recipients not in valid_recipients:
+        return None, f'recipients must be one of: {", ".join(valid_recipients)}.'
+
+    active_users = User.objects.filter(is_active=True, deleted_at__isnull=True)
+    if recipients == 'all':
+        target_users = active_users
+    elif recipients == 'pro':
+        target_users = active_users.filter(subscription_type='pro')
+    elif recipients == 'elite':
+        target_users = active_users.filter(subscription_type='elite')
+    elif recipients == 'pro_elite':
+        target_users = active_users.filter(subscription_type__in=['pro', 'elite'])
+    else:
+        target_users = User.objects.none()
+
+    notifications = [
+        Notification(
+            user=user,
+            notification_type='admin_broadcast',
+            severity='info',
+            title=title,
+            message=message,
+        )
+        for user in target_users
+    ]
+    Notification.objects.bulk_create(notifications, batch_size=500)
+
+    broadcast = AdminBroadcast.objects.create(
+        sent_by_admin=acting_admin,
+        title=title,
+        message=message,
+        recipients=recipients,
+        delivered_count=len(notifications),
+    )
+    return broadcast, None
