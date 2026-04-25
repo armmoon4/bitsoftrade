@@ -14,17 +14,19 @@ The **Admin Panel** module provides a separate, privileged API for platform admi
 
 ---
 
-## First-Time Setup: Create Super Admin
+## First-Time Setup
+
+### Step 1 — Create Super Admin
 
 Before using the admin panel, you must create the first super admin account using the management command. This only needs to be run **once**.
 
-### Using Docker
+**Using Docker:**
 
 ```bash
 docker exec -it bitsoftrade-web-1 python manage.py create_super_admin --email superadmin@example.com --name superadmin --password superadmin
 ```
 
-### Without Docker (Local)
+**Without Docker (Local):**
 
 ```bash
 python manage.py create_super_admin \
@@ -34,6 +36,24 @@ python manage.py create_super_admin \
 ```
 
 > **Note:** After the super admin is created, all additional admins can be managed via the API endpoints below. You do not need to run this command again.
+
+### Step 2 — Seed Pricing Plans
+
+After running migrations, seed the 4 fixed pricing plan rows into the database. This only needs to be run **once**.
+
+**Using Docker:**
+
+```bash
+docker-compose exec web python manage.py seed_pricing_plans
+```
+
+**Without Docker (Local):**
+
+```bash
+python manage.py seed_pricing_plans
+```
+
+> **Note:** This command is safe to re-run — it uses `update_or_create` so it will never duplicate rows. After seeding, all pricing content is managed via the CMS API endpoints.
 
 ---
 
@@ -680,11 +700,58 @@ Returns only visible reviews. No authentication required.
 
 ### CMS — Pricing Plans
 
+> **Design note:** The pricing CMS uses a **fixed-card model**. There are exactly 4 plan rows in the database, each tied to a specific frontend card via `card_key`. The frontend cards are hardcoded in layout — the CMS only controls their content (prices, features, copy). You cannot add or remove cards; you can only update existing ones.
+
+#### Card Keys
+
+| `card_key`        | Frontend Card                              |
+|-------------------|--------------------------------------------|
+| `discipline_tools`| Discipline Tools (monthly/yearly toggle)   |
+| `learning_hub`    | Learning Hub (6-month flat price)          |
+| `combo_monthly`   | Complete System — Monthly Combo            |
+| `combo_annual`    | Complete System — Annual Combo             |
+
+#### Plan Object
+
+All plan endpoints return objects in this shape:
+
+```json
+{
+  "id": "uuid",
+  "card_key": "discipline_tools",
+  "name": "Discipline Tools",
+  "badge": "Behavior Control & Prevention",
+  "tagline": "Traders who want to control activity, reduce overtrading, and introduce structure.",
+  "cta_label": "Activate Discipline Tools",
+  "footer_note": "Discipline infrastructure only. No learning included.",
+  "price": "499.00",
+  "price_yearly": "4999.00",
+  "billing_cycle": "monthly",
+  "is_popular": false,
+  "is_active": true,
+  "features": [
+    "Discipline Guard",
+    "Behavior-First Journal",
+    "Session & Rule Monitoring",
+    "Behavior-Based Reports",
+    "Strategy Frameworks",
+    "AI Based Insights"
+  ],
+  "display_order": 1,
+  "created_at": "2025-01-01T00:00:00Z",
+  "updated_at": "2025-01-01T00:00:00Z"
+}
+```
+
+> `price_yearly` is only used by the `discipline_tools` card (monthly/yearly toggle). It is `null` for all other cards.
+
+---
+
 #### 34. List All Pricing Plans (Admin)
 
 **`GET /api/admin/cms/pricing/`**
 
-Returns all pricing plans including inactive ones.
+Returns all 4 pricing plans including inactive ones.
 
 **Permissions:** Admin
 
@@ -696,21 +763,35 @@ Returns all pricing plans including inactive ones.
 
 **`POST /api/admin/cms/pricing/`**
 
+Creates a new plan row. Only needed if a card row is missing (e.g. fresh database before seeding). Each `card_key` can only exist once — attempting to create a duplicate returns `400`.
+
 **Permissions:** Admin
 
 **Request Body:**
 
-| Field           | Type    | Required | Default     | Description                                                              |
-|-----------------|---------|----------|-------------|--------------------------------------------------------------------------|
-| `name`          | string  | ✅        | —           | Plan name e.g. `"Pro"`                                                   |
-| `price`         | decimal | ✅        | —           | Price in ₹ e.g. `499`                                                    |
-| `billing_cycle` | enum    | ✅        | `"monthly"` | `forever` / `monthly` / `quarterly` / `biannual` / `annual`             |
-| `features`      | array   | ❌        | `[]`        | List of feature strings                                                  |
-| `is_popular`    | boolean | ❌        | `false`     | Highlights the plan as popular                                           |
-| `is_active`     | boolean | ❌        | `true`      | Whether shown to users                                                   |
-| `display_order` | integer | ❌        | `0`         | Lower = shown first                                                      |
+| Field           | Type    | Required | Default     | Description                                                                 |
+|-----------------|---------|----------|-------------|-----------------------------------------------------------------------------|
+| `card_key`      | enum    | ✅        | —           | `discipline_tools` / `learning_hub` / `combo_monthly` / `combo_annual`      |
+| `name`          | string  | ✅        | —           | Card heading e.g. `"Discipline Tools"`                                      |
+| `price`         | decimal | ✅        | —           | Primary price in ₹ (monthly price for `discipline_tools`, flat for others)  |
+| `price_yearly`  | decimal | ❌        | `null`      | Yearly price — only relevant for `discipline_tools`                         |
+| `billing_cycle` | enum    | ❌        | `"monthly"` | `forever` / `monthly` / `quarterly` / `biannual` / `annual`                |
+| `badge`         | string  | ❌        | `""`        | Small label above the card title e.g. `"Behavior Control & Prevention"`     |
+| `tagline`       | string  | ❌        | `""`        | Short subtitle under the heading                                            |
+| `cta_label`     | string  | ❌        | `""`        | Button text e.g. `"Activate Discipline Tools"`                              |
+| `footer_note`   | string  | ❌        | `""`        | Small note under the button                                                 |
+| `features`      | array   | ❌        | `[]`        | Ordered list of feature bullet strings                                      |
+| `is_popular`    | boolean | ❌        | `false`     | Highlights the card as popular                                              |
+| `is_active`     | boolean | ❌        | `true`      | Whether shown to users on the public endpoint                               |
+| `display_order` | integer | ❌        | `0`         | Lower = shown first                                                         |
 
 **Success Response — `201 Created`:** full plan object
+
+**Error — `400 Bad Request`:**
+
+```json
+{ "error": "A plan with card_key \"discipline_tools\" already exists. Use PUT to update it." }
+```
 
 ---
 
@@ -728,7 +809,26 @@ Returns all pricing plans including inactive ones.
 
 **`PUT /api/admin/cms/pricing/<uuid:id>/`**
 
+Updates an existing plan. `card_key` is immutable and will be ignored if sent.
+
 **Permissions:** Admin
+
+**Editable fields:**
+
+| Field           | Type    | Description                                                          |
+|-----------------|---------|----------------------------------------------------------------------|
+| `name`          | string  | Card heading                                                         |
+| `price`         | decimal | Monthly/primary price                                                |
+| `price_yearly`  | decimal | Yearly price (set to `null` to clear)                                |
+| `billing_cycle` | enum    | `forever` / `monthly` / `quarterly` / `biannual` / `annual`         |
+| `badge`         | string  | Label above the card title                                           |
+| `tagline`       | string  | Subtitle under the heading                                           |
+| `cta_label`     | string  | Button text                                                          |
+| `footer_note`   | string  | Note under the button                                                |
+| `features`      | array   | Full replacement of the feature bullet list                          |
+| `is_popular`    | boolean | Popular highlight                                                    |
+| `is_active`     | boolean | Visibility on public endpoint                                        |
+| `display_order` | integer | Sort order                                                           |
 
 **Success Response — `200 OK`:** updated plan object
 
@@ -738,7 +838,7 @@ Returns all pricing plans including inactive ones.
 
 **`DELETE /api/admin/cms/pricing/<uuid:id>/`**
 
-Hard-deletes the pricing plan.
+Hard-deletes the pricing plan row. Use with caution — the frontend card will have no data to read until re-seeded.
 
 **Permissions:** Admin
 
@@ -750,7 +850,7 @@ Hard-deletes the pricing plan.
 
 **`PATCH /api/admin/cms/pricing/<uuid:id>/toggle-active/`**
 
-Flips `is_active` between `true` and `false`.
+Flips `is_active` between `true` and `false`. Inactive plans are hidden from the public endpoint but still visible in the admin list.
 
 **Permissions:** Admin
 
@@ -766,11 +866,19 @@ Flips `is_active` between `true` and `false`.
 
 **`GET /api/cms/pricing/`**
 
-Returns only active plans. No authentication required.
+Returns only active plans ordered by `display_order`. No authentication required — consumed directly by the frontend pricing section.
 
 **Permissions:** Public
 
 **Success Response — `200 OK`:** array of active plan objects
+
+**Frontend usage example** — how the `discipline_tools` card uses both prices:
+
+```js
+// Monthly/yearly toggle on the Discipline Tools card
+const plan = plans.find(p => p.card_key === 'discipline_tools');
+const displayPrice = isYearly ? plan.price_yearly : plan.price;
+```
 
 ---
 
