@@ -20,27 +20,39 @@ class TradeManagementSerializer(serializers.ModelSerializer):
         return list(obj.trade_mistakes.select_related('mistake').values_list('mistake__mistake_name', flat=True))
 
     def get_rules_violation(self, obj):
-        """
-        Return a list of violated rule names for this trade.
-        Sourced from ViolationsLog entries linked to this trade
-        via the 'violation_logs' reverse relation.
-        """
         return list(
             obj.violation_logs
             .select_related('rule')
             .values_list('rule__rule_name', flat=True)
         )
 
+    def create(self, validated_data):
+        request = self.context.get('request')
+        rules_ids = request.data.get('rules_followed', []) if request else []
+        mistakes_ids = request.data.get('mistakes', []) if request else []
 
-class TradeSymbolSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Trade
-        fields = ['id', 'symbol']
+        trade = super().create(validated_data)
+        self._sync_rules_and_mistakes(trade, rules_ids, mistakes_ids)
+        return trade
 
+    def update(self, instance, validated_data):
+        request = self.context.get('request')
+        rules_ids = request.data.get('rules_followed', []) if request else []
+        mistakes_ids = request.data.get('mistakes', []) if request else []
 
-class ImageUploadSerializer(serializers.Serializer):
-    images = serializers.ListField(
-        child=serializers.ImageField(),
-        allow_empty=False,
-        help_text="Upload multiple images"
-    )
+        trade = super().update(instance, validated_data)
+        self._sync_rules_and_mistakes(trade, rules_ids, mistakes_ids)
+        return trade
+
+    def _sync_rules_and_mistakes(self, trade, rules_ids, mistakes_ids):
+        from strategies.models import TradeRule, TradeMistake  
+
+        if rules_ids:
+            trade.trade_rules.all().delete()
+            for rule_id in rules_ids:
+                TradeRule.objects.create(trade=trade, rule_id=rule_id)
+
+        if mistakes_ids:
+            trade.trade_mistakes.all().delete()
+            for mistake_id in mistakes_ids:
+                TradeMistake.objects.create(trade=trade, mistake_id=mistake_id)
