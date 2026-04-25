@@ -22,8 +22,14 @@ def review_to_dict(r):
 def plan_to_dict(p):
     return {
         'id':            str(p.id),
+        'card_key':      p.card_key,           # e.g. 'discipline_tools'
         'name':          p.name,
+        'tagline':       p.tagline,
+        'badge':         p.badge,
+        'cta_label':     p.cta_label,
+        'footer_note':   p.footer_note,
         'price':         str(p.price),
+        'price_yearly':  str(p.price_yearly) if p.price_yearly is not None else None,
         'billing_cycle': p.billing_cycle,
         'is_popular':    p.is_popular,
         'is_active':     p.is_active,
@@ -44,7 +50,6 @@ def broadcast_to_dict(b):
         'sent_by':         b.sent_by_admin.full_name if b.sent_by_admin else None,
         'created_at':      b.created_at,
     }
-
 
 
 # ─── CMS: Learning Hub

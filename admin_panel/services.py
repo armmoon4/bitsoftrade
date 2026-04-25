@@ -391,39 +391,79 @@ def toggle_review_visibility(review):
     return review
 
 
+
 # ─── CMS: Pricing Plans ────────────────────────────────────────────────────────
 
+VALID_CARD_KEYS = ['discipline_tools', 'learning_hub', 'combo_monthly', 'combo_annual']
+
 def create_pricing_plan(data):
-    """Returns (PricingPlan, None) or (None, error_str)."""
-    for field in ['name', 'price']:
-        if data.get(field) is None:
-            return None, f'{field} is required.'
+    """
+    Returns (PricingPlan, None) or (None, error_str).
+
+    Required fields: card_key, name, price
+    Optional:        price_yearly (only meaningful for discipline_tools),
+                     billing_cycle, tagline, badge, cta_label, footer_note,
+                     features, is_popular, is_active, display_order
+    """
+    card_key = data.get('card_key', '').strip()
+    if not card_key:
+        return None, 'card_key is required.'
+    if card_key not in VALID_CARD_KEYS:
+        return None, f'card_key must be one of {VALID_CARD_KEYS}.'
+    if PricingPlan.objects.filter(card_key=card_key).exists():
+        return None, f'A plan with card_key "{card_key}" already exists. Use PUT to update it.'
+
+    if data.get('price') is None:
+        return None, 'price is required.'
+    if not data.get('name', '').strip():
+        return None, 'name is required.'
+
     valid_cycles  = [c[0] for c in PricingPlan.BILLING_CYCLE_CHOICES]
     billing_cycle = data.get('billing_cycle', 'monthly')
     if billing_cycle not in valid_cycles:
         return None, f'billing_cycle must be one of {valid_cycles}.'
+
     plan = PricingPlan.objects.create(
-        name=data['name'],
-        price=data['price'],
-        billing_cycle=billing_cycle,
-        is_popular=data.get('is_popular', False),
-        is_active=data.get('is_active', True),
-        features=data.get('features', []),
-        display_order=int(data.get('display_order', 0)),
+        card_key      = card_key,
+        name          = data['name'].strip(),
+        tagline       = data.get('tagline', '').strip(),
+        badge         = data.get('badge', '').strip(),
+        cta_label     = data.get('cta_label', '').strip(),
+        footer_note   = data.get('footer_note', '').strip(),
+        price         = data['price'],
+        price_yearly  = data.get('price_yearly'),   # None is fine for non-DT cards
+        billing_cycle = billing_cycle,
+        is_popular    = data.get('is_popular', False),
+        is_active     = data.get('is_active', True),
+        features      = data.get('features', []),
+        display_order = int(data.get('display_order', 0)),
     )
     return plan, None
 
 
 def update_pricing_plan(plan, data):
-    """Returns (PricingPlan, None) or (None, error_str)."""
-    for field in ['name', 'price', 'billing_cycle', 'is_popular',
-                  'is_active', 'features', 'display_order']:
+    """
+    Returns (PricingPlan, None) or (None, error_str).
+    card_key is immutable after creation — ignore it silently if sent.
+    """
+    editable_fields = [
+        'name', 'tagline', 'badge', 'cta_label', 'footer_note',
+        'price', 'price_yearly', 'is_popular', 'is_active',
+        'features', 'display_order',
+    ]
+    for field in editable_fields:
         if field in data:
-            if field == 'billing_cycle':
-                valid_cycles = [c[0] for c in PricingPlan.BILLING_CYCLE_CHOICES]
-                if data[field] not in valid_cycles:
-                    return None, f'billing_cycle must be one of {valid_cycles}.'
-            setattr(plan, field, data[field])
+            value = data[field]
+            if field == 'name' and not str(value).strip():
+                return None, 'name cannot be blank.'
+            setattr(plan, field, value)
+
+    if 'billing_cycle' in data:
+        valid_cycles = [c[0] for c in PricingPlan.BILLING_CYCLE_CHOICES]
+        if data['billing_cycle'] not in valid_cycles:
+            return None, f'billing_cycle must be one of {valid_cycles}.'
+        plan.billing_cycle = data['billing_cycle']
+
     plan.save()
     return plan, None
 
@@ -432,56 +472,6 @@ def toggle_plan_active(plan):
     plan.is_active = not plan.is_active
     plan.save(update_fields=['is_active', 'updated_at'])
     return plan
-
-
-# ─── Broadcast Notifications ───────────────────────────────────────────────────
-
-def send_broadcast(title, message, recipients, acting_admin):
-    """
-    Fan-out a broadcast notification to matching users.
-    Returns (AdminBroadcast, None) or (None, error_str).
-    """
-    from notifications.models import AdminBroadcast, Notification
-    from django.contrib.auth import get_user_model
-    User = get_user_model()
-
-    valid_recipients = [r[0] for r in AdminBroadcast.RECIPIENT_CHOICES]
-    if recipients not in valid_recipients:
-        return None, f'recipients must be one of: {", ".join(valid_recipients)}.'
-
-    active_users = User.objects.filter(is_active=True, deleted_at__isnull=True)
-    if recipients == 'all':
-        target_users = active_users
-    elif recipients == 'pro':
-        target_users = active_users.filter(subscription_type='pro')
-    elif recipients == 'elite':
-        target_users = active_users.filter(subscription_type='elite')
-    elif recipients == 'pro_elite':
-        target_users = active_users.filter(subscription_type__in=['pro', 'elite'])
-    else:
-        target_users = User.objects.none()
-
-    notifications = [
-        Notification(
-            user=user,
-            notification_type='admin_broadcast',
-            severity='info',
-            title=title,
-            message=message,
-        )
-        for user in target_users
-    ]
-    Notification.objects.bulk_create(notifications, batch_size=500)
-
-    broadcast = AdminBroadcast.objects.create(
-        sent_by_admin=acting_admin,
-        title=title,
-        message=message,
-        recipients=recipients,
-        delivered_count=len(notifications),
-    )
-    return broadcast, None
-
 
 
 # ─── CMS: Learning Hub 
