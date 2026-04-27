@@ -141,12 +141,12 @@ def evaluate_rules_for_user(user, session, trade=None):
                     if str(rule.id) not in (session.rules_violated or []):
                         session.rules_violated = (session.rules_violated or []) + [str(rule.id)]
                     # Always increment for new log entries in this cycle
-                    session.violations_count = cycle_violation_count + 1
+                    session.violations_count = cycle_violation_count 
                     if violation_type == 'hard':
                         cycle_hard = ViolationsLog.objects.filter(
                             session=session, lock_cycle=current_cycle, violation_type='hard'
                         ).count()
-                        session.hard_violations = cycle_hard + 1
+                        session.hard_violations = cycle_hard 
                         session.soft_violations = ViolationsLog.objects.filter(
                             session=session, lock_cycle=current_cycle, violation_type='soft'
                         ).count()
@@ -154,7 +154,7 @@ def evaluate_rules_for_user(user, session, trade=None):
                         cycle_soft = ViolationsLog.objects.filter(
                             session=session, lock_cycle=current_cycle, violation_type='soft'
                         ).count()
-                        session.soft_violations = cycle_soft + 1
+                        session.soft_violations = cycle_soft 
                         session.hard_violations = ViolationsLog.objects.filter(
                             session=session, lock_cycle=current_cycle, violation_type='hard'
                         ).count()
