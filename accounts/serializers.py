@@ -19,21 +19,25 @@ class UserSerializer(serializers.ModelSerializer):
         return None
 
 
-
 class UserRegistrationSerializer(serializers.ModelSerializer):
     """User registration serializer"""
     password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
     password_confirm = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    
+
     class Meta:
         model = User
         fields = ['email', 'password', 'password_confirm', 'first_name', 'last_name']
-    
+
+    def validate_email(self, value):
+        if User.objects.filter(email=value).exists():
+            raise serializers.ValidationError("A user with this email already exists.")
+        return value
+
     def validate(self, attrs):
         if attrs['password'] != attrs['password_confirm']:
             raise serializers.ValidationError({"password": "Password fields didn't match."})
         return attrs
-    
+
     def create(self, validated_data):
         validated_data.pop('password_confirm')
         user = User.objects.create_user(**validated_data)
@@ -52,10 +56,6 @@ class UserProfileUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = ['first_name', 'last_name', 'email', 'profile_picture']
 
-
-# ==========================================
-# New Password & Auth Serializers
-# ==========================================
 
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
