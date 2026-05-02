@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'strategies',
     'rules.apps.RulesConfig',
     'insights',
+    'payments'
     'reports',
     'mistakes',
     'trade_intelligence',
