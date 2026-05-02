@@ -1,3 +1,7 @@
+import logging
+
+logger = logging.getLogger(__name__)
+
 from rest_framework import status, permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -9,6 +13,7 @@ from django.contrib.auth.tokens import default_token_generator
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.core.mail import send_mail
+from django.template.loader import render_to_string
 from django.conf import settings
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
@@ -149,7 +154,7 @@ def change_password_view(request):
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def request_password_reset(request):
-    """Generates a reset link and sends it to the user's email."""
+    """Generates a password reset link and sends it via the branded HTML email template."""
     serializer = PasswordResetRequestSerializer(data=request.data)
     if serializer.is_valid():
         email = serializer.validated_data['email']
@@ -158,19 +163,49 @@ def request_password_reset(request):
         if user:
             uidb64 = urlsafe_base64_encode(force_bytes(user.pk))
             token = default_token_generator.make_token(user)
-            
-            # Update this URL to match your frontend route
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000') 
+
+            # Build the frontend reset URL
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
             reset_link = f"{frontend_url}/reset-password?uid={uidb64}&token={token}"
-            
-            send_mail(
-                subject='Password Reset Request - BitsOfTrade',
-                message=f'Click the link below to reset your password:\n\n{reset_link}\n\nIf you did not request this, please ignore this email.',
-                from_email=settings.DEFAULT_FROM_EMAIL,
-                recipient_list=[user.email],
-                fail_silently=False,
-            )
-            
+
+            # Personalised greeting — use first name if available
+            first_name = (user.first_name or '').strip()
+            user_name = f' {first_name}' if first_name else ''
+
+            try:
+                # Render the branded HTML template
+                html_message = render_to_string(
+                    'notifications/password_reset_email.html',
+                    {
+                        'user_name': user_name,
+                        'reset_link': reset_link,
+                    }
+                )
+
+                send_mail(
+                    subject='Reset Your Password — BitsOfTrade',
+                    message=(
+                        f'Hi{user_name},\n\n'
+                        f'Click the link below to reset your password:\n\n{reset_link}\n\n'
+                        'This link expires in 24 hours.\n\n'
+                        'If you did not request this, please ignore this email.'
+                    ),
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[user.email],
+                    html_message=html_message,
+                    fail_silently=False,
+                )
+                logger.info(f'[PasswordReset] Reset email sent to {user.email}')
+
+            except Exception as exc:
+                logger.error(f'[PasswordReset] Failed to send email to {user.email}: {exc}')
+                # In DEBUG mode expose the real error so you can fix it fast
+                if settings.DEBUG:
+                    return Response(
+                        {'error': f'Email sending failed: {str(exc)}'},
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                    )
+
         return Response({'message': 'If an account with that email exists, a reset link has been sent.'}, status=status.HTTP_200_OK)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 

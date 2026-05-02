@@ -198,24 +198,28 @@ CORS_ALLOW_CREDENTIALS = True
 FRONTEND_URL = 'http://localhost:3000'
 
 # # email
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'email@del.com' 
-EMAIL_HOST_PASSWORD = 'sss sss sss sss'
-DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+# EMAIL_HOST = 'smtp.gmail.com'
+# EMAIL_PORT = 587
+# EMAIL_USE_TLS = True
+# EMAIL_HOST_USER = 'email@del.com' 
+# EMAIL_HOST_PASSWORD = 'sss sss sss sss'
+# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 GOOGLE_OAUTH2_CLIENT_ID = '1091653163034-72ph3c8q6lreb6e6a7fq3v6o0bgdas94.apps.googleusercontent.com'
 
 
 # smtp4dev local testing
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp4dev')
-# EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 25))
-# EMAIL_USE_TLS = False
-# EMAIL_HOST_USER = ''
-# EMAIL_HOST_PASSWORD = ''
-# DEFAULT_FROM_EMAIL = 'noreply@bitsoftrade.com'
+# Inside Docker: smtp4dev:25 (service name, internal port)
+# Outside Docker: localhost:2526 (host-mapped port)
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 2526))
+EMAIL_USE_TLS = False
+EMAIL_USE_SSL = False
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = ''
+EMAIL_TIMEOUT = 10  # seconds — surfaces connection errors quickly
+DEFAULT_FROM_EMAIL = 'noreply@bitsoftrade.com'
 
 
 
