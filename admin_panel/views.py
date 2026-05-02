@@ -46,8 +46,8 @@ def admin_login_view(request):
 
 
 @api_view(['GET', 'PUT', 'PATCH'])
-@permission_classes([IsAdminAuthenticated])
 @authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
 def admin_me_view(request):
     admin = request.admin  
 
@@ -722,3 +722,30 @@ def admin_learning_topic_toggle_visibility_view(request, module_pk, pk):
         return Response({'error': 'Topic not found.'}, status=status.HTTP_404_NOT_FOUND)
     topic = services.toggle_topic_visibility(topic)
     return Response({'id': str(topic.id), 'is_visible': topic.is_visible})
+
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_payments_view(request):
+    """GET /api/admin/payments/"""
+    from payments.models import PaymentTransaction
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+
+    txns = PaymentTransaction.objects.select_related('user').order_by('-created_at')
+    data = [
+        {
+            'id': str(t.id),
+            'user_name': t.user.get_full_name() or t.user.username,
+            'email': t.user.email,
+            'amount': float(t.amount),
+            'plan_type': t.plan_type,
+            'status': t.status,
+            'paid_at': t.paid_at,
+            'created_at': t.created_at,
+        }
+        for t in txns
+    ]
+    return Response(data)

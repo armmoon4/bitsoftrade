@@ -43,6 +43,9 @@ urlpatterns = [
     # ── Admin Panel 
     path('api/admin/', include('admin_panel.urls')),
     path('api/cms/',   include((public_cms_urlpatterns, 'cms'))),
+
+    # ── Payments 
+    path('api/payments/', include('payments.urls')),
     
     # API schema and documentation
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),

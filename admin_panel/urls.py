@@ -3,6 +3,7 @@ from .views import (
     admin_login_view,
     admin_me_view,
     admin_dashboard_stats_view,
+    admin_payments_view,
     admin_user_list_view, admin_user_toggle_view, admin_user_delete_view,
     admin_list_view, admin_create_view, admin_manage_view,
     admin_rule_list_create_view, admin_rule_detail_view,
@@ -102,4 +103,8 @@ urlpatterns = [
     path('cms/learning-hub/modules/<uuid:module_pk>/topics/bulk/', admin_learning_topic_bulk_create_view, name='admin-learning-topic-bulk-create'),
     path('cms/learning-hub/modules/<uuid:module_pk>/topics/<uuid:pk>/', admin_learning_topic_detail_view, name='admin-learning-topic-detail'),
     path('cms/learning-hub/modules/<uuid:module_pk>/topics/<uuid:pk>/toggle-visibility/', admin_learning_topic_toggle_visibility_view, name='admin-learning-topic-toggle'),
+
+
+    # ── Payments (admin) ────────────────────────────────────
+    path('payments/', admin_payments_view, name='admin-payments'),
 ]

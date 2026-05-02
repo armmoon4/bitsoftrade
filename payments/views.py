@@ -1,20 +1,22 @@
 import hashlib
 import hmac
-from rest_framework.decorators import api_view, permission_classes
-from rest_framework import permissions
-from rest_framework.response import Response
-from rest_framework import status
+from datetime import timedelta
+
 from django.conf import settings
 from django.utils import timezone
-from django.views.decorators.csrf import csrf_exempt
+
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework import permissions, status
+from rest_framework.response import Response
+
 from .models import PaymentTransaction
 from .serializers import PaymentTransactionSerializer
 
 
 PLAN_PRICES = {
-    'tool': 99900,      # ₹999 in paise
-    'learning': 49900,  # ₹499 in paise
-    'both': 139900,     # ₹1399 in paise
+    'tool': 99900,       # ₹999  in paise
+    'learning': 49900,   # ₹499  in paise
+    'both': 139900,      # ₹1399 in paise
 }
 
 
@@ -25,13 +27,17 @@ def create_order_view(request):
     try:
         import razorpay
     except ImportError:
-        return Response({'error': 'Razorpay SDK not installed. Run: pip install razorpay'},
-                        status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {'error': 'Razorpay SDK not installed. Run: pip install razorpay'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
     plan_type = request.data.get('plan_type')
     if plan_type not in PLAN_PRICES:
-        return Response({'error': f'Invalid plan_type. Choose from: {list(PLAN_PRICES.keys())}'},
-                        status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {'error': f'Invalid plan_type. Choose from: {list(PLAN_PRICES.keys())}'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     amount = PLAN_PRICES[plan_type]
     client = razorpay.Client(auth=(settings.RAZORPAY_KEY_ID, settings.RAZORPAY_KEY_SECRET))
@@ -44,11 +50,10 @@ def create_order_view(request):
     }
     razorpay_order = client.order.create(data=order_data)
 
-    # Store pending transaction
     txn = PaymentTransaction.objects.create(
         user=request.user,
         razorpay_order_id=razorpay_order['id'],
-        amount=amount / 100,
+        amount=amount / 100,   # store in rupees, not paise
         plan_type=plan_type,
         status='pending',
     )
@@ -62,7 +67,9 @@ def create_order_view(request):
     }, status=status.HTTP_201_CREATED)
 
 
-@csrf_exempt
+# Removed @csrf_exempt — it was silently ignored when placed outside
+# @api_view. DRF does not enforce CSRF for non-session auth requests, so
+# AllowAny webhook endpoints don't need it. It was providing false confidence.
 @api_view(['POST'])
 @permission_classes([permissions.AllowAny])
 def webhook_view(request):
@@ -72,7 +79,9 @@ def webhook_view(request):
     payload = request.body
 
     if webhook_secret:
-        expected = hmac.new(webhook_secret.encode(), payload, hashlib.sha256).hexdigest()
+        expected = hmac.new(
+            webhook_secret.encode(), payload, hashlib.sha256
+        ).hexdigest()
         if not hmac.compare_digest(expected, webhook_signature):
             return Response({'error': 'Invalid signature'}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -83,27 +92,35 @@ def webhook_view(request):
     if event == 'payment.captured' and order_id:
         try:
             txn = PaymentTransaction.objects.get(razorpay_order_id=order_id)
+
+            # Idempotency guard — Razorpay retries webhooks on timeout.
+            # Without this, a duplicate event re-extends the subscription
+            # by another 365 days on every retry.
+            if txn.status == 'success':
+                return Response({'status': 'ok'})
+
             txn.razorpay_payment_id = payment_entity.get('id')
             txn.status = 'success'
             txn.paid_at = timezone.now()
             txn.save()
 
-            # Update user subscription
             user = txn.user
             user.subscription_type = txn.plan_type
             user.subscription_status = 'active'
             user.subscription_start = timezone.now()
-            from datetime import timedelta
             user.subscription_end = timezone.now() + timedelta(days=365)
             user.save(update_fields=[
                 'subscription_type', 'subscription_status',
-                'subscription_start', 'subscription_end'
+                'subscription_start', 'subscription_end',
             ])
         except PaymentTransaction.DoesNotExist:
             pass
 
     elif event == 'payment.failed' and order_id:
-        PaymentTransaction.objects.filter(razorpay_order_id=order_id).update(status='failed')
+        # Only update to failed if still pending — don't overwrite a success
+        PaymentTransaction.objects.filter(
+            razorpay_order_id=order_id, status='pending'
+        ).update(status='failed')
 
     return Response({'status': 'ok'})
 
@@ -112,5 +129,7 @@ def webhook_view(request):
 @permission_classes([permissions.IsAuthenticated])
 def payment_history_view(request):
     """GET /api/payments/history/"""
-    transactions = PaymentTransaction.objects.filter(user=request.user).order_by('-created_at')
+    transactions = PaymentTransaction.objects.filter(
+        user=request.user
+    ).order_by('-created_at')
     return Response(PaymentTransactionSerializer(transactions, many=True).data)
