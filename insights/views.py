@@ -21,6 +21,7 @@ from rest_framework import permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from accounts.permissions import HasToolSubscription
 from .services import calculate_metrics
 
 
@@ -629,7 +630,7 @@ def _build_response(snapshot, user) -> dict:
 # ─────────────────────────────────────────────────────────────────────────────
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def metrics_view(request):
     """
     GET /api/insights/metrics/

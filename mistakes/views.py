@@ -3,6 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db.models import Count, Sum, Q
+from accounts.permissions import HasToolSubscription
 from .models import Mistake, TradeMistake
 from .serializers import MistakeSerializer, MistakeSimpleSerializer, TradeMistakeSerializer
 
@@ -11,7 +12,7 @@ class MistakeListCreateView(generics.ListCreateAPIView):
     """GET /api/mistakes/ — admin global + user custom mistakes.
        POST /api/mistakes/ — create user custom mistake."""
     serializer_class = MistakeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return Mistake.objects.filter(
@@ -26,7 +27,7 @@ class MistakeListCreateView(generics.ListCreateAPIView):
 
 class MistakeDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = MistakeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return Mistake.objects.filter(user=self.request.user, deleted_at__isnull=True)
@@ -44,14 +45,14 @@ class MistakeDetailView(generics.RetrieveUpdateDestroyAPIView):
 class TradeMistakeListCreateView(generics.ListCreateAPIView):
     """Link / unlink mistakes to trades."""
     serializer_class = TradeMistakeSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return TradeMistake.objects.filter(trade__user=self.request.user)
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def mistakes_analytics_view(request):
     """
     GET /api/mistakes/analytics/
@@ -160,7 +161,7 @@ def mistakes_analytics_view(request):
 class MistakeSimpleListView(generics.ListAPIView):
     """GET /api/mistakes/simple/ — returns only id and mistake_name for dropdowns/quick lists."""
     serializer_class = MistakeSimpleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         # .only() optimizes the database query to fetch just these two fields

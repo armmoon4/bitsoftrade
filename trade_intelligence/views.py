@@ -20,6 +20,7 @@ from django.db.models import Sum, Count, Avg, Q, F
 from django.db.models.functions import TruncDate, ExtractHour, TruncWeek
 from decimal import Decimal
 from datetime import date, timedelta, datetime
+from accounts.permissions import HasToolSubscription
 
 
 # ---------------------------------------------------------------------------
@@ -95,7 +96,7 @@ def _health_rating(score):
 # ---------------------------------------------------------------------------
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def analyze_view(request):
     from tradelog.models import Trade
     from mistakes.models import TradeMistake

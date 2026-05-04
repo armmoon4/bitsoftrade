@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view, permission_classes
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.db.models import Q, Sum
+from accounts.permissions import HasToolSubscription
 from .models import Rule, TradeRule
 from .serializers import RuleSerializer, RuleTitleSerializer, SystemRuleUpdateSerializer, TradeRuleSerializer
 
@@ -18,7 +19,7 @@ class RuleListCreateView(generics.ListCreateAPIView):
     POST /api/rules/ — create a user custom rule.
     """
     serializer_class = RuleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         qs = Rule.objects.filter(
@@ -41,7 +42,7 @@ class RuleListCreateView(generics.ListCreateAPIView):
 class RuleDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET / PUT / PATCH / DELETE /api/rules/<id>/"""
     serializer_class = RuleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return Rule.objects.filter(
@@ -86,7 +87,7 @@ class RuleTitleListView(generics.ListAPIView):
     GET /api/rules/list/ — list only IDs and titles of current user's rules + admin defaults.
     """
     serializer_class = RuleTitleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         qs = Rule.objects.filter(
@@ -113,7 +114,7 @@ class SystemRuleListView(generics.ListAPIView):
     Supports ?is_active=true/false filter.
     """
     serializer_class = SystemRuleUpdateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         qs = Rule.objects.filter(
@@ -184,7 +185,7 @@ class SystemRuleUpdateView(APIView):
     
 class TradeRuleListCreateView(generics.ListCreateAPIView):
     serializer_class = TradeRuleSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return TradeRule.objects.filter(trade__user=self.request.user)
@@ -201,7 +202,7 @@ class TradeRuleListCreateView(generics.ListCreateAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def rule_evaluate_debug(request):
     """
     GET /api/rules/evaluate-debug/

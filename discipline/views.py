@@ -7,6 +7,7 @@ from django.db import transaction
 from datetime import datetime, time as dtime, date as ddate, timedelta, date
 from .models import DisciplineSession, ViolationsLog
 from .serializers import DisciplineSessionSerializer, ViolationsLogSerializer
+from accounts.permissions import HasToolSubscription
 
 
 def _get_active_session(user):
@@ -83,7 +84,7 @@ def _all_flagged_trades_tagged(session):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def current_session_view(request):
     """
     GET /api/discipline/current-session/
@@ -98,7 +99,7 @@ def current_session_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def session_history_view(request):
     """GET /api/discipline/sessions/ — Full session history."""
     sessions = DisciplineSession.objects.filter(user=request.user).order_by('-session_date')
@@ -106,7 +107,7 @@ def session_history_view(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 @transaction.atomic
 def unlock_session_view(request):
     active = _get_active_session(request.user)
@@ -202,7 +203,7 @@ def unlock_session_view(request):
 from django.utils.dateparse import parse_date
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def violations_timeline_view(request):
     """
     GET /api/discipline/violations-timeline/?from=YYYY-MM-DD&to=YYYY-MM-DD

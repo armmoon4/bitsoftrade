@@ -7,6 +7,8 @@ from rest_framework import permissions
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from accounts.permissions import HasToolSubscription
+
 from .services import (
     get_behavior_report_data,
     get_journal_report_data,
@@ -248,7 +250,7 @@ def _get_filtered_trades(user, request):
 # ---------------------------------------------------------------------------
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def performance_report_view(request):
     """GET /api/reports/performance/"""
     qs = _get_filtered_trades(request.user, request)
@@ -257,7 +259,7 @@ def performance_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def risk_report_view(request):
     """GET /api/reports/risk/"""
     qs = _get_filtered_trades(request.user, request)
@@ -267,7 +269,7 @@ def risk_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def behavior_report_view(request):
     """GET /api/reports/behavior/"""
     qs = _get_filtered_trades(request.user, request)
@@ -277,7 +279,7 @@ def behavior_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def strategy_report_view(request):
     """GET /api/reports/strategy/"""
     qs = _get_filtered_trades(request.user, request)
@@ -286,7 +288,7 @@ def strategy_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def journal_report_view(request):
     """GET /api/reports/journal/"""
     qs = _get_filtered_trades(request.user, request)
@@ -296,7 +298,7 @@ def journal_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def mistake_report_view(request):
     """GET /api/reports/mistakes/"""
     qs = _get_filtered_trades(request.user, request)
@@ -305,7 +307,7 @@ def mistake_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def overview_report_view(request):
     """GET /api/reports/overview/"""
     from .services import get_overview_report_data

@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from datetime import timedelta
+from accounts.permissions import HasToolSubscription
 from discipline.views import _get_active_session
 from .models import DailyJournal, TradeNote, PsychologyLog, SessionRecap, LearningNote
 from .serializers import (
@@ -16,7 +17,7 @@ from tradelog.pagination import StandardResultsSetPagination
 
 class BaseJournalListCreateView(generics.ListCreateAPIView):
     """Base view to handle common List/Create logic for all journal models."""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -28,7 +29,7 @@ class BaseJournalListCreateView(generics.ListCreateAPIView):
 
 class BaseJournalDetailView(generics.RetrieveUpdateDestroyAPIView):
     """Base view to handle common Detail logic for all journal models."""
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return self.queryset.filter(user=self.request.user)
@@ -118,7 +119,7 @@ class JournalStreakAPIView(APIView):
     Uses DailyJournal.journal_date as the activity source —
     no separate UserActivity model needed.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get(self, request):
         user = request.user

@@ -11,6 +11,7 @@ from tradelog.models import Trade
 from tradelog.serializers import ImageUploadSerializer, TradeManagementSerializer
 from tradelog.serializers import TradeSymbolSerializer
 from .pagination import StandardResultsSetPagination
+from accounts.permissions import HasToolSubscription
 
 from .importers.parser import parse_csv, parse_excel, detect_and_normalize
 
@@ -160,7 +161,7 @@ class TradeImportView(generics.GenericAPIView):
       post_save signal. The session may go red/yellow during this import,
       but that only affects the NEXT import — never the current file.
     """
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = TradeImportSerializer
 
@@ -287,7 +288,7 @@ class TradeListCreateView(generics.ListCreateAPIView):
     POST /api/tradelog/trades/  (Add Trade)
     """
     serializer_class = TradeManagementSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
     pagination_class = StandardResultsSetPagination
 
     def get_queryset(self):
@@ -325,7 +326,7 @@ class TradeListCreateView(generics.ListCreateAPIView):
 class TradeDetailView(generics.RetrieveUpdateDestroyAPIView):
     """GET/PUT/PATCH/DELETE /api/tradelog/trades/<id>/"""
     serializer_class = TradeManagementSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return (
@@ -455,7 +456,7 @@ def _create_trade_from_row(row, user, broker_name):
 
 class TradeSymbolListView(generics.ListAPIView):
     serializer_class = TradeSymbolSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
     pagination_class = None
 
     def get_queryset(self):
@@ -469,7 +470,7 @@ class TradeSymbolListView(generics.ListAPIView):
 # ─────────────────────────────────────────────
 
 class ImageUploadView(generics.GenericAPIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
     parser_classes = [MultiPartParser, FormParser]
     serializer_class = ImageUploadSerializer
 
@@ -495,7 +496,7 @@ class ImageUploadView(generics.GenericAPIView):
 # ─────────────────────────────────────────────
 
 class TradeScreenshotView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
     parser_classes = [MultiPartParser, FormParser]
 
     def _get_trade(self, request, pk):
@@ -563,7 +564,7 @@ class TradeScreenshotView(APIView):
 # ─────────────────────────────────────────────
 
 class TradeBulkDeleteView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def post(self, request, *args, **kwargs):
         data = request.data

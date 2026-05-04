@@ -4,11 +4,13 @@ from decimal import Decimal
 from django.apps import apps
 from django.db.models import Count, Sum, Avg, Q
 from django.utils import timezone
+from django.utils.decorators import method_decorator
 
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 
+from accounts.permissions import HasToolSubscription
 from .models import Strategy
 from .serializers import StrategySerializer, StrategyMinimalSerializer
 
@@ -145,7 +147,7 @@ def _annotate_strategy_metrics(strategy, user_filter=None):
 
 class StrategyListCreateView(generics.ListCreateAPIView):
     serializer_class = StrategySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         qs = Strategy.objects.filter(user=self.request.user, deleted_at__isnull=True)
@@ -174,7 +176,7 @@ class StrategyListCreateView(generics.ListCreateAPIView):
 
 class StrategyDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = StrategySerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, HasToolSubscription]
 
     def get_queryset(self):
         return Strategy.objects.filter(user=self.request.user, deleted_at__isnull=True)
@@ -193,7 +195,7 @@ class StrategyDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def community_strategies_view(request):
     """GET /api/strategies/community/ — all public strategies excluding own."""
     strategies = Strategy.objects.filter(
@@ -208,7 +210,7 @@ def community_strategies_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def template_strategies_view(request):
     """GET /api/strategies/templates/ — admin-created templates."""
     strategies = Strategy.objects.filter(is_template=True, deleted_at__isnull=True)
@@ -217,7 +219,7 @@ def template_strategies_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def strategy_names_view(request):
     """GET /api/strategies/names/ — returns only id and strategy_name."""
     strategies = Strategy.objects.filter(user=request.user, deleted_at__isnull=True)
@@ -226,7 +228,7 @@ def strategy_names_view(request):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def add_to_mine_view(request, pk):
     """POST /api/strategies/<id>/add-to-mine/ — copy community strategy."""
     original = Strategy.objects.filter(pk=pk, is_public=True, deleted_at__isnull=True).first()
@@ -253,7 +255,7 @@ def add_to_mine_view(request, pk):
 
 
 @api_view(['POST'])
-@permission_classes([permissions.IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
 def assign_trades_view(request, pk):
     """
     POST /api/strategies/<id>/assign-trades/
