@@ -632,3 +632,70 @@ def send_broadcast(title, message, recipients, acting_admin):
         delivered_count=len(notifications),
     )
     return broadcast, None
+
+
+
+#subscription type changes from admin
+from django.contrib.auth import get_user_model
+User = get_user_model()
+
+def update_user_subscription(user_id, admin, data: dict):
+    """
+    Admin manually sets a user's subscription.
+    data keys:
+        subscription_type   : 'none' | 'tool' | 'learning' | 'both'
+        subscription_status : 'active' | 'expired' | 'cancelled'
+        is_lifetime         : bool  — if True, subscription_end is set to None
+        subscription_end    : ISO datetime string (ignored when is_lifetime=True)
+    """
+    user = User.objects.filter(pk=user_id, deleted_at__isnull=True).first()
+    if user is None:
+        return None, 'User not found.'
+
+    allowed_types    = {'none', 'tool', 'learning', 'both'}
+    allowed_statuses = {'active', 'expired', 'cancelled'}
+
+    sub_type = data.get('subscription_type')
+    sub_status = data.get('subscription_status', 'active')
+
+    if sub_type not in allowed_types:
+        return None, f'Invalid subscription_type. Choose from {allowed_types}.'
+    if sub_status not in allowed_statuses:
+        return None, f'Invalid subscription_status. Choose from {allowed_statuses}.'
+
+    user.subscription_type   = sub_type
+    user.subscription_status = sub_status
+    user.subscription_start  = timezone.now()
+
+    if data.get('is_lifetime') or sub_type == 'none':
+        user.subscription_end = None          # None = no expiry = lifetime
+    else:
+        end = data.get('subscription_end')
+        if not end:
+            return None, 'subscription_end is required unless is_lifetime is true.'
+        try:
+            from django.utils.dateparse import parse_datetime
+            parsed = parse_datetime(end)
+            if parsed is None:
+                raise ValueError
+            user.subscription_end = parsed
+        except ValueError:
+            return None, 'Invalid subscription_end datetime format. Use ISO 8601.'
+
+    user.save()
+
+    # Audit log
+    AdminUserAction.objects.create(
+        admin=admin,
+        target_user_id=user.pk,
+        action_type='update_subscription',
+        action_detail={
+            'subscription_type':   user.subscription_type,
+            'subscription_status': user.subscription_status,
+            'subscription_start':  str(user.subscription_start),
+            'subscription_end':    str(user.subscription_end),
+            'is_lifetime':         user.subscription_end is None,
+        },
+    )
+
+    return user, None

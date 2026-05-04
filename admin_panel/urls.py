@@ -4,7 +4,8 @@ from .views import (
     admin_me_view,
     admin_dashboard_stats_view,
     admin_payments_view,
-    admin_user_list_view, admin_user_toggle_view, admin_user_delete_view,
+    admin_user_list_view,
+    admin_user_subscription_view, admin_user_toggle_view, admin_user_delete_view,
     admin_list_view, admin_create_view, admin_manage_view,
     admin_rule_list_create_view, admin_rule_detail_view,
     admin_strategy_list_create_view, admin_strategy_detail_view,
@@ -61,6 +62,8 @@ urlpatterns = [
     path('users/', admin_user_list_view, name='admin-user-list'),
     path('users/<int:user_id>/toggle/', admin_user_toggle_view, name='admin-user-toggle'),
     path('users/<int:user_id>/delete/', admin_user_delete_view, name='admin-user-delete'),
+    # ── Users subscription (admin) ────────────────────────────────────
+    path('users/<int:user_id>/subscription/', admin_user_subscription_view, name='admin-user-subscription'),
 
     # ── Admin management ──────────────────────────────────────────────────────
     path('admins/', admin_list_view, name='admin-admin-list'),
@@ -103,7 +106,6 @@ urlpatterns = [
     path('cms/learning-hub/modules/<uuid:module_pk>/topics/bulk/', admin_learning_topic_bulk_create_view, name='admin-learning-topic-bulk-create'),
     path('cms/learning-hub/modules/<uuid:module_pk>/topics/<uuid:pk>/', admin_learning_topic_detail_view, name='admin-learning-topic-detail'),
     path('cms/learning-hub/modules/<uuid:module_pk>/topics/<uuid:pk>/toggle-visibility/', admin_learning_topic_toggle_visibility_view, name='admin-learning-topic-toggle'),
-
 
     # ── Payments (admin) ────────────────────────────────────
     path('payments/', admin_payments_view, name='admin-payments'),

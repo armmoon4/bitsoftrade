@@ -749,3 +749,26 @@ def admin_payments_view(request):
         for t in txns
     ]
     return Response(data)
+
+
+
+# ───  Subscripiton types control  ────────────────────────────────────────
+@api_view(['PUT'])
+@authentication_classes([])
+@permission_classes([IsAdminAuthenticated])
+def admin_user_subscription_view(request, user_id):
+    """PUT /api/admin/users/<id>/subscription/"""
+    user, error = services.update_user_subscription(user_id, request.admin, request.data)
+    if error:
+        status_code = status.HTTP_404_NOT_FOUND if 'not found' in error.lower() else status.HTTP_400_BAD_REQUEST
+        return Response({'error': error}, status=status_code)
+
+    return Response({
+        'user_id':            user_id,
+        'subscription_type':  user.subscription_type,
+        'subscription_status': user.subscription_status,
+        'subscription_start': user.subscription_start,
+        'subscription_end':   user.subscription_end,  
+        'has_tool_access':    user.has_tool_access,
+        'has_learning_access': user.has_learning_access,
+    })
