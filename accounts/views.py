@@ -264,7 +264,7 @@ def google_login_view(request):
             if created:
                 user.first_name = first_name
                 user.last_name = last_name
-                user.set_unusable_password() # They use Google to login, so no local password
+                user.set_unusable_password() #use Google to login, so no local password
                 user.save()
             
             tokens = get_tokens_for_user(user)
