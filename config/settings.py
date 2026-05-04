@@ -208,18 +208,17 @@ FRONTEND_URL = 'http://localhost:3000'
 GOOGLE_OAUTH2_CLIENT_ID = '1091653163034-72ph3c8q6lreb6e6a7fq3v6o0bgdas94.apps.googleusercontent.com'
 
 
-# smtp4dev local testing
-# Inside Docker: smtp4dev:25 (service name, internal port)
-# Outside Docker: localhost:2526 (host-mapped port)
+#Email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = os.environ.get('EMAIL_HOST', 'localhost')
-EMAIL_PORT = int(os.environ.get('EMAIL_PORT', 2526))
-EMAIL_USE_TLS = False
+EMAIL_HOST = 'smtp.sendgrid.net'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
 EMAIL_USE_SSL = False
-EMAIL_HOST_USER = ''
-EMAIL_HOST_PASSWORD = ''
-EMAIL_TIMEOUT = 10  # seconds — surfaces connection errors quickly
+EMAIL_HOST_USER = 'apikey'
+EMAIL_HOST_PASSWORD = os.environ.get('SENDGRID_API_KEY', '')
+EMAIL_TIMEOUT = 10
 DEFAULT_FROM_EMAIL = 'noreply@bitsoftrade.com'
+SERVER_EMAIL = 'noreply@bitsoftrade.com'
 
 # RAZORPAY CONFIGURATION
 RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
