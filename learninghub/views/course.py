@@ -1,48 +1,17 @@
-from rest_framework import generics, status, permissions  # type: ignore
-from rest_framework.response import Response  # type: ignore
-from rest_framework_simplejwt.tokens import UntypedToken  # type: ignore
-from rest_framework_simplejwt.exceptions import TokenError, InvalidToken  # type: ignore
-from django.contrib.auth import get_user_model  # type: ignore
-from admin_panel.models import Admin
+from rest_framework import generics, status
+from rest_framework.response import Response
+from django.contrib.auth import get_user_model
 from learninghub.models import Course
 from learninghub.serializers.course import CourseSerializer
+from learninghub.permissions import IsAdminOrLearningSubscriber  
 
 User = get_user_model()
-
-
-class IsAdminOrUserReadOnly(permissions.BasePermission):
-    """
-    GET  → user JWT (user_id in payload)  OR  admin JWT (is_admin: True in payload)
-    POST/PUT/PATCH/DELETE → admin JWT only
-    """
-    def has_permission(self, request, view):
-        auth_header = request.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
-            return False
-        raw_token = auth_header.split(' ', 1)[1]
-        try:
-            token = UntypedToken(raw_token)
-            # Admin token has is_admin=True
-            if token.get('is_admin'):
-                request.admin = Admin.objects.get(
-                    pk=token.get('admin_id'), deleted_at__isnull=True
-                )
-                return True
-            # User token has user_id
-            if request.method in permissions.SAFE_METHODS:
-                user_id = token.get('user_id')
-                if user_id:
-                    request.user = User.objects.get(pk=user_id, is_active=True)
-                    return True
-            return False
-        except (TokenError, InvalidToken, Admin.DoesNotExist, User.DoesNotExist, Exception):
-            return False
 
 
 class CourseListCreateAPIView(generics.ListCreateAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    permission_classes = [IsAdminOrUserReadOnly]
+    permission_classes = [IsAdminOrLearningSubscriber]  
     authentication_classes = []
 
     def create(self, request, *args, **kwargs):
@@ -59,7 +28,7 @@ class CourseListCreateAPIView(generics.ListCreateAPIView):
 class CourseDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Course.objects.all()
     serializer_class = CourseSerializer
-    permission_classes = [IsAdminOrUserReadOnly]
+    permission_classes = [IsAdminOrLearningSubscriber]  
     authentication_classes = []
 
     def update(self, request, *args, **kwargs):
@@ -76,6 +45,5 @@ class CourseDetailAPIView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()
         self.perform_destroy(instance)
-        return Response({
-            'message': 'Course deleted successfully'
-        }, status=status.HTTP_204_NO_CONTENT)
+        return Response({'message': 'Course deleted successfully'},
+                        status=status.HTTP_204_NO_CONTENT)
