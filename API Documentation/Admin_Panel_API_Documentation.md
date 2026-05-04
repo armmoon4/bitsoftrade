@@ -76,6 +76,8 @@ Authorization: Bearer <admin_access_token>
 | `super_admin` | Full access: manage users, admins, rules, strategies, mistakes    |
 | `admin`       | Manage users, rules, strategies, mistakes (cannot create/delete admins) |
 
+> Endpoint 8 (Update User Subscription) is available to both access levels.
+
 ---
 
 ## Endpoints
@@ -218,7 +220,7 @@ Returns all active (non-deleted) users with optional filters.
 | Parameter           | Description                                         |
 |---------------------|-----------------------------------------------------|
 | `subscription_type` | Filter by `none` / `tool` / `learning` / `both`     |
-| `search`            | Search by `username` or `email` (case-insensitive)  |
+| `search`            | Search by `email` (case-insensitive)                |
 
 **Success Response — `200 OK`:**
 
@@ -228,10 +230,11 @@ Returns all active (non-deleted) users with optional filters.
   "results": [
     {
       "id": 1,
-      "username": "johndoe",
       "email": "john@example.com",
       "subscription_type": "tool",
       "subscription_status": "active",
+      "subscription_start": "2025-01-01T00:00:00Z",
+      "subscription_end": "2026-01-01T00:00:00Z",
       "is_active": true,
       "date_joined": "2025-01-01T00:00:00Z"
     }
@@ -266,6 +269,82 @@ Soft-deletes a user by setting `deleted_at` and `is_active=False`. Action is aut
 **Permissions:** Admin
 
 **Success Response — `204 No Content`**
+
+---
+
+#### 8. Update User Subscription
+
+**`PUT /api/admin/users/<int:user_id>/subscription/`**
+
+Manually sets a user's subscription plan, status, and expiry. Supports granting lifetime access. Action is automatically logged to `AdminUserAction` with full detail.
+
+**Permissions:** Admin
+
+**Request Body:**
+
+| Field                 | Type    | Required | Description                                                                 |
+|-----------------------|---------|----------|-----------------------------------------------------------------------------|
+| `subscription_type`   | enum    | ✅        | `none` / `tool` / `learning` / `both`                                       |
+| `subscription_status` | enum    | ❌        | `active` / `expired` / `cancelled` — defaults to `active`                  |
+| `is_lifetime`         | boolean | ❌        | If `true`, sets `subscription_end` to `null` (no expiry). Overrides `subscription_end`. |
+| `subscription_end`    | string  | ❌*       | ISO 8601 datetime. Required unless `is_lifetime` is `true` or `subscription_type` is `none`. |
+
+> **Lifetime access:** Set `is_lifetime: true` to grant access that never expires. The existing `has_tool_access` / `has_learning_access` properties on the User model already handle `subscription_end = null` correctly.
+
+**Example — Grant Tool plan for 30 days:**
+
+```json
+{
+  "subscription_type": "tool",
+  "subscription_status": "active",
+  "subscription_end": "2026-06-04T00:00:00Z"
+}
+```
+
+**Example — Grant Both plan, lifetime:**
+
+```json
+{
+  "subscription_type": "both",
+  "subscription_status": "active",
+  "is_lifetime": true
+}
+```
+
+**Example — Revoke subscription:**
+
+```json
+{
+  "subscription_type": "none",
+  "subscription_status": "cancelled"
+}
+```
+
+**Success Response — `200 OK`:**
+
+```json
+{
+  "user_id": 1,
+  "subscription_type": "both",
+  "subscription_status": "active",
+  "subscription_start": "2025-06-04T10:00:00Z",
+  "subscription_end": null,
+  "has_tool_access": true,
+  "has_learning_access": true
+}
+```
+
+> `subscription_end: null` means lifetime access — no expiry.
+
+**Error Responses:**
+
+| Status | Condition                                              | Body                                                                 |
+|--------|--------------------------------------------------------|----------------------------------------------------------------------|
+| `400`  | Invalid `subscription_type`                            | `{"error": "Invalid subscription_type. Choose from {...}."}`         |
+| `400`  | Invalid `subscription_status`                          | `{"error": "Invalid subscription_status. Choose from {...}."}`       |
+| `400`  | `subscription_end` missing when not lifetime           | `{"error": "subscription_end is required unless is_lifetime is true."}` |
+| `400`  | Malformed `subscription_end` datetime                  | `{"error": "Invalid subscription_end datetime format. Use ISO 8601."}` |
+| `404`  | User not found or soft-deleted                         | `{"error": "User not found."}`                                       |
 
 ---
 
@@ -1222,10 +1301,10 @@ Hard-deletes the broadcast record.
 
 All sensitive admin actions are automatically logged:
 
-| Table               | Logged Actions                          |
-|---------------------|-----------------------------------------|
-| `AdminUserAction`   | User toggle active, user soft-delete    |
-| `AdminAdminAction`  | Admin create, admin edit, admin delete  |
+| Table               | Logged Actions                                              |
+|---------------------|-------------------------------------------------------------|
+| `AdminUserAction`   | User toggle active, user soft-delete, update subscription   |
+| `AdminAdminAction`  | Admin create, admin edit, admin delete                      |
 
 Each log entry stores: the acting admin, the target, action type, action detail (JSON), and timestamp.
 
@@ -1249,6 +1328,7 @@ urlpatterns = [
     path('users/',                                                                               admin_user_list_view,                           name='admin-user-list'),
     path('users/<int:user_id>/toggle/',                                                          admin_user_toggle_view,                         name='admin-user-toggle'),
     path('users/<int:user_id>/delete/',                                                          admin_user_delete_view,                         name='admin-user-delete'),
+    path('users/<int:user_id>/subscription/',                                                    admin_user_subscription_view,                   name='admin-user-subscription'),
 
     # Admin Management
     path('admins/',                                                                              admin_list_view,                                name='admin-admin-list'),
