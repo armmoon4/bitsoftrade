@@ -197,15 +197,8 @@ CORS_ALLOW_CREDENTIALS = True
 
 FRONTEND_URL = 'http://localhost:3000'
 
-# # email
-# EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-# EMAIL_HOST = 'smtp.gmail.com'
-# EMAIL_PORT = 587
-# EMAIL_USE_TLS = True
-# EMAIL_HOST_USER = 'email@del.com' 
-# EMAIL_HOST_PASSWORD = 'sss sss sss sss'
-# DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
-GOOGLE_OAUTH2_CLIENT_ID = '1091653163034-72ph3c8q6lreb6e6a7fq3v6o0bgdas94.apps.googleusercontent.com'
+# Google oauth 2
+GOOGLE_OAUTH2_CLIENT_ID = os.environ.get('GOOGLE_OAUTH2_CLIENT_ID', '')
 
 
 #Email
