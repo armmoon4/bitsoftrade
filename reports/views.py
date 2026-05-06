@@ -307,7 +307,7 @@ def mistake_report_view(request):
 
 
 @api_view(["GET"])
-@permission_classes([permissions.IsAuthenticated, HasToolSubscription])
+@permission_classes([permissions.IsAuthenticated])
 def overview_report_view(request):
     """GET /api/reports/overview/"""
     from .services import get_overview_report_data
