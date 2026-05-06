@@ -322,3 +322,42 @@ def current_user_view(request):
 
     serializer = UserSerializer(user, context={'active_session': active_session})
     return Response(serializer.data)
+
+
+#Permanent delete 
+
+@api_view(['DELETE'])
+@permission_classes([permissions.IsAuthenticated])
+def delete_account_view(request):
+    """Permanently delete the authenticated user's account and all associated data."""
+    user = request.user
+    password = request.data.get('password')
+
+    if not password:
+        return Response(
+            {'error': 'Password is required to confirm account deletion.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if not user.check_password(password):
+        return Response(
+            {'error': 'Incorrect password. Account deletion cancelled.'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # Blacklist the refresh token if provided
+    refresh_token = request.data.get('refresh')
+    if refresh_token:
+        try:
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except Exception:
+            pass  # Still proceed with deletion even if blacklisting fails
+
+    # This cascades and deletes all related data (journal entries, trades, etc.)
+    user.delete()
+
+    return Response(
+        {'message': 'Your account and all associated data have been permanently deleted.'},
+        status=status.HTTP_200_OK
+    )
