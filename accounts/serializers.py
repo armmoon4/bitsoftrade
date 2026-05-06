@@ -9,7 +9,7 @@ class UserSerializer(serializers.ModelSerializer):
     session_state = serializers.SerializerMethodField()
     class Meta:
         model = User
-        fields = ['id', 'email', 'first_name', 'last_name', 'subscription_type', 'profile_picture', 'created_at', 'onboarding_completed', 'session_state']
+        fields = ['id', 'email', 'first_name', 'last_name', 'profile_picture', 'created_at', 'onboarding_completed', 'session_state' , 'subscription_type','subscription_status']
         read_only_fields = ['id', 'created_at']
 
     def get_session_state(self, obj):
