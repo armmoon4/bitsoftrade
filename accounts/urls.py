@@ -30,6 +30,6 @@ urlpatterns = [
     # Onboarding
     path('onboarding/complete/', views.complete_onboarding_view, name='complete_onboarding'),
 
-    #Delete 
+    #Delete  api 
     path('me/delete/', views.delete_account_view, name='delete_account'),
 ]
