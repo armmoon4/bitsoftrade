@@ -3,278 +3,163 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
   <title>Discipline Profile Report</title>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
-
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
-    body {
-      background-color: #F0EDE8;
-      font-family: 'DM Sans', sans-serif;
-      color: #1A1A1A;
-      padding: 40px 16px;
-      -webkit-font-smoothing: antialiased;
-    }
-
-    .wrapper {
-      max-width: 600px;
-      margin: 0 auto;
-    }
-
-    /* ── Header Bar ── */
-    .header {
-      background-color: #1A1A1A;
-      border-radius: 16px 16px 0 0;
-      padding: 36px 40px 32px;
-      position: relative;
-      overflow: hidden;
-    }
-
-    .header::before {
-      content: '';
-      position: absolute;
-      top: -60px;
-      right: -60px;
-      width: 200px;
-      height: 200px;
-      border-radius: 50%;
-      background: rgba(255,255,255,0.04);
-    }
-
-    .header-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #888;
-      margin-bottom: 14px;
-    }
-
-    .header-title {
-      font-family: 'DM Serif Display', serif;
-      font-size: 28px;
-      color: #FFFFFF;
-      line-height: 1.25;
-    }
-
-    .header-title em {
-      font-style: italic;
-      color: #C9B99A;
-    }
-
-    /* ── Risk Badge ── */
-    .risk-row {
-      background: #FFFFFF;
-      padding: 20px 40px;
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      border-bottom: 1px solid #EDEBE8;
-    }
-
-    .risk-label {
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: #999;
-    }
-
-    .risk-badge {
-      display: inline-block;
-      padding: 4px 14px;
-      border-radius: 100px;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.05em;
-    }
-
-    .risk-badge.low    { background: #E6F4EC; color: #2A7A47; }
-    .risk-badge.medium { background: #FFF4E0; color: #9A6000; }
-    .risk-badge.high   { background: #FDECEA; color: #C0392B; }
-
-    /* ── Main Card ── */
-    .card {
-      background: #FFFFFF;
-      padding: 36px 40px;
-    }
-
-    /* Summary */
-    .summary-block {
-      border-left: 3px solid #1A1A1A;
-      padding-left: 18px;
-      margin-bottom: 36px;
-    }
-
-    .summary-block .eyebrow {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #AAA;
-      margin-bottom: 8px;
-    }
-
-    .summary-block p {
-      font-family: 'DM Serif Display', serif;
-      font-size: 18px;
-      color: #1A1A1A;
-      line-height: 1.5;
-    }
-
-    /* Divider */
-    .divider {
-      height: 1px;
-      background: #EDEBE8;
-      margin: 0 0 32px;
-    }
-
-    /* Key Points */
-    .section-label {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: #AAA;
-      margin-bottom: 20px;
-    }
-
-    .points-list {
-      list-style: none;
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-      margin-bottom: 36px;
-    }
-
-    .points-list li {
-      display: flex;
-      align-items: flex-start;
-      gap: 14px;
-      font-size: 14px;
-      color: #333;
-      line-height: 1.6;
-    }
-
-    .point-icon {
-      flex-shrink: 0;
-      width: 22px;
-      height: 22px;
-      border-radius: 50%;
-      background: #1A1A1A;
-      color: #FFF;
-      font-size: 10px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-top: 2px;
-    }
-
-    /* Advice Box */
-    .advice-box {
-      background: #F7F5F2;
-      border-radius: 12px;
-      padding: 24px 26px;
-    }
-
-    .advice-box .eyebrow {
-      font-size: 10px;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-      color: #AAA;
-      margin-bottom: 10px;
-    }
-
-    .advice-box p {
-      font-size: 14px;
-      color: #444;
-      line-height: 1.7;
-    }
-
-    /* ── Footer ── */
-    .footer {
-      background: #1A1A1A;
-      border-radius: 0 0 16px 16px;
-      padding: 24px 40px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .footer-brand {
-      font-family: 'DM Serif Display', serif;
-      font-size: 15px;
-      color: #FFFFFF;
-      letter-spacing: 0.01em;
-    }
-
-    .footer-note {
-      font-size: 11px;
-      color: #666;
-    }
-
-    /* ── Responsive ── */
-    @media (max-width: 480px) {
-      .header, .risk-row, .card { padding-left: 24px; padding-right: 24px; }
-      .footer { flex-direction: column; gap: 10px; text-align: center; }
-      .header-title { font-size: 22px; }
-    }
-  </style>
 </head>
-<body>
-<div class="wrapper">
+<style>
+  @media only screen and (max-width: 600px) {
+    .outer-pad { padding: 16px 8px !important; }
+    .main-table { width: 100% !important; }
+    .header-td { padding: 24px 20px 20px !important; }
+    .header-title { font-size: 20px !important; }
+    .risk-td { padding: 14px 20px !important; }
+    .card-td { padding: 24px 20px !important; }
+    .footer-td { padding: 18px 20px !important; }
+    .footer-year { display: block !important; text-align: left !important; margin-top: 4px; }
+  }
+</style>
+<body style="margin:0;padding:0;background-color:#F0EDE8;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;color:#1A1A1A;-webkit-font-smoothing:antialiased;">
 
-  <!-- Header -->
-  <div class="header">
-    <div class="header-label">Discipline Profile Report</div>
-    <div class="header-title">Your personal <em>discipline</em><br>assessment is ready.</div>
+  <!-- Preheader (hidden preview text) -->
+  <div style="display:none;font-size:1px;color:#F0EDE8;line-height:1px;max-height:0px;max-width:0px;opacity:0;overflow:hidden;">
+    Your personal discipline assessment is ready. See your risk level and recommendations.
   </div>
 
-  <!-- Risk Level Row -->
-  <div class="risk-row">
-    <span class="risk-label">Risk Level</span>
-    <span class="risk-badge {{ risk_level }}">{{ risk_level|title }}</span>
-  </div>
+  <!-- Outer wrapper -->
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" class="outer-pad" style="background-color:#F0EDE8;padding:40px 16px;">
+    <tr>
+      <td align="center">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" class="main-table" style="max-width:600px;width:100%;">
 
-  <!-- Main Content -->
-  <div class="card">
+          <!-- ── HEADER ── -->
+          <tr>
+            <td class="header-td" style="background-color:#1A1A1A;border-radius:16px 16px 0 0;padding:36px 40px 32px;">
+              <p style="margin:0 0 14px 0;font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:#888888;">
+                Discipline Profile Report
+              </p>
+              <h1 class="header-title" style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:28px;color:#FFFFFF;line-height:1.25;font-weight:400;">
+                Your personal <span style="font-style:italic;color:#C9B99A;">discipline</span><br/>assessment is ready.
+              </h1>
+            </td>
+          </tr>
 
-    <!-- Summary -->
-    <div class="summary-block">
-      <div class="eyebrow">Summary</div>
-      <p>{{ title }}</p>
-    </div>
+          <!-- ── RISK LEVEL ROW ── -->
+          <tr>
+            <td class="risk-td" style="background-color:#FFFFFF;padding:20px 40px;border-bottom:1px solid #EDEBE8;">
+              <table cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#999999;padding-right:14px;vertical-align:middle;">
+                    Risk Level
+                  </td>
+                  <td style="vertical-align:middle;">
+                    {% if risk_level == 'low' %}
+                      <span style="display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:0.05em;background:#E6F4EC;color:#2A7A47;">
+                        Low
+                      </span>
+                    {% elif risk_level == 'medium' %}
+                      <span style="display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:0.05em;background:#FFF4E0;color:#9A6000;">
+                        Medium
+                      </span>
+                    {% else %}
+                      <span style="display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:0.05em;background:#FDECEA;color:#C0392B;">
+                        High
+                      </span>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
 
-    <div class="divider"></div>
+          <!-- ── MAIN CARD ── -->
+          <tr>
+            <td class="card-td" style="background-color:#FFFFFF;padding:36px 40px;">
 
-    <!-- Key Points -->
-    <div class="section-label">Key Points</div>
-    <ul class="points-list">
-      {% for point in points %}
-      <li>
-        <span class="point-icon">{{ forloop.counter }}</span>
-        <span>{{ point }}</span>
-      </li>
-      {% endfor %}
-    </ul>
+              <!-- Summary -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:36px;">
+                <tr>
+                  <td style="border-left:3px solid #1A1A1A;padding-left:18px;">
+                    <p style="margin:0 0 8px 0;font-size:10px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:#AAAAAA;">
+                      Summary
+                    </p>
+                    <p style="margin:0;font-family:Georgia,'Times New Roman',serif;font-size:18px;color:#1A1A1A;line-height:1.5;font-weight:400;">
+                      {{ title }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
 
-    <!-- Advice -->
-    <div class="advice-box">
-      <div class="eyebrow">Recommendation</div>
-      <p>{{ advice }}</p>
-    </div>
+              <!-- Divider -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:32px;">
+                <tr>
+                  <td style="height:1px;background-color:#EDEBE8;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
 
-  </div>
+              <!-- Key Points Label -->
+              <p style="margin:0 0 20px 0;font-size:10px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:#AAAAAA;">
+                Key Points
+              </p>
 
-  <!-- Footer -->
-  <div class="footer">
-    <span class="footer-brand">BitsOfTrade&nbsp;</span>
-    <span class="footer-note">© {% now "Y" %} · All rights reserved</span>
-  </div>
+              <!-- Key Points List -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:36px;">
+                {% for point in points %}
+                <tr>
+                  <td style="padding-bottom:14px;vertical-align:top;">
+                    <table cellpadding="0" cellspacing="0" border="0">
+                      <tr>
+                        <td style="vertical-align:top;padding-right:14px;padding-top:2px;">
+                          <div style="width:22px;height:22px;border-radius:50%;background-color:#1A1A1A;color:#FFFFFF;font-size:10px;font-weight:700;text-align:center;line-height:22px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+                            {{ forloop.counter }}
+                          </div>
+                        </td>
+                        <td style="font-size:14px;color:#333333;line-height:1.6;vertical-align:top;">
+                          {{ point }}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                {% endfor %}
+              </table>
 
-</div>
+              <!-- Advice Box -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="background-color:#F7F5F2;border-radius:12px;padding:24px 26px;">
+                    <p style="margin:0 0 10px 0;font-size:10px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:#AAAAAA;">
+                      Recommendation
+                    </p>
+                    <p style="margin:0;font-size:14px;color:#444444;line-height:1.7;">
+                      {{ advice }}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+            </td>
+          </tr>
+
+          <!-- ── FOOTER ── -->
+          <tr>
+            <td class="footer-td" style="background-color:#1A1A1A;border-radius:0 0 16px 16px;padding:24px 40px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#FFFFFF;letter-spacing:0.01em;">
+                    BitsOfTrade
+                  </td>
+                  <td align="right" class="footer-year" style="font-size:11px;color:#666666;">
+                    &copy; {{ current_year }} &middot; All rights reserved
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+
 </body>
 </html>
