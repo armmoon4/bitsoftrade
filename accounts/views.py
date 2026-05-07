@@ -165,7 +165,7 @@ def request_password_reset(request):
             token = default_token_generator.make_token(user)
 
             # Build the frontend reset URL
-            frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:3000')
+            frontend_url = getattr(settings, 'FRONTEND_URL', 'https://bits-of-trade.vercel.app')
             reset_link = f"{frontend_url}/reset-password?uid={uidb64}&token={token}"
 
             # Personalised greeting — use first name if available
