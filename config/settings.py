@@ -195,7 +195,7 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-FRONTEND_URL = 'http://localhost:3000'
+FRONTEND_URL = 'https://bits-of-trade.vercel.app'
 
 # Google oauth 2
 GOOGLE_OAUTH2_CLIENT_ID = os.environ.get('GOOGLE_OAUTH2_CLIENT_ID', '')
