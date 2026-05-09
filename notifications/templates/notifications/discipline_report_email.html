@@ -56,9 +56,9 @@
                       <span style="display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:0.05em;background:#E6F4EC;color:#2A7A47;">
                         Low
                       </span>
-                    {% elif risk_level == 'medium' %}
+                    {% elif risk_level == 'moderate' %}
                       <span style="display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:0.05em;background:#FFF4E0;color:#9A6000;">
-                        Medium
+                        Moderate
                       </span>
                     {% else %}
                       <span style="display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;letter-spacing:0.05em;background:#FDECEA;color:#C0392B;">
@@ -71,12 +71,21 @@
             </td>
           </tr>
 
+          <!-- ── GREETING ── -->
+          <tr>
+            <td style="background-color:#FFFFFF;padding:28px 40px 0;">
+              <p style="margin:0;font-size:15px;color:#444444;line-height:1.6;">
+                Hi {{ first_name }},
+              </p>
+            </td>
+          </tr>
+
           <!-- ── MAIN CARD ── -->
           <tr>
-            <td class="card-td" style="background-color:#FFFFFF;padding:36px 40px;">
+            <td class="card-td" style="background-color:#FFFFFF;padding:24px 40px 36px;">
 
               <!-- Summary -->
-              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:36px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
                 <tr>
                   <td style="border-left:3px solid #1A1A1A;padding-left:18px;">
                     <p style="margin:0 0 8px 0;font-size:10px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:#AAAAAA;">
@@ -89,8 +98,13 @@
                 </tr>
               </table>
 
+              <!-- Intro paragraph -->
+              <p style="margin:0 0 24px 0;font-size:14px;color:#444444;line-height:1.75;">
+                {{ intro }}
+              </p>
+
               <!-- Divider -->
-              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:32px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
                 <tr>
                   <td style="height:1px;background-color:#EDEBE8;font-size:0;line-height:0;">&nbsp;</td>
                 </tr>
@@ -102,7 +116,7 @@
               </p>
 
               <!-- Key Points List -->
-              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:36px;">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
                 {% for point in points %}
                 <tr>
                   <td style="padding-bottom:14px;vertical-align:top;">
@@ -123,8 +137,20 @@
                 {% endfor %}
               </table>
 
+              <!-- Bridge paragraph -->
+              <p style="margin:0 0 28px 0;font-size:14px;color:#444444;line-height:1.75;">
+                {{ bridge }}
+              </p>
+
+              <!-- Divider -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:28px;">
+                <tr>
+                  <td style="height:1px;background-color:#EDEBE8;font-size:0;line-height:0;">&nbsp;</td>
+                </tr>
+              </table>
+
               <!-- Advice Box -->
-              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+              <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-bottom:32px;">
                 <tr>
                   <td style="background-color:#F7F5F2;border-radius:12px;padding:24px 26px;">
                     <p style="margin:0 0 10px 0;font-size:10px;font-weight:600;letter-spacing:0.15em;text-transform:uppercase;color:#AAAAAA;">
@@ -133,6 +159,40 @@
                     <p style="margin:0;font-size:14px;color:#444444;line-height:1.7;">
                       {{ advice }}
                     </p>
+
+                    {% if discipline_guard_features %}
+                    <!-- Feature list (high risk only) -->
+                    <table cellpadding="0" cellspacing="0" border="0" width="100%" style="margin-top:18px;">
+                      {% for feature in discipline_guard_features %}
+                      <tr>
+                        <td style="padding-bottom:8px;vertical-align:top;">
+                          <table cellpadding="0" cellspacing="0" border="0">
+                            <tr>
+                              <td style="vertical-align:middle;padding-right:10px;">
+                                <div style="width:6px;height:6px;border-radius:50%;background-color:#1A1A1A;"></div>
+                              </td>
+                              <td style="font-size:13px;color:#333333;line-height:1.5;">
+                                {{ feature }}
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </table>
+                    {% endif %}
+                  </td>
+                </tr>
+              </table>
+
+              <!-- CTA Button -->
+              <table cellpadding="0" cellspacing="0" border="0" width="100%">
+                <tr>
+                  <td align="center">
+                    <a href="{{ cta_url }}"
+                       style="display:inline-block;padding:14px 36px;background-color:#1A1A1A;color:#FFFFFF;font-size:13px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;text-decoration:none;border-radius:8px;font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;">
+                      {{ cta_label }}
+                    </a>
                   </td>
                 </tr>
               </table>
@@ -145,8 +205,13 @@
             <td class="footer-td" style="background-color:#1A1A1A;border-radius:0 0 16px 16px;padding:24px 40px;">
               <table cellpadding="0" cellspacing="0" border="0" width="100%">
                 <tr>
-                  <td style="font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#FFFFFF;letter-spacing:0.01em;">
-                    BitsOfTrade
+                  <td>
+                    <p style="margin:0 0 4px 0;font-family:Georgia,'Times New Roman',serif;font-size:15px;color:#FFFFFF;letter-spacing:0.01em;">
+                      BitsOfTrade
+                    </p>
+                    <p style="margin:0;font-size:11px;color:#666666;letter-spacing:0.03em;">
+                      No signals. No advice. Just structure.
+                    </p>
                   </td>
                   <td align="right" class="footer-year" style="font-size:11px;color:#666666;">
                     &copy; {{ current_year }} &middot; All rights reserved
