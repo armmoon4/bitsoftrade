@@ -288,3 +288,59 @@ def send_discipline_report_email(email: str, first_name: str, risk_level: str) -
         html_message=html_message,
         fail_silently=False,
     )
+
+
+# ─── Onboarding welcome email ─────────────────────────────────────────────────
+
+DASHBOARD_LINK = "https://bits-of-trade.vercel.app/user-dashboard"
+
+
+def send_welcome_email(user) -> None:
+    """
+    Send the onboarding welcome email immediately after a successful payment.
+
+    Args:
+        user: The Django User instance whose subscription was just activated.
+    """
+    from django.core.mail import send_mail
+    from django.template.loader import render_to_string
+    from django.conf import settings
+
+    first_name = (getattr(user, 'first_name', '') or user.email.split('@')[0]).strip()
+    plan_type  = getattr(user, 'subscription_type', '')
+
+    context = {
+        "first_name":     first_name,
+        "dashboard_link": DASHBOARD_LINK,
+        "has_learning":   plan_type in ('learning', 'both'),
+        "current_year":   datetime.now().year,
+    }
+
+    html_message = render_to_string(
+        "notifications/welcome_email.html",
+        context,
+    )
+
+    plain_text = (
+        f"Hi {first_name},\n\n"
+        "Welcome to BitsOfTrade. Your access has been successfully activated.\n\n"
+        "BitsOfTrade is designed to help traders reduce overtrading, build structured "
+        "discipline, review behaviour honestly, and learn trading without chasing outcomes.\n\n"
+        f"Go to your dashboard: {DASHBOARD_LINK}\n\n"
+        "No predictions. Only structure.\n\n"
+        "— Team BitsOfTrade"
+    )
+
+    try:
+        send_mail(
+            subject="Welcome to BitsOfTrade — your access is active",
+            message=plain_text,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+        logger.info("[Welcome Email] Sent to user=%s", user.email)
+    except Exception as exc:
+        # Never let an email failure crash the payment flow
+        logger.error("[Welcome Email] Failed to send to user=%s: %s", user.email, exc)

@@ -16,6 +16,7 @@ from rest_framework.response import Response
 
 from .models import PaymentTransaction
 from .serializers import PaymentTransactionSerializer
+from notifications.utils import send_welcome_email
 
 logger = logging.getLogger(__name__)
 
@@ -192,6 +193,9 @@ def webhook_view(request):
                 'subscription_start',
                 'subscription_end',
             ])
+
+            # ── Send onboarding welcome email ──────────────────────────────
+            send_welcome_email(user)
 
             logger.info(
                 'Payment captured: user=%s plan=%s duration=%d days',
