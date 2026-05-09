@@ -160,39 +160,129 @@ def _build_message(rule, session, trade, is_hard):
 
 # ─── Discipline test email ────────────────────────────────────────────────────
 
-def send_discipline_report_email(email, risk_level):
+from datetime import datetime
+DISCIPLINE_GUARD_URL = "https://bits-of-trade.vercel.app/user-dashboard/discipline-guard"
+ 
+REPORT_DATA = {
+    "low": {
+        "subject": "Your discipline is strong — here's what usually breaks it",
+        "title": "Your discipline patterns are currently stable.",
+        "intro": (
+            "Your Discipline Test results show something rare: "
+            "you currently operate with strong control and awareness. "
+            "Most traders never reach this stage."
+        ),
+        "points": [
+            "Respect limits",
+            "Pause after losses",
+            "Avoid emotional escalation",
+        ],
+        "bridge": (
+            "But here's the uncomfortable truth: discipline doesn't collapse during losses. "
+            "It erodes quietly during success.\n\n"
+            "After green days, rules feel optional, trade frequency increases, and size creeps up. "
+            "This isn't a mindset issue — it's a structural one.\n\n"
+            "Institutions don't trust discipline to memory. They build systems around it. "
+            "BitsOfTrade exists to do the same for retail traders."
+        ),
+        "advice": "This already puts you ahead of most retail traders.",
+        "discipline_guard_features": [],
+        "cta_label": "Explore Discipline Guard",
+        "cta_url": DISCIPLINE_GUARD_URL,
+    },
+    "moderate": {
+        "subject": "This is where overtrading usually begins",
+        "title": "Your discipline holds — until pressure increases.",
+        "intro": (
+            "Your Discipline Test results show a common pattern: "
+            "you know the rules — but under pressure, they weaken."
+        ),
+        "points": [
+            "Rules exist, but aren't always enforced",
+            "Trade behavior changes after wins or losses",
+            "Limits are sometimes flexible",
+        ],
+        "bridge": (
+            "Overtrading doesn't start as chaos. It starts as small exceptions — "
+            "usually after a losing streak, after a strong win, or during long trading sessions.\n\n"
+            "Retail traders are told to 'be more disciplined.' "
+            "Institutions do something else: they build systems that intervene "
+            "before damage compounds.\n\n"
+            "BitsOfTrade is designed for this exact gap. "
+            "You don't need better strategies. You need better guardrails."
+        ),
+        "advice": "This is where overtrading usually begins.",
+        "discipline_guard_features": [],
+        "cta_label": "See Discipline Guard",
+        "cta_url": DISCIPLINE_GUARD_URL,
+    },
+    "high": {
+        "subject": "This isn't a strategy problem — it's a structure problem",
+        "title": "Your trading behavior is likely harming your results.",
+        "intro": (
+            "Your Discipline Test results indicate elevated risk. "
+            "Not because you lack knowledge — "
+            "but because your trading behavior is being driven by emotional cycles. "
+            "This is not a judgment. It's a pattern we see repeatedly."
+        ),
+        "points": [
+            "Rules are often overridden",
+            "Trading continues after emotional triggers",
+            "Loss recovery attempts increase activity",
+        ],
+        "bridge": (
+            "Overtrading isn't caused by bad strategies. "
+            "It's caused by the absence of enforced limits.\n\n"
+            "Retail traders are told to control emotions. "
+            "Professionals remove decision-making when emotions peak. "
+            "That's what BitsOfTrade helps you do."
+        ),
+        "advice": (
+            "Structure creates safety. Discipline Guard introduces the guardrails "
+            "that protect your account when it matters most."
+        ),
+        "discipline_guard_features": [
+            "Session limits",
+            "Loss-streak awareness",
+            "Trade frequency alerts",
+            "Reflection before continuation",
+        ],
+        "cta_label": "Start Discipline Guard",
+        "cta_url": DISCIPLINE_GUARD_URL,
+    },
+}
+ 
+ 
+def send_discipline_report_email(email: str, first_name: str, risk_level: str) -> None:
+    """
+    Send the personalised Discipline Profile Report email.
+ 
+    Args:
+        email:      Recipient email address.
+        first_name: Recipient's first name for greeting.
+        risk_level: One of "low" | "moderate" | "high".
+    """
     from django.core.mail import send_mail
     from django.template.loader import render_to_string
     from django.conf import settings
-
-    report_data = {
-        "low": {
-            "title": "Your discipline patterns are currently stable.",
-            "points": ["Respect limits", "Pause after losses", "Avoid emotional escalation"],
-            "advice": "This already puts you ahead of most retail traders.",
-        },
-        "moderate": {
-            "title": "Your discipline holds — until pressure increases.",
-            "points": ["Rules exist, but aren't always enforced", "Trade behavior changes after wins or losses", "Limits are sometimes flexible"],
-            "advice": "This is where overtrading usually begins.",
-        },
-        "high": {
-            "title": "Your trading behavior is likely harming your results.",
-            "points": ["Rules are often overridden", "Trading continues after emotional triggers", "Loss recovery attempts increase activity"],
-            "advice": "This is a behavior pattern — not a strategy problem.",
-        },
-    }
-
-    data = report_data.get(risk_level, report_data["moderate"])
-
-    html_message = render_to_string("notifications/discipline_report_email.html", {
+ 
+    data = REPORT_DATA.get(risk_level, REPORT_DATA["moderate"])
+ 
+    context = {
+        "first_name": first_name or "there",
         "risk_level": risk_level,
+        "current_year": datetime.now().year,
         **data,
-    })
-
+    }
+ 
+    html_message = render_to_string(
+        "notifications/discipline_report_email.html",
+        context,
+    )
+ 
     send_mail(
-        subject="Your Discipline Profile Report",
-        message=data["title"],  # plain text fallback
+        subject=data["subject"],
+        message=data["title"],          # plain-text fallback
         from_email=settings.DEFAULT_FROM_EMAIL,
         recipient_list=[email],
         html_message=html_message,
