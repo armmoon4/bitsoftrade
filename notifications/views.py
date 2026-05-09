@@ -157,27 +157,37 @@ class ClearAllNotificationsView(APIView):
 
 
 # ─── Discipline test views ────────────────────────────────────────────────────
-
 from notifications.utils import send_discipline_report_email
-
+ 
 class SendDisciplineReportView(APIView):
-    permission_classes = []  # public — no login needed for this flow
-
+    """
+    POST /api/discipline-report/send/
+ 
+    Body:
+        {
+            "email":      "user@example.com",
+            "first_name": "Alex",           # optional, falls back to "there"
+            "risk_level": "low" | "moderate" | "high"
+        }
+    """
+    permission_classes = []   # public — no login required for this flow
+ 
     def post(self, request):
-        email = request.data.get("email")
-        risk_level = request.data.get("risk_level")  # "low" | "moderate" | "high"
-
+        email = request.data.get("email", "").strip()
+        first_name = request.data.get("first_name", "").strip()
+        risk_level = request.data.get("risk_level", "").strip()
+ 
         if not email or risk_level not in ("low", "moderate", "high"):
             return Response(
-                {"detail": "Valid email and risk_level required."},
+                {"detail": "Valid email and risk_level ('low', 'moderate', or 'high') are required."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
+ 
         try:
-            send_discipline_report_email(email, risk_level)
+            send_discipline_report_email(email, first_name, risk_level)
             return Response({"detail": "Report sent successfully."})
-        except Exception as e:
+        except Exception as exc:
             return Response(
-                {"detail": "Failed to send email.", "error": str(e)},
+                {"detail": "Failed to send email.", "error": str(exc)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
