@@ -161,7 +161,7 @@ def _build_message(rule, session, trade, is_hard):
 # ─── Discipline test email ────────────────────────────────────────────────────
 
 from datetime import datetime
-DISCIPLINE_GUARD_URL = "https://bits-of-trade.vercel.app/user-dashboard/discipline-guard"
+DISCIPLINE_GUARD_URL = "https://bitsoftrade.com/user-dashboard"
  
 REPORT_DATA = {
     "low": {
@@ -292,7 +292,7 @@ def send_discipline_report_email(email: str, first_name: str, risk_level: str) -
 
 # ─── Onboarding welcome email ─────────────────────────────────────────────────
 
-DASHBOARD_LINK = "https://bits-of-trade.vercel.app/user-dashboard"
+DASHBOARD_LINK = "https://bitsoftrade.com/user-dashboard"
 
 
 def send_welcome_email(user) -> None:
